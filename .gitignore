@@ -1,7 +1,5 @@
 *.bak
 config.json
-tokenizer.json
-tokenizer_config.json
 
 # Python
 __pycache__/

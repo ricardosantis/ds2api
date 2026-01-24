@@ -1,5 +1,6 @@
 fastapi>=0.110.0,<1.0.0
 uvicorn>=0.24.0,<1.0.0
 curl_cffi>=0.7.0,<1.0.0
+transformers>=4.39.0,<5.0.0
 wasmtime>=14.0.0,<20.0.0
 jinja2>=3.1.0,<4.0.0
