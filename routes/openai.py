@@ -435,8 +435,7 @@ IMPORTANT: If calling tools, output ONLY the JSON. The response must start with 
                         
                 except Exception as e:
                     logger.error(f"[sse_stream] 异常: {e}")
-                finally:
-                    cleanup_account(request)
+                # 注意：不在此处调用 cleanup_account，由外层 finally 统一处理
 
             return StreamingResponse(
                 sse_stream(),

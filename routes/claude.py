@@ -314,7 +314,7 @@ Remember: Output ONLY the JSON, no other text. The response must start with {{ a
                         deepseek_resp.close()
                     except Exception:
                         pass
-                    cleanup_account(request)
+                    # 注意：不在此处调用 cleanup_account，由外层 finally 统一处理
 
             return StreamingResponse(
                 claude_sse_stream(),

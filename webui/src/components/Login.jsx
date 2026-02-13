@@ -87,8 +87,8 @@ export default function Login({ onLogin, onMessage }) {
                                         checked={remember}
                                         onChange={e => setRemember(e.target.checked)}
                                     />
-                                    <div className="w-4.5 h-4.5 bg-secondary border border-border rounded-md peer-checked:bg-primary peer-checked:border-primary transition-all shadow-sm"></div>
-                                    <Check className="absolute w-3 h-3 text-primary-foreground opacity-0 peer-checked:opacity-100 left-0.5 transition-opacity" />
+                                    <div className="w-[18px] h-[18px] bg-secondary border border-border rounded-md peer-checked:bg-primary peer-checked:border-primary transition-all shadow-sm"></div>
+                                    <Check className="absolute inset-0 m-auto w-3 h-3 text-primary-foreground opacity-0 peer-checked:opacity-100 transition-opacity stroke-[3]" />
                                 </div>
                                 <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground transition-colors">{t('login.rememberSession')}</span>
                             </label>
