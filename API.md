@@ -171,6 +171,7 @@ data: [DONE]
 
 - 非流式：若识别到工具调用，返回 `message.tool_calls`，并设置 `finish_reason=tool_calls`，`message.content=null`
 - 流式：为防止原始 toolcall JSON 泄漏，正文会先缓冲；若识别到工具调用，仅输出结构化 `delta.tool_calls`
+- 流式 `delta.tool_calls` 兼容严格客户端：每个 tool call 对象都带 `index`（从 `0` 开始）
 
 工具调用响应示例：
 

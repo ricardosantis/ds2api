@@ -33,8 +33,11 @@ func (p *PowSolver) init(ctx context.Context) error {
 	p.once.Do(func() {
 		wasmBytes, err := os.ReadFile(p.wasmPath)
 		if err != nil {
-			p.err = err
-			return
+			if len(embeddedWASM) == 0 {
+				p.err = err
+				return
+			}
+			wasmBytes = embeddedWASM
 		}
 		p.runtime = wazero.NewRuntime(ctx)
 		p.compiled, p.err = p.runtime.CompileModule(ctx, wasmBytes)

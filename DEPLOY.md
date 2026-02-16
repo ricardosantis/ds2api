@@ -35,6 +35,9 @@ go run ./cmd/ds2api
 
 ```bash
 ./scripts/build-webui.sh
+
+# 或依赖自动构建（默认本地开启）
+# DS2API_AUTO_BUILD_WEBUI=true go run ./cmd/ds2api
 ```
 
 ## 2. Docker 部署
@@ -62,7 +65,13 @@ docker-compose up -d --build
 
 - serverless 入口：`api/index.go`
 - 路由与缓存头：`vercel.json`
-- 已移除 legacy `builds` 字段，避免 `unused-build-settings` 警告
+- 构建阶段会自动执行 `npm ci --prefix webui && npm run build --prefix webui`
+- `vercel.json` 已将 `/admin/assets/*` 与 `/admin` 页面走静态产物，`/admin/*` API 仍走 `api/index`
+- 为缓解 Go Runtime 的流式缓冲，`/v1/chat/completions` 在 Vercel 上会优先走 `api/chat-stream.js`（Node Runtime）
+- `api/chat-stream.js` 对非流式请求或 `tools` 请求会自动回退到 Go 入口（内部 `__go=1`）
+- `api/chat-stream.js` 仅负责流式数据转发与 SSE 转换；鉴权、账号选择、会话创建、PoW 计算仍由 Go 内部 prepare 接口完成（仅 Vercel 启用）
+- Go prepare 会创建流式 lease，Node 在流结束后回调 release；账号占用语义与 Go 原生流式保持一致
+- `vercel.json` 已将 `api/chat-stream.js` 与 `api/index.go` 的 `maxDuration` 设为 `300`（受套餐上限约束）
 
 至少配置环境变量：
 
@@ -76,8 +85,17 @@ docker-compose up -d --build
 - `VERCEL_TEAM_ID`
 - `DS2API_ACCOUNT_MAX_INFLIGHT`（每账号并发上限，默认 `2`）
 - `DS2API_ACCOUNT_CONCURRENCY`（同上别名）
+- `DS2API_ACCOUNT_MAX_QUEUE`（等待队列上限，默认=`recommended_concurrency`）
+- `DS2API_ACCOUNT_QUEUE_SIZE`（同上别名）
+- `DS2API_VERCEL_INTERNAL_SECRET`（可选，Vercel 混合流式链路内部鉴权；未设置时回退使用 `DS2API_ADMIN_KEY`）
+- `DS2API_VERCEL_STREAM_LEASE_TTL_SECONDS`（可选，流式 lease 过期秒数，默认 `900`）
 
 并发建议值会动态按 `账号数量 × 每账号并发上限` 计算（默认即 `账号数量 × 2`）。
+当 in-flight 满时，请求先进入等待队列；默认队列上限等于建议并发值，因此默认 429 阈值约为 `账号数量 × 4`。
+
+说明：
+- 仓库不提交 `static/admin` 构建产物
+- Vercel / Docker 构建阶段自动生成 WebUI 静态文件
 
 部署后建议先访问：
 
@@ -93,6 +111,58 @@ docker-compose up -d --build
 - 不在 `push` 时触发
 - 自动构建 Linux/macOS/Windows 二进制包并上传到 Release Assets
 - 生成 `sha256sums.txt` 供校验
+
+## 3.2 Vercel 常见报错排查
+
+若看到类似报错：
+
+```text
+Error: Command failed: go build -ldflags -s -w -o .../bootstrap .../main__vc__go__.go
+```
+
+通常是 Vercel 项目里的 Go 构建参数配置不正确（`-ldflags` 没有作为一个整体字符串传递）。
+
+处理方式：
+
+1. 进入 Vercel Project Settings -> Build and Development Settings
+2. 清空自定义 Go Build Flags / Build Command（推荐）
+3. 若必须设置 ldflags，使用 `-ldflags=\"-s -w\"`（保证它是一个参数）
+4. 确认仓库 `go.mod` 为受支持版本（当前为 `go 1.24`）
+5. 重新部署（建议 `Redeploy` 并清缓存）
+
+另一个常见根因（Go 单仓 + `internal/`）：
+
+```text
+... use of internal package ds2api/internal/server not allowed
+```
+
+这通常发生在 Vercel Go 入口文件直接 `import internal/...`。
+当前仓库已通过公开桥接包 `app` 解决：`api/index.go` -> `ds2api/app` -> `internal/server`。
+
+若看到类似报错：
+
+```text
+No Output Directory named "public" found after the Build completed.
+```
+
+说明 Vercel 正在按 `public` 校验前端产物目录。当前仓库会将 WebUI 构建到 `static/admin`，并在 `vercel.json` 使用上级目录 `static` 作为输出根目录：
+
+```json
+"outputDirectory": "static"
+```
+
+若你在项目设置里手动改过 Output Directory，请同步改为 `static` 或清空让仓库配置生效。
+
+若接口返回 Vercel 的 HTML 页面 `Authentication Required`（而不是 JSON），说明被 Vercel Deployment Protection 拦截：
+
+- 关闭该部署/环境的 Protection（推荐用于公开 API）
+- 或给请求加 `x-vercel-protection-bypass`
+- 若仅是 Vercel 内部 Node->Go 调用被拦截，可设置 `VERCEL_AUTOMATION_BYPASS_SECRET`（或 `DS2API_VERCEL_PROTECTION_BYPASS`）
+
+Vercel 流式说明（重要）：
+
+- Vercel 的 Go Runtime 存在平台层响应缓冲，因此本项目在 Vercel 上采用“Go prepare + Node stream”的混合链路来恢复实时 SSE。
+- 该适配只在 Vercel 生效；本地与 Docker 仍走纯 Go 链路。
 
 ## 4. 反向代理（Nginx）
 

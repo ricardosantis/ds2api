@@ -209,6 +209,24 @@ func TestHandleStreamToolCallInterceptsWithoutRawContentLeak(t *testing.T) {
 	if !streamHasToolCallsDelta(frames) {
 		t.Fatalf("expected tool_calls delta, body=%s", rec.Body.String())
 	}
+	foundToolIndex := false
+	for _, frame := range frames {
+		choices, _ := frame["choices"].([]any)
+		for _, item := range choices {
+			choice, _ := item.(map[string]any)
+			delta, _ := choice["delta"].(map[string]any)
+			toolCalls, _ := delta["tool_calls"].([]any)
+			for _, tc := range toolCalls {
+				tcm, _ := tc.(map[string]any)
+				if _, ok := tcm["index"].(float64); ok {
+					foundToolIndex = true
+				}
+			}
+		}
+	}
+	if !foundToolIndex {
+		t.Fatalf("expected stream tool_calls item with index, body=%s", rec.Body.String())
+	}
 	if streamHasRawToolJSONContent(frames) {
 		t.Fatalf("raw tool_calls JSON leaked in content delta: %s", rec.Body.String())
 	}
@@ -235,6 +253,24 @@ func TestHandleStreamReasonerToolCallInterceptsWithoutRawContentLeak(t *testing.
 	}
 	if !streamHasToolCallsDelta(frames) {
 		t.Fatalf("expected tool_calls delta, body=%s", rec.Body.String())
+	}
+	foundToolIndex := false
+	for _, frame := range frames {
+		choices, _ := frame["choices"].([]any)
+		for _, item := range choices {
+			choice, _ := item.(map[string]any)
+			delta, _ := choice["delta"].(map[string]any)
+			toolCalls, _ := delta["tool_calls"].([]any)
+			for _, tc := range toolCalls {
+				tcm, _ := tc.(map[string]any)
+				if _, ok := tcm["index"].(float64); ok {
+					foundToolIndex = true
+				}
+			}
+		}
+	}
+	if !foundToolIndex {
+		t.Fatalf("expected stream tool_calls item with index, body=%s", rec.Body.String())
 	}
 	if streamHasRawToolJSONContent(frames) {
 		t.Fatalf("raw tool_calls JSON leaked in content delta: %s", rec.Body.String())
@@ -277,7 +313,106 @@ func TestHandleStreamUnknownToolStillIntercepted(t *testing.T) {
 	if !streamHasToolCallsDelta(frames) {
 		t.Fatalf("expected tool_calls delta, body=%s", rec.Body.String())
 	}
+	foundToolIndex := false
+	for _, frame := range frames {
+		choices, _ := frame["choices"].([]any)
+		for _, item := range choices {
+			choice, _ := item.(map[string]any)
+			delta, _ := choice["delta"].(map[string]any)
+			toolCalls, _ := delta["tool_calls"].([]any)
+			for _, tc := range toolCalls {
+				tcm, _ := tc.(map[string]any)
+				if _, ok := tcm["index"].(float64); ok {
+					foundToolIndex = true
+				}
+			}
+		}
+	}
+	if !foundToolIndex {
+		t.Fatalf("expected stream tool_calls item with index, body=%s", rec.Body.String())
+	}
 	if streamHasRawToolJSONContent(frames) {
 		t.Fatalf("raw tool_calls JSON leaked in content delta: %s", rec.Body.String())
+	}
+}
+
+func TestHandleStreamToolsPlainTextStreamsBeforeFinish(t *testing.T) {
+	h := &Handler{}
+	resp := makeSSEHTTPResponse(
+		`data: {"p":"response/content","v":"你好，"}`,
+		`data: {"p":"response/content","v":"这是普通文本回复。"}`,
+		`data: [DONE]`,
+	)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+
+	h.handleStream(rec, req, resp, "cid6", "deepseek-chat", "prompt", false, false, []string{"search"})
+
+	frames, done := parseSSEDataFrames(t, rec.Body.String())
+	if !done {
+		t.Fatalf("expected [DONE], body=%s", rec.Body.String())
+	}
+	if streamHasToolCallsDelta(frames) {
+		t.Fatalf("did not expect tool_calls delta for plain text: %s", rec.Body.String())
+	}
+	content := strings.Builder{}
+	for _, frame := range frames {
+		choices, _ := frame["choices"].([]any)
+		for _, item := range choices {
+			choice, _ := item.(map[string]any)
+			delta, _ := choice["delta"].(map[string]any)
+			if c, ok := delta["content"].(string); ok {
+				content.WriteString(c)
+			}
+		}
+	}
+	if got := content.String(); got == "" {
+		t.Fatalf("expected streamed content in tool mode plain text, body=%s", rec.Body.String())
+	}
+	if streamFinishReason(frames) != "stop" {
+		t.Fatalf("expected finish_reason=stop, body=%s", rec.Body.String())
+	}
+}
+
+func TestHandleStreamToolCallMixedWithPlainTextSegments(t *testing.T) {
+	h := &Handler{}
+	resp := makeSSEHTTPResponse(
+		`data: {"p":"response/content","v":"前置正文A。"}`,
+		`data: {"p":"response/content","v":"{\"tool_calls\":[{\"name\":\"search\",\"input\":{\"q\":\"go\"}}]}"}`,
+		`data: {"p":"response/content","v":"后置正文B。"}`,
+		`data: [DONE]`,
+	)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+
+	h.handleStream(rec, req, resp, "cid7", "deepseek-chat", "prompt", false, false, []string{"search"})
+
+	frames, done := parseSSEDataFrames(t, rec.Body.String())
+	if !done {
+		t.Fatalf("expected [DONE], body=%s", rec.Body.String())
+	}
+	if !streamHasToolCallsDelta(frames) {
+		t.Fatalf("expected tool_calls delta in mixed stream, body=%s", rec.Body.String())
+	}
+	if streamHasRawToolJSONContent(frames) {
+		t.Fatalf("raw tool_calls JSON leaked in mixed stream: %s", rec.Body.String())
+	}
+	content := strings.Builder{}
+	for _, frame := range frames {
+		choices, _ := frame["choices"].([]any)
+		for _, item := range choices {
+			choice, _ := item.(map[string]any)
+			delta, _ := choice["delta"].(map[string]any)
+			if c, ok := delta["content"].(string); ok {
+				content.WriteString(c)
+			}
+		}
+	}
+	got := content.String()
+	if !strings.Contains(got, "前置正文A。") || !strings.Contains(got, "后置正文B。") {
+		t.Fatalf("expected pre/post plain text to pass sieve, got=%q", got)
+	}
+	if streamFinishReason(frames) != "tool_calls" {
+		t.Fatalf("expected finish_reason=tool_calls, body=%s", rec.Body.String())
 	}
 }

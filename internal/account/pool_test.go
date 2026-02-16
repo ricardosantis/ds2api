@@ -1,8 +1,10 @@
 package account
 
 import (
+	"context"
 	"sync"
 	"testing"
+	"time"
 
 	"ds2api/internal/config"
 )
@@ -10,6 +12,9 @@ import (
 func newPoolForTest(t *testing.T, maxInflight string) *Pool {
 	t.Helper()
 	t.Setenv("DS2API_ACCOUNT_MAX_INFLIGHT", maxInflight)
+	t.Setenv("DS2API_ACCOUNT_CONCURRENCY", "")
+	t.Setenv("DS2API_ACCOUNT_MAX_QUEUE", "")
+	t.Setenv("DS2API_ACCOUNT_QUEUE_SIZE", "")
 	t.Setenv("DS2API_CONFIG_JSON", `{
 		"keys":["k1"],
 		"accounts":[
@@ -19,6 +24,33 @@ func newPoolForTest(t *testing.T, maxInflight string) *Pool {
 	}`)
 	store := config.LoadStore()
 	return NewPool(store)
+}
+
+func newSingleAccountPoolForTest(t *testing.T, maxInflight string) *Pool {
+	t.Helper()
+	t.Setenv("DS2API_ACCOUNT_MAX_INFLIGHT", maxInflight)
+	t.Setenv("DS2API_ACCOUNT_CONCURRENCY", "")
+	t.Setenv("DS2API_ACCOUNT_MAX_QUEUE", "")
+	t.Setenv("DS2API_ACCOUNT_QUEUE_SIZE", "")
+	t.Setenv("DS2API_CONFIG_JSON", `{
+		"keys":["k1"],
+		"accounts":[{"email":"acc1@example.com","token":"token1"}]
+	}`)
+	return NewPool(config.LoadStore())
+}
+
+func waitForWaitingCount(t *testing.T, pool *Pool, want int) {
+	t.Helper()
+	deadline := time.Now().Add(800 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		status := pool.Status()
+		if got, ok := status["waiting"].(int); ok && got == want {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	status := pool.Status()
+	t.Fatalf("waiting count did not reach %d, current status=%v", want, status)
 }
 
 func TestPoolRoundRobinWithConcurrentSlots(t *testing.T) {
@@ -118,6 +150,9 @@ func TestPoolStatusRecommendedConcurrencyDefault(t *testing.T) {
 	if got, ok := status["recommended_concurrency"].(int); !ok || got != 4 {
 		t.Fatalf("unexpected recommended_concurrency: %#v", status["recommended_concurrency"])
 	}
+	if got, ok := status["max_queue_size"].(int); !ok || got != 4 {
+		t.Fatalf("unexpected max_queue_size: %#v", status["max_queue_size"])
+	}
 }
 
 func TestPoolStatusRecommendedConcurrencyRespectsOverride(t *testing.T) {
@@ -129,6 +164,9 @@ func TestPoolStatusRecommendedConcurrencyRespectsOverride(t *testing.T) {
 	}
 	if got, ok := status["recommended_concurrency"].(int); !ok || got != 6 {
 		t.Fatalf("unexpected recommended_concurrency: %#v", status["recommended_concurrency"])
+	}
+	if got, ok := status["max_queue_size"].(int); !ok || got != 6 {
+		t.Fatalf("unexpected max_queue_size: %#v", status["max_queue_size"])
 	}
 }
 
@@ -150,5 +188,109 @@ func TestPoolAccountConcurrencyAliasEnv(t *testing.T) {
 	}
 	if got, ok := status["recommended_concurrency"].(int); !ok || got != 8 {
 		t.Fatalf("unexpected recommended_concurrency: %#v", status["recommended_concurrency"])
+	}
+	if got, ok := status["max_queue_size"].(int); !ok || got != 8 {
+		t.Fatalf("unexpected max_queue_size: %#v", status["max_queue_size"])
+	}
+}
+
+func TestPoolSupportsTokenOnlyAccount(t *testing.T) {
+	t.Setenv("DS2API_ACCOUNT_MAX_INFLIGHT", "1")
+	t.Setenv("DS2API_CONFIG_JSON", `{
+		"keys":["k1"],
+		"accounts":[{"token":"token-only-account"}]
+	}`)
+
+	pool := NewPool(config.LoadStore())
+	status := pool.Status()
+	if got, ok := status["total"].(int); !ok || got != 1 {
+		t.Fatalf("unexpected total in pool status: %#v", status["total"])
+	}
+	if got, ok := status["available"].(int); !ok || got != 1 {
+		t.Fatalf("unexpected available in pool status: %#v", status["available"])
+	}
+
+	acc, ok := pool.Acquire("", nil)
+	if !ok {
+		t.Fatalf("expected acquire success for token-only account")
+	}
+	if acc.Token != "token-only-account" {
+		t.Fatalf("unexpected token on acquired account: %q", acc.Token)
+	}
+}
+
+func TestPoolAcquireWaitQueuesAndSucceedsAfterRelease(t *testing.T) {
+	pool := newSingleAccountPoolForTest(t, "1")
+	first, ok := pool.Acquire("", nil)
+	if !ok {
+		t.Fatal("expected first acquire to succeed")
+	}
+
+	type result struct {
+		id string
+		ok bool
+	}
+	resCh := make(chan result, 1)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	go func() {
+		acc, ok := pool.AcquireWait(ctx, "", nil)
+		resCh <- result{id: acc.Identifier(), ok: ok}
+	}()
+
+	waitForWaitingCount(t, pool, 1)
+	pool.Release(first.Identifier())
+
+	select {
+	case res := <-resCh:
+		if !res.ok {
+			t.Fatal("expected queued acquire to succeed after release")
+		}
+		if res.id != "acc1@example.com" {
+			t.Fatalf("unexpected account id from queued acquire: %q", res.id)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for queued acquire result")
+	}
+}
+
+func TestPoolAcquireWaitQueueLimitReturnsFalse(t *testing.T) {
+	pool := newSingleAccountPoolForTest(t, "1")
+	first, ok := pool.Acquire("", nil)
+	if !ok {
+		t.Fatal("expected first acquire to succeed")
+	}
+
+	type result struct {
+		id string
+		ok bool
+	}
+	firstWaiter := make(chan result, 1)
+	ctx1, cancel1 := context.WithTimeout(context.Background(), 1200*time.Millisecond)
+	defer cancel1()
+	go func() {
+		acc, ok := pool.AcquireWait(ctx1, "", nil)
+		firstWaiter <- result{id: acc.Identifier(), ok: ok}
+	}()
+	waitForWaitingCount(t, pool, 1)
+
+	ctx2, cancel2 := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel2()
+	start := time.Now()
+	if _, ok := pool.AcquireWait(ctx2, "", nil); ok {
+		t.Fatal("expected second queued acquire to fail when queue is full")
+	}
+	if time.Since(start) > 120*time.Millisecond {
+		t.Fatalf("queue-full acquire should fail fast, took %s", time.Since(start))
+	}
+
+	pool.Release(first.Identifier())
+	select {
+	case res := <-firstWaiter:
+		if !res.ok {
+			t.Fatal("expected first queued acquire to succeed after release")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for first queued acquire")
 	}
 }

@@ -21,7 +21,7 @@ type Handler struct {
 }
 
 func NewHandler() *Handler {
-	return &Handler{StaticDir: config.StaticAdminDir()}
+	return &Handler{StaticDir: resolveStaticAdminDir(config.StaticAdminDir())}
 }
 
 func RegisterRoutes(r chi.Router, h *Handler) {
@@ -47,15 +47,20 @@ func (h *Handler) index(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (h *Handler) admin(w http.ResponseWriter, r *http.Request) {
-	if fi, err := os.Stat(h.StaticDir); err != nil || !fi.IsDir() {
-		http.Error(w, "WebUI not built. Run `cd webui && npm run build` first.", http.StatusNotFound)
+	staticDir := resolveStaticAdminDir(h.StaticDir)
+	if fi, err := os.Stat(staticDir); err == nil && fi.IsDir() {
+		h.serveFromDisk(w, r, staticDir)
 		return
 	}
+	http.Error(w, "WebUI not built. Run `cd webui && npm run build` first.", http.StatusNotFound)
+}
+
+func (h *Handler) serveFromDisk(w http.ResponseWriter, r *http.Request, staticDir string) {
 	path := strings.TrimPrefix(r.URL.Path, "/admin")
 	path = strings.TrimPrefix(path, "/")
 	if path != "" && strings.Contains(path, ".") {
-		full := filepath.Join(h.StaticDir, filepath.Clean(path))
-		if !strings.HasPrefix(full, h.StaticDir) {
+		full := filepath.Join(staticDir, filepath.Clean(path))
+		if !strings.HasPrefix(full, staticDir) {
 			http.NotFound(w, r)
 			return
 		}
@@ -71,11 +76,46 @@ func (h *Handler) admin(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	index := filepath.Join(h.StaticDir, "index.html")
+	index := filepath.Join(staticDir, "index.html")
 	if _, err := os.Stat(index); err != nil {
 		http.Error(w, "index.html not found", http.StatusNotFound)
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store, must-revalidate")
 	http.ServeFile(w, r, index)
+}
+
+func resolveStaticAdminDir(preferred string) string {
+	if strings.TrimSpace(os.Getenv("DS2API_STATIC_ADMIN_DIR")) != "" {
+		return filepath.Clean(preferred)
+	}
+	candidates := []string{preferred}
+	if wd, err := os.Getwd(); err == nil {
+		candidates = append(candidates, filepath.Join(wd, "static/admin"))
+	}
+	if exe, err := os.Executable(); err == nil {
+		exeDir := filepath.Dir(exe)
+		candidates = append(candidates,
+			filepath.Join(exeDir, "static/admin"),
+			filepath.Join(filepath.Dir(exeDir), "static/admin"),
+		)
+	}
+	// Common serverless locations.
+	candidates = append(candidates, "/var/task/static/admin", "/var/task/user/static/admin")
+
+	seen := map[string]struct{}{}
+	for _, c := range candidates {
+		c = filepath.Clean(strings.TrimSpace(c))
+		if c == "" {
+			continue
+		}
+		if _, ok := seen[c]; ok {
+			continue
+		}
+		seen[c] = struct{}{}
+		if fi, err := os.Stat(c); err == nil && fi.IsDir() {
+			return c
+		}
+	}
+	return filepath.Clean(preferred)
 }

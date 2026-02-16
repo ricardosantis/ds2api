@@ -35,6 +35,9 @@ Build WebUI if `/admin` reports missing assets:
 
 ```bash
 ./scripts/build-webui.sh
+
+# Or rely on startup auto-build (enabled locally by default)
+# DS2API_AUTO_BUILD_WEBUI=true go run ./cmd/ds2api
 ```
 
 ## 2. Docker Deployment
@@ -62,7 +65,13 @@ Notes:
 
 - Serverless entry: `api/index.go`
 - Rewrites and cache headers: `vercel.json`
-- Legacy `builds` has been removed to avoid the `unused-build-settings` warning
+- Build stage runs `npm ci --prefix webui && npm run build --prefix webui` automatically
+- `vercel.json` routes `/admin/assets/*` and the `/admin` page to static output, while `/admin/*` APIs still go to `api/index`
+- To mitigate Go Runtime streaming buffering, `/v1/chat/completions` on Vercel is routed to `api/chat-stream.js` (Node Runtime)
+- `api/chat-stream.js` automatically falls back to the Go entry for non-stream requests or requests with `tools` (internal `__go=1`)
+- `api/chat-stream.js` is data-path only (stream relay + SSE conversion); auth/account/session/PoW preparation still comes from an internal Go prepare endpoint (enabled on Vercel only)
+- Go prepare creates a stream lease and Node releases it when streaming ends, keeping account occupancy semantics aligned with native Go streaming
+- `vercel.json` sets `maxDuration: 300` for both `api/chat-stream.js` and `api/index.go` (subject to your Vercel plan limits)
 
 Minimum environment variables:
 
@@ -76,8 +85,17 @@ Optional:
 - `VERCEL_TEAM_ID`
 - `DS2API_ACCOUNT_MAX_INFLIGHT` (per-account inflight limit, default `2`)
 - `DS2API_ACCOUNT_CONCURRENCY` (alias of the same setting)
+- `DS2API_ACCOUNT_MAX_QUEUE` (waiting queue limit, default=`recommended_concurrency`)
+- `DS2API_ACCOUNT_QUEUE_SIZE` (alias of the same setting)
+- `DS2API_VERCEL_INTERNAL_SECRET` (optional internal auth secret for Vercel hybrid streaming path; falls back to `DS2API_ADMIN_KEY` when unset)
+- `DS2API_VERCEL_STREAM_LEASE_TTL_SECONDS` (optional stream lease TTL in seconds, default `900`)
 
 Recommended concurrency is computed dynamically as `account_count * per_account_inflight_limit` (default is `account_count * 2`).
+When inflight slots are full, requests are queued first; with default queue size, 429 typically starts around `account_count * 4`.
+
+Notes:
+- `static/admin` build output is not committed
+- Vercel/Docker generate WebUI assets during build
 
 After deploy, verify:
 
@@ -93,6 +111,60 @@ This repo includes `.github/workflows/release-artifacts.yml`:
 - Does not run on `push`
 - Builds Linux/macOS/Windows archives and uploads them to Release Assets
 - Generates `sha256sums.txt` for integrity checks
+
+## 3.2 Vercel Build Troubleshooting
+
+If you see an error like:
+
+```text
+Error: Command failed: go build -ldflags -s -w -o .../bootstrap .../main__vc__go__.go
+```
+
+it is usually caused by invalid Go build flag settings in Vercel
+(`-ldflags` not passed as a single argument).
+
+How to fix:
+
+1. Open Vercel Project Settings -> Build and Development Settings
+2. Clear custom Go Build Flags / Build Command (recommended)
+3. If ldflags must be used, set `-ldflags=\"-s -w\"` so it is passed as one argument
+4. Ensure `go.mod` uses a supported version (this repo uses `go 1.24`)
+5. Redeploy (preferably with cache cleared)
+
+Another common root cause (Go monorepo + `internal/`):
+
+```text
+... use of internal package ds2api/internal/server not allowed
+```
+
+This usually happens when the Vercel Go entrypoint imports `internal/...` directly.
+This repo now avoids that by using a public bridge package: `api/index.go` -> `ds2api/app` -> `internal/server`.
+
+If you see:
+
+```text
+No Output Directory named "public" found after the Build completed.
+```
+
+Vercel is validating frontend output against `public`. This repo builds WebUI into `static/admin`, and uses the parent directory `static` as Vercel output root.
+`vercel.json` now explicitly sets:
+
+```json
+"outputDirectory": "static"
+```
+
+If you manually changed Output Directory in Project Settings, set it to `static` (or clear it and let repo config apply).
+
+If API responses return Vercel HTML `Authentication Required` (instead of JSON), the request is blocked by Vercel Deployment Protection:
+
+- Disable protection for that deployment/environment (recommended for public API use)
+- Or send `x-vercel-protection-bypass` in requests
+- If only internal Node->Go calls are blocked, set `VERCEL_AUTOMATION_BYPASS_SECRET` (or `DS2API_VERCEL_PROTECTION_BYPASS`)
+
+Vercel streaming note (important):
+
+- Vercel Go Runtime applies platform-level buffering, so this repo uses a hybrid path on Vercel (`Go prepare + Node stream`) to restore real-time SSE behavior.
+- This adaptation is Vercel-only; local and Docker remain pure Go.
 
 ## 4. Reverse Proxy (Nginx)
 

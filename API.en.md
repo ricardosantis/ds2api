@@ -167,6 +167,7 @@ When `tools` is present, DS2API injects a tool prompt and parses tool-call paylo
 
 - Non-stream: if detected, returns `message.tool_calls`, `finish_reason=tool_calls`, and `message.content=null`
 - Stream: to avoid leaking raw tool-call JSON, DS2API buffers text first; if tool call is detected, only structured `delta.tool_calls` is emitted
+- Stream `delta.tool_calls` is strict-client compatible: each tool call object includes `index` (starting from `0`)
 
 Tool-call response example:
 

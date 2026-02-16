@@ -50,7 +50,7 @@ func (r *Resolver) Determine(req *http.Request) (*RequestAuth, error) {
 		return &RequestAuth{UseConfigToken: false, DeepSeekToken: callerKey, resolver: r, TriedAccounts: map[string]bool{}}, nil
 	}
 	target := strings.TrimSpace(req.Header.Get("X-Ds2-Target-Account"))
-	acc, ok := r.Pool.Acquire(target, nil)
+	acc, ok := r.Pool.AcquireWait(ctx, target, nil)
 	if !ok {
 		return nil, ErrNoAccount
 	}

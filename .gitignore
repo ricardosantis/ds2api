@@ -64,8 +64,8 @@ pnpm-lock.yaml
 *.tsbuildinfo
 .cache/
 .parcel-cache/
-static/admin/*
-!static/admin/.gitkeep
+static/admin/
+internal/webui/assets/admin/
 
 # Environment
 .env.local

@@ -8,7 +8,7 @@
 
 语言 / Language: [中文](README.MD) | [English](README.en.md)
 
-将 DeepSeek Web 对话能力转换为 OpenAI 与 Claude 兼容 API。当前仓库后端为 **Go 全量实现**，前端保留 React WebUI（构建产物托管于 `static/admin`）。
+将 DeepSeek Web 对话能力转换为 OpenAI 与 Claude 兼容 API。当前仓库后端为 **Go 全量实现**，前端保留 React WebUI（源码在 `webui/`，部署时自动构建到 `static/admin`）。
 
 ## 当前实现边界
 
@@ -65,7 +65,8 @@ go run ./cmd/ds2api
 
 默认地址：`http://localhost:5001`
 
-如果访问 `/admin` 提示未构建 WebUI，请执行：
+本地默认会在启动时自动尝试构建 WebUI（需要本机有 Node.js/npm）。
+若你想手动构建，也可执行：
 
 ```bash
 ./scripts/build-webui.sh
@@ -85,12 +86,16 @@ docker-compose logs -f
 
 - 入口：`api/index.go`
 - 路由重写：`vercel.json`
+- `vercel.json` 会在构建阶段自动执行 `npm ci --prefix webui && npm run build --prefix webui`
+- `/v1/chat/completions` 在 Vercel 上默认走 `api/chat-stream.js`（Node Runtime）以保证实时 SSE
+- `api/chat-stream.js` 仅负责流式数据转发；鉴权、账号选择、会话/PoW 准备仍由 Go 内部 prepare 接口处理
+- Go prepare 会下发 `lease_id`，Node 在流结束后调用 release，确保账号占用时长与 Go 原生流式一致
+- WebUI 的“非流式测试”会直接请求 `?__go=1`，避免 Vercel 上 Node 中转导致长请求更易超时
 - 至少配置：
 - `DS2API_ADMIN_KEY`
 - `DS2API_CONFIG_JSON`（JSON 字符串或 Base64）
 
-说明：`vercel.json` 已移除 legacy `builds` 配置，避免部署时出现
-`unused-build-settings` 警告，并使用当前推荐的函数路由模式。
+说明：仓库不提交 `static/admin` 构建产物，Vercel 构建时自动生成并打包。
 
 ## Release 自动构建产物（GitHub Actions）
 
@@ -155,6 +160,8 @@ cp config.example.json config.json
 | `LOG_LEVEL` | 日志级别：`DEBUG/INFO/WARN/ERROR` |
 | `DS2API_ACCOUNT_MAX_INFLIGHT` | 每个账号最大并发 in-flight 请求数，默认 `2` |
 | `DS2API_ACCOUNT_CONCURRENCY` | 同上别名（兼容旧写法） |
+| `DS2API_ACCOUNT_MAX_QUEUE` | 等待队列上限，默认等于 `recommended_concurrency` |
+| `DS2API_ACCOUNT_QUEUE_SIZE` | 同上别名（兼容旧写法） |
 | `DS2API_ADMIN_KEY` | Admin 登录密钥，默认 `admin` |
 | `DS2API_JWT_SECRET` | Admin JWT 签名密钥（可选） |
 | `DS2API_JWT_EXPIRE_HOURS` | Admin JWT 过期小时数，默认 `24` |
@@ -162,6 +169,9 @@ cp config.example.json config.json
 | `DS2API_CONFIG_JSON` | 直接注入配置（JSON 或 Base64） |
 | `DS2API_WASM_PATH` | PoW wasm 文件路径 |
 | `DS2API_STATIC_ADMIN_DIR` | 管理台静态文件目录 |
+| `DS2API_AUTO_BUILD_WEBUI` | 启动时缺失 WebUI 时是否自动执行 npm build（默认：本地开启，Vercel 关闭） |
+| `DS2API_VERCEL_INTERNAL_SECRET` | Vercel 混合流式链路内部鉴权密钥（可选；未设置时回退用 `DS2API_ADMIN_KEY`） |
+| `DS2API_VERCEL_STREAM_LEASE_TTL_SECONDS` | Vercel 流式 lease 过期秒数（默认 `900`） |
 | `VERCEL_TOKEN` | Vercel 同步 token（可选） |
 | `VERCEL_PROJECT_ID` | Vercel 项目 ID（可选） |
 | `VERCEL_TEAM_ID` | Vercel 团队 ID（可选） |
@@ -179,8 +189,12 @@ cp config.example.json config.json
 
 - 系统建议并发值按账号池动态计算：`账号数量 × 每账号并发上限`
 - 默认每账号并发上限是 `2`，因此默认建议值是 `账号数量 × 2`
+- 当 in-flight 槽位满时，请求会进入等待队列，不会立即 429
+- 默认等待队列上限 = `recommended_concurrency`，因此默认总承载上限是 `账号数量 × 4`
+- 超过总承载上限（in-flight + waiting）才返回 `429`
 - 可通过 `DS2API_ACCOUNT_MAX_INFLIGHT`（或 `DS2API_ACCOUNT_CONCURRENCY`）手动覆盖每账号并发上限
-- `GET /admin/queue/status` 会返回 `max_inflight_per_account` 与 `recommended_concurrency`
+- 可通过 `DS2API_ACCOUNT_MAX_QUEUE`（或 `DS2API_ACCOUNT_QUEUE_SIZE`）手动覆盖等待队列上限
+- `GET /admin/queue/status` 会返回 `max_inflight_per_account`、`recommended_concurrency`、`waiting`、`max_queue_size`
 
 ## Tool Call 适配说明
 

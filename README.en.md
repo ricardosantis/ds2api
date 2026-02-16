@@ -8,7 +8,7 @@
 
 Language: [中文](README.MD) | [English](README.en.md)
 
-DS2API converts DeepSeek Web chat capability into OpenAI-compatible and Claude-compatible APIs. The current repository is **Go backend only** with the existing React WebUI kept as static assets under `static/admin`.
+DS2API converts DeepSeek Web chat capability into OpenAI-compatible and Claude-compatible APIs. The current repository is **Go backend only** with the existing React WebUI source in `webui/` and build output generated to `static/admin` during deployment.
 
 ## Implementation Boundary
 
@@ -65,7 +65,8 @@ go run ./cmd/ds2api
 
 Default URL: `http://localhost:5001`
 
-If `/admin` says WebUI not built:
+By default, local startup will auto-build WebUI when `static/admin` is missing (Node.js/npm required).
+If you prefer manual build:
 
 ```bash
 ./scripts/build-webui.sh
@@ -85,12 +86,16 @@ docker-compose logs -f
 
 - Entrypoint: `api/index.go`
 - Rewrites: `vercel.json`
+- `vercel.json` runs `npm ci --prefix webui && npm run build --prefix webui` during build
+- `/v1/chat/completions` is routed to `api/chat-stream.js` (Node Runtime) on Vercel to preserve real-time SSE
+- `api/chat-stream.js` is data-path only; auth/account/session/PoW preparation still comes from an internal Go prepare endpoint
+- Go prepare returns a `lease_id`; Node releases it at stream end so account occupancy duration stays aligned with native Go streaming behavior
+- WebUI non-stream test calls `?__go=1` directly to avoid extra Node hop timeout risk on long Vercel requests
 - Minimum env vars:
 - `DS2API_ADMIN_KEY`
 - `DS2API_CONFIG_JSON` (raw JSON or Base64)
 
-Note: legacy `builds` has been removed from `vercel.json` to avoid
-the `unused-build-settings` warning and to follow the current function routing model.
+Note: build artifacts under `static/admin` are not committed; Vercel generates them during build.
 
 ## Release Artifact Automation (GitHub Actions)
 
@@ -155,6 +160,8 @@ cp config.example.json config.json
 | `LOG_LEVEL` | `DEBUG/INFO/WARN/ERROR` |
 | `DS2API_ACCOUNT_MAX_INFLIGHT` | Max in-flight requests per managed account, default `2` |
 | `DS2API_ACCOUNT_CONCURRENCY` | Alias of the same setting (legacy compatibility) |
+| `DS2API_ACCOUNT_MAX_QUEUE` | Waiting queue limit (managed-key mode), default=`recommended_concurrency` |
+| `DS2API_ACCOUNT_QUEUE_SIZE` | Alias of the same setting (legacy compatibility) |
 | `DS2API_ADMIN_KEY` | Admin login key, default `admin` |
 | `DS2API_JWT_SECRET` | Admin JWT signing secret (optional) |
 | `DS2API_JWT_EXPIRE_HOURS` | Admin JWT TTL in hours, default `24` |
@@ -162,6 +169,9 @@ cp config.example.json config.json
 | `DS2API_CONFIG_JSON` | Inline config (JSON or Base64) |
 | `DS2API_WASM_PATH` | PoW wasm path |
 | `DS2API_STATIC_ADMIN_DIR` | Admin static assets dir |
+| `DS2API_AUTO_BUILD_WEBUI` | Auto run npm build on startup when WebUI assets are missing (default: enabled locally, disabled on Vercel) |
+| `DS2API_VERCEL_INTERNAL_SECRET` | Internal auth secret for Vercel hybrid streaming path (optional; falls back to `DS2API_ADMIN_KEY` if unset) |
+| `DS2API_VERCEL_STREAM_LEASE_TTL_SECONDS` | Stream lease TTL seconds for Vercel hybrid streaming (default `900`) |
 | `VERCEL_TOKEN` | Vercel sync token (optional) |
 | `VERCEL_PROJECT_ID` | Vercel project ID (optional) |
 | `VERCEL_TEAM_ID` | Vercel team ID (optional) |
@@ -179,8 +189,12 @@ Optional header: `X-Ds2-Target-Account` to pin one managed account.
 
 - DS2API computes recommended concurrency dynamically as: `account_count * per_account_inflight_limit`
 - Default per-account inflight limit is `2`, so default recommendation is `account_count * 2`
+- When inflight slots are full, requests enter a waiting queue instead of immediate 429
+- Default queue limit equals `recommended_concurrency`, so default 429 threshold is about `account_count * 4`
+- 429 is returned only after total load exceeds `inflight + waiting` capacity
 - You can override per-account inflight via `DS2API_ACCOUNT_MAX_INFLIGHT` (or `DS2API_ACCOUNT_CONCURRENCY`)
-- `GET /admin/queue/status` returns both `max_inflight_per_account` and `recommended_concurrency`
+- You can override waiting queue size via `DS2API_ACCOUNT_MAX_QUEUE` (or `DS2API_ACCOUNT_QUEUE_SIZE`)
+- `GET /admin/queue/status` returns `max_inflight_per_account`, `recommended_concurrency`, `waiting`, and `max_queue_size`
 
 ## Tool Call Adaptation
 

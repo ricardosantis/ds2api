@@ -4,17 +4,17 @@ import (
 	"net/http"
 	"sync"
 
-	"ds2api/internal/server"
+	"ds2api/app"
 )
 
 var (
 	once sync.Once
-	app  *server.App
+	h    http.Handler
 )
 
 func Handler(w http.ResponseWriter, r *http.Request) {
 	once.Do(func() {
-		app = server.NewApp()
+		h = app.NewHandler()
 	})
-	app.Router.ServeHTTP(w, r)
+	h.ServeHTTP(w, r)
 }

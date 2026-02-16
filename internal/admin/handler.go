@@ -873,7 +873,20 @@ func toStringSlice(v any) ([]string, bool) {
 }
 
 func toAccount(m map[string]any) config.Account {
-	return config.Account{Email: strings.TrimSpace(fmt.Sprintf("%v", m["email"])), Mobile: strings.TrimSpace(fmt.Sprintf("%v", m["mobile"])), Password: strings.TrimSpace(fmt.Sprintf("%v", m["password"])), Token: strings.TrimSpace(fmt.Sprintf("%v", m["token"]))}
+	return config.Account{
+		Email:    fieldString(m, "email"),
+		Mobile:   fieldString(m, "mobile"),
+		Password: fieldString(m, "password"),
+		Token:    fieldString(m, "token"),
+	}
+}
+
+func fieldString(m map[string]any, key string) string {
+	v, ok := m[key]
+	if !ok || v == nil {
+		return ""
+	}
+	return strings.TrimSpace(fmt.Sprintf("%v", v))
 }
 
 func statusOr(v int, d int) int {

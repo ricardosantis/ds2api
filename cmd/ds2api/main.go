@@ -7,9 +7,11 @@ import (
 
 	"ds2api/internal/config"
 	"ds2api/internal/server"
+	"ds2api/internal/webui"
 )
 
 func main() {
+	webui.EnsureBuiltOnStartup()
 	app := server.NewApp()
 	port := strings.TrimSpace(os.Getenv("PORT"))
 	if port == "" {
