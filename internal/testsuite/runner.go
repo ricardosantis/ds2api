@@ -89,6 +89,7 @@ type caseContext struct {
 	id          string
 	dir         string
 	startedAt   time.Time
+	mu          sync.Mutex
 	seq         int
 	assertions  []assertionResult
 	requests    []requestLog
@@ -144,8 +145,10 @@ type Runner struct {
 type runConfig struct {
 	Keys     []string `json:"keys"`
 	Accounts []struct {
-		Email  string `json:"email,omitempty"`
-		Mobile string `json:"mobile,omitempty"`
+		Email    string `json:"email,omitempty"`
+		Mobile   string `json:"mobile,omitempty"`
+		Password string `json:"password,omitempty"`
+		Token    string `json:"token,omitempty"`
 	} `json:"accounts"`
 }
 
@@ -500,6 +503,8 @@ func (r *Runner) runCase(ctx context.Context, c caseDef) {
 }
 
 func (cc *caseContext) assert(name string, ok bool, detail string) {
+	cc.mu.Lock()
+	defer cc.mu.Unlock()
 	cc.assertions = append(cc.assertions, assertionResult{
 		Name:   name,
 		Passed: ok,
@@ -532,9 +537,12 @@ func (cc *caseContext) request(ctx context.Context, spec requestSpec) (*response
 }
 
 func (cc *caseContext) requestOnce(ctx context.Context, spec requestSpec, attempt int) (*responseResult, error) {
+	cc.mu.Lock()
 	cc.seq++
-	traceID := fmt.Sprintf("ts_%s_%s_%03d", cc.runner.runID, sanitizeID(cc.id), cc.seq)
+	seq := cc.seq
+	traceID := fmt.Sprintf("ts_%s_%s_%03d", cc.runner.runID, sanitizeID(cc.id), seq)
 	cc.traceIDsSet[traceID] = struct{}{}
+	cc.mu.Unlock()
 
 	fullURL, err := withTraceQuery(cc.runner.baseURL+spec.Path, traceID)
 	if err != nil {
@@ -558,8 +566,9 @@ func (cc *caseContext) requestOnce(ctx context.Context, spec requestSpec, attemp
 		bodyAny = spec.Body
 		headers["Content-Type"] = "application/json"
 	}
+	cc.mu.Lock()
 	cc.requests = append(cc.requests, requestLog{
-		Seq:       cc.seq,
+		Seq:       seq,
 		Attempt:   attempt,
 		TraceID:   traceID,
 		Method:    spec.Method,
@@ -568,6 +577,7 @@ func (cc *caseContext) requestOnce(ctx context.Context, spec requestSpec, attemp
 		Body:      bodyAny,
 		Timestamp: time.Now().Format(time.RFC3339Nano),
 	})
+	cc.mu.Unlock()
 
 	reqCtx, cancel := context.WithTimeout(ctx, cc.runner.opts.Timeout)
 	defer cancel()
@@ -581,8 +591,9 @@ func (cc *caseContext) requestOnce(ctx context.Context, spec requestSpec, attemp
 	start := time.Now()
 	resp, err := cc.runner.httpClient.Do(req)
 	if err != nil {
+		cc.mu.Lock()
 		cc.responses = append(cc.responses, responseLog{
-			Seq:        cc.seq,
+			Seq:        seq,
 			Attempt:    attempt,
 			TraceID:    traceID,
 			StatusCode: 0,
@@ -590,13 +601,15 @@ func (cc *caseContext) requestOnce(ctx context.Context, spec requestSpec, attemp
 			NetworkErr: err.Error(),
 			ReceivedAt: time.Now().Format(time.RFC3339Nano),
 		})
+		cc.mu.Unlock()
 		return nil, err
 	}
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
 
+	cc.mu.Lock()
 	cc.responses = append(cc.responses, responseLog{
-		Seq:        cc.seq,
+		Seq:        seq,
 		Attempt:    attempt,
 		TraceID:    traceID,
 		StatusCode: resp.StatusCode,
@@ -611,6 +624,7 @@ func (cc *caseContext) requestOnce(ctx context.Context, spec requestSpec, attemp
 		cc.streamRaw.Write(body)
 		cc.streamRaw.WriteString("\n\n")
 	}
+	cc.mu.Unlock()
 
 	return &responseResult{
 		StatusCode: resp.StatusCode,
@@ -700,7 +714,15 @@ func (r *Runner) cases() []caseDef {
 		{ID: "anthropic_count_tokens", Run: r.caseAnthropicCountTokens},
 		{ID: "admin_account_test_single", Run: r.caseAdminAccountTest},
 		{ID: "concurrency_burst", Run: r.caseConcurrencyBurst},
+		{ID: "concurrency_threshold_limit", Run: r.caseConcurrencyThresholdLimit},
+		{ID: "stream_abort_release", Run: r.caseStreamAbortRelease},
+		{ID: "toolcall_stream_mixed", Run: r.caseToolcallStreamMixed},
+		{ID: "sse_json_integrity", Run: r.caseSSEJSONIntegrity},
+		{ID: "error_contract_invalid_model", Run: r.caseInvalidModel},
+		{ID: "error_contract_missing_messages", Run: r.caseMissingMessages},
+		{ID: "admin_unauthorized_contract", Run: r.caseAdminUnauthorized},
 		{ID: "config_write_isolated", Run: r.caseConfigWriteIsolated},
+		{ID: "token_refresh_managed_account", Run: r.caseTokenRefreshManagedAccount},
 		{ID: "error_contract_invalid_key", Run: r.caseInvalidKey},
 	}
 }

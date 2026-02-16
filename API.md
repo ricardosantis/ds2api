@@ -264,23 +264,38 @@ anthropic-version: 2023-06-01
 
 ### Claude 流式（`stream=true`）
 
-返回同样是 SSE，但当前实现仅写入 `data:` 行，不输出 `event:` 行。每条 JSON 内包含 `type` 字段。
+返回 SSE，包含 `event:` + `data:` 双行；JSON 中仍保留 `type` 字段。
 
 示例：
 
 ```text
+event: message_start
 data: {"type":"message_start","message":{...}}
 
+event: content_block_start
 data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}
 
+event: content_block_delta
 data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"hello"}}
 
+event: ping
+data: {"type":"ping"}
+
+event: content_block_stop
 data: {"type":"content_block_stop","index":0}
 
+event: message_delta
 data: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null},"usage":{"output_tokens":12}}
 
+event: message_stop
 data: {"type":"message_stop"}
 ```
+
+说明：
+
+- 开启思维模型时会输出 `thinking_delta`。
+- 当前不会输出 `signature_delta`（上游 DeepSeek 未提供可验证签名）。
+- `tools` 场景优先避免泄露原始工具 JSON，不强制发送 `input_json_delta`。
 
 ### `POST /anthropic/v1/messages/count_tokens`
 

@@ -260,23 +260,38 @@ If tool use is detected, `stop_reason` becomes `tool_use` and `content` contains
 
 ### Claude Streaming (`stream=true`)
 
-Still SSE, but current implementation writes `data:` lines only (no `event:` lines). Event type is carried in JSON `type`.
+SSE uses paired `event:` + `data:` lines. Event type is also carried in JSON `type`.
 
 Example:
 
 ```text
+event: message_start
 data: {"type":"message_start","message":{...}}
 
+event: content_block_start
 data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}
 
+event: content_block_delta
 data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"hello"}}
 
+event: ping
+data: {"type":"ping"}
+
+event: content_block_stop
 data: {"type":"content_block_stop","index":0}
 
+event: message_delta
 data: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null},"usage":{"output_tokens":12}}
 
+event: message_stop
 data: {"type":"message_stop"}
 ```
+
+Notes:
+
+- Thinking-enabled models stream `thinking_delta`.
+- `signature_delta` is not emitted because DeepSeek does not provide verifiable thinking signatures.
+- In `tools` mode, the stream prioritizes avoiding raw tool JSON leakage and does not force `input_json_delta` partials.
 
 ### `POST /anthropic/v1/messages/count_tokens`
 
