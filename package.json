@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "npm install --prefix webui && npm run build --prefix webui"
+    "build": "npm install --prefix webui --include=dev && npm run build --prefix webui"
   },
   "engines": {
-    "node": ">=18"
+    "node": "20.x"
   },
   "devDependencies": {}
 }
