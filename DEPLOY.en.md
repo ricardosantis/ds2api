@@ -12,11 +12,12 @@ This guide covers all deployment methods for the current Go-based codebase.
 - [1. Local Run](#1-local-run)
 - [2. Docker Deployment](#2-docker-deployment)
 - [3. Vercel Deployment](#3-vercel-deployment)
-- [4. Download Release Binaries](#4-download-release-binaries)
-- [5. Reverse Proxy (Nginx)](#5-reverse-proxy-nginx)
-- [6. Linux systemd Service](#6-linux-systemd-service)
-- [7. Post-Deploy Checks](#7-post-deploy-checks)
-- [8. Pre-Release Local Regression](#8-pre-release-local-regression)
+- [4. Heroku Deployment](#4-heroku-deployment)
+- [5. Download Release Binaries](#4-download-release-binaries)
+- [6. Reverse Proxy (Nginx)](#5-reverse-proxy-nginx)
+- [7. Linux systemd Service](#6-linux-systemd-service)
+- [8. Post-Deploy Checks](#7-post-deploy-checks)
+- [9. Pre-Release Local Regression](#8-pre-release-local-regression)
 
 ---
 
@@ -348,7 +349,47 @@ If API responses return Vercel HTML `Authentication Required`:
 
 ---
 
-## 4. Download Release Binaries
+## 4. Heroku Deployment
+
+> **Live Demo**: https://ds2api-1c052d209ba6.herokuapp.com
+
+### 4.1 Configure Buildpacks
+
+This project requires Go + Node.js buildpacks:
+
+```bash
+heroku buildpacks:add heroku/go
+heroku buildpacks:add heroku/nodejs
+```
+
+### 4.2 Configure Environment Variables
+
+```bash
+# Admin password
+heroku config:set DS2API_ADMIN_KEY="your-secure-password"
+
+# Auto-build WebUI
+heroku config:set DS2API_AUTO_BUILD_WEBUI=true
+
+# Config (Base64 encoded)
+heroku config:set DS2API_CONFIG_JSON="base64:$(base64 -w0 config.json)"
+```
+
+### 4.3 Deploy
+
+```bash
+git push heroku main
+```
+
+After first deploy, start the dyno manually:
+
+```bash
+heroku ps:scale web=1
+```
+
+---
+
+## 5. Download Release Binaries
 
 Built-in GitHub Actions workflow: `.github/workflows/release-artifacts.yml`
 

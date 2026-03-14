@@ -11,6 +11,10 @@
 [![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](DEPLOY.md)
 [![Deploy on Zeabur](https://zeabur.com/button.svg)](https://zeabur.com/templates/L4CFHP)
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/CJackHwang/ds2api)
+[![Deploy on Heroku](https://www.herokucdn.com/deploy/button.svg)](https://dashboard.heroku.com/new?template=https://github.com/ricardosantis/ds2api)
+
+> **Deploy Ricardo Santis**: https://ds2api-1c052d209ba6.herokuapp.com  
+> **Admin**: `/admin/` | **Senha**: `LeiaT+eo92veXs9FAOJa5A==`
 
 语言 / Language: [中文](README.MD) | [English](README.en.md)
 

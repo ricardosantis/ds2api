@@ -12,11 +12,12 @@
 - [一、本地运行](#一本地运行)
 - [二、Docker 部署](#二docker-部署)
 - [三、Vercel 部署](#三vercel-部署)
-- [四、下载 Release 构建包](#四下载-release-构建包)
-- [五、反向代理（Nginx）](#五反向代理nginx)
-- [六、Linux systemd 服务化](#六linux-systemd-服务化)
-- [七、部署后检查](#七部署后检查)
-- [八、发布前进行本地回归](#八发布前进行本地回归)
+- [四、Heroku 部署](#四heroku-部署)
+- [五、下载 Release 构建包](#四下载-release-构建包)
+- [六、反向代理（Nginx）](#五反向代理nginx)
+- [七、Linux systemd 服务化](#六linux-systemd-服务化)
+- [八、部署后检查](#七部署后检查)
+- [九、发布前进行本地回归](#八发布前进行本地回归)
 
 ---
 
@@ -348,7 +349,47 @@ No Output Directory named "public" found after the Build completed.
 
 ---
 
-## 四、下载 Release 构建包
+## 四、Heroku 部署
+
+> **部署示例**: https://ds2api-1c052d209ba6.herokuapp.com
+
+### 4.1 配置 Buildpacks
+
+本项目需要 Go + Node.js 构建packs：
+
+```bash
+heroku buildpacks:add heroku/go
+heroku buildpacks:add heroku/nodejs
+```
+
+### 4.2 配置环境变量
+
+```bash
+# Admin 访问密码
+heroku config:set DS2API_ADMIN_KEY="sua-senha-segura"
+
+# 自动构建 WebUI
+heroku config:set DS2API_AUTO_BUILD_WEBUI=true
+
+# 配置（Base64 编码）
+heroku config:set DS2API_CONFIG_JSON="base64:$(base64 -w0 config.json)"
+```
+
+### 4.3 部署
+
+```bash
+git push heroku main
+```
+
+首次部署后需要手动启动 dyno：
+
+```bash
+heroku ps:scale web=1
+```
+
+---
+
+## 五、下载 Release 构建包
 
 仓库内置 GitHub Actions 工作流：`.github/workflows/release-artifacts.yml`
 
