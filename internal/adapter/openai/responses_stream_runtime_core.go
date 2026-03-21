@@ -98,7 +98,7 @@ func newResponsesStreamRuntime(
 
 func (s *responsesStreamRuntime) finalize() {
 	finalThinking := s.thinking.String()
-	finalText := s.text.String()
+	finalText := sanitizeLeakedToolHistory(s.text.String())
 
 	if s.bufferToolContent {
 		s.processToolStreamEvents(flushToolSieve(&s.sieve, s.toolNames), true)
@@ -204,12 +204,16 @@ func (s *responsesStreamRuntime) onParsed(parsed sse.LineResult) streamengine.Pa
 			continue
 		}
 
-		s.text.WriteString(p.Text)
-		if !s.bufferToolContent {
-			s.emitTextDelta(p.Text)
+		cleanedText := sanitizeLeakedToolHistory(p.Text)
+		if cleanedText == "" {
 			continue
 		}
-		s.processToolStreamEvents(processToolSieveChunk(&s.sieve, p.Text, s.toolNames), true)
+		s.text.WriteString(cleanedText)
+		if !s.bufferToolContent {
+			s.emitTextDelta(cleanedText)
+			continue
+		}
+		s.processToolStreamEvents(processToolSieveChunk(&s.sieve, cleanedText, s.toolNames), true)
 	}
 
 	return streamengine.ParsedDecision{ContentSeen: contentSeen}

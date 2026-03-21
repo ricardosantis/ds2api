@@ -1,16 +1,7 @@
 'use strict';
-
-const {
-  resetIncrementalToolState,
-  noteText,
-  insideCodeFence,
-} = require('./state');
-const {
-  parseStandaloneToolCallsDetailed,
-} = require('./parse');
-const {
-  extractJSONObjectFrom,
-} = require('./jsonscan');
+const { resetIncrementalToolState, noteText, insideCodeFence } = require('./state');
+const { parseStandaloneToolCallsDetailed } = require('./parse');
+const { extractJSONObjectFrom } = require('./jsonscan');
 
 function processToolSieveChunk(state, chunk, toolNames) {
   if (!state) {
@@ -20,8 +11,6 @@ function processToolSieveChunk(state, chunk, toolNames) {
     state.pending += chunk;
   }
   const events = [];
-
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     if (Array.isArray(state.pendingToolCalls) && state.pendingToolCalls.length > 0) {
       events.push({ type: 'tool_calls', calls: state.pendingToolCalls });
@@ -60,12 +49,10 @@ function processToolSieveChunk(state, chunk, toolNames) {
       }
       continue;
     }
-
     const pending = state.pending || '';
     if (!pending) {
       break;
     }
-
     const start = findToolSegmentStart(pending);
     if (start >= 0) {
       const prefix = pending.slice(0, start);
@@ -79,7 +66,6 @@ function processToolSieveChunk(state, chunk, toolNames) {
       resetIncrementalToolState(state);
       continue;
     }
-
     const [safe, hold] = splitSafeContentForToolDetection(pending);
     if (!safe) {
       break;
@@ -96,13 +82,11 @@ function flushToolSieve(state, toolNames) {
     return [];
   }
   const events = processToolSieveChunk(state, '', toolNames);
-
   if (Array.isArray(state.pendingToolCalls) && state.pendingToolCalls.length > 0) {
     events.push({ type: 'tool_calls', calls: state.pendingToolCalls });
     state.pendingToolRaw = '';
     state.pendingToolCalls = [];
   }
-
   if (state.capturing) {
     const consumed = consumeToolCapture(state, toolNames);
     if (consumed.ready) {
@@ -125,13 +109,11 @@ function flushToolSieve(state, toolNames) {
     state.capturing = false;
     resetIncrementalToolState(state);
   }
-
   if (state.pending) {
     noteText(state, state.pending);
     events.push({ type: 'text', text: state.pending });
     state.pending = '';
   }
-
   return events;
 }
 
@@ -147,8 +129,6 @@ function splitSafeContentForToolDetection(s) {
   if (suspiciousStart > 0) {
     return [text.slice(0, suspiciousStart), text.slice(suspiciousStart)];
   }
-  // If suspicious content starts at the beginning, keep holding until we can
-  // either parse a full tool JSON block or reach stream flush.
   return ['', text];
 }
 
@@ -168,13 +148,11 @@ function findToolSegmentStart(s) {
     return -1;
   }
   const lower = s.toLowerCase();
-  const keywords = ['tool_calls', 'function.name:', '[tool_call_history]'];
+  const keywords = ['tool_calls', 'function.name:', '[tool_call_history]', '[tool_result_history]'];
   let offset = 0;
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     let bestKeyIdx = -1;
     let matchedKeyword = '';
-
     for (const kw of keywords) {
       const idx = lower.indexOf(kw, offset);
       if (idx >= 0) {
@@ -184,11 +162,9 @@ function findToolSegmentStart(s) {
         }
       }
     }
-
     if (bestKeyIdx < 0) {
       return -1;
     }
-
     const keyIdx = bestKeyIdx;
     const start = s.slice(0, keyIdx).lastIndexOf('{');
     const candidateStart = start >= 0 ? start : keyIdx;
@@ -205,30 +181,36 @@ function consumeToolCapture(state, toolNames) {
     return { ready: false, prefix: '', calls: [], suffix: '' };
   }
   const lower = captured.toLowerCase();
-  
   let keyIdx = -1;
-  const keywords = ['tool_calls', 'function.name:', '[tool_call_history]'];
+  const keywords = ['tool_calls', 'function.name:', '[tool_call_history]', '[tool_result_history]'];
   for (const kw of keywords) {
     const idx = lower.indexOf(kw);
     if (idx >= 0 && (keyIdx < 0 || idx < keyIdx)) {
       keyIdx = idx;
     }
   }
-  
   if (keyIdx < 0) {
     return { ready: false, prefix: '', calls: [], suffix: '' };
   }
   const start = captured.slice(0, keyIdx).lastIndexOf('{');
   const actualStart = start >= 0 ? start : keyIdx;
-  
+  if (start < 0) {
+    const history = extractToolHistoryBlock(captured, keyIdx);
+    if (history.ok) {
+      return {
+        ready: true,
+        prefix: captured.slice(0, history.start),
+        calls: [],
+        suffix: captured.slice(history.end),
+      };
+    }
+  }
   const obj = extractJSONObjectFrom(captured, actualStart);
   if (!obj.ok) {
     return { ready: false, prefix: '', calls: [], suffix: '' };
   }
-
   const prefixPart = captured.slice(0, actualStart);
   const suffixPart = captured.slice(obj.end);
-
   if (insideCodeFence((state.recentTextTail || '') + prefixPart)) {
     return {
       ready: true,
@@ -237,7 +219,6 @@ function consumeToolCapture(state, toolNames) {
       suffix: '',
     };
   }
-
   const parsed = parseStandaloneToolCallsDetailed(captured.slice(actualStart, obj.end), toolNames);
   if (!Array.isArray(parsed.calls) || parsed.calls.length === 0) {
     if (parsed.sawToolCallSyntax && parsed.rejectedByPolicy) {
@@ -255,7 +236,6 @@ function consumeToolCapture(state, toolNames) {
       suffix: '',
     };
   }
-
   const trimmedFence = trimWrappingJSONFence(prefixPart, suffixPart);
   return {
     ready: true,
@@ -265,14 +245,34 @@ function consumeToolCapture(state, toolNames) {
   };
 }
 
+function extractToolHistoryBlock(captured, keyIdx) {
+  if (typeof captured !== 'string' || keyIdx < 0 || keyIdx >= captured.length) {
+    return { ok: false, start: 0, end: 0 };
+  }
+  const rest = captured.slice(keyIdx).toLowerCase();
+  if (rest.startsWith('[tool_call_history]')) {
+    const closeTag = '[/tool_call_history]';
+    const closeIdx = rest.indexOf(closeTag);
+    if (closeIdx < 0) {
+      return { ok: false, start: 0, end: 0 };
+    }
+    return { ok: true, start: keyIdx, end: keyIdx + closeIdx + closeTag.length };
+  }
+  if (rest.startsWith('[tool_result_history]')) {
+    const closeTag = '[/tool_result_history]';
+    const closeIdx = rest.indexOf(closeTag);
+    if (closeIdx < 0) {
+      return { ok: false, start: 0, end: 0 };
+    }
+    return { ok: true, start: keyIdx, end: keyIdx + closeIdx + closeTag.length };
+  }
+  return { ok: false, start: 0, end: 0 };
+}
+
 function trimWrappingJSONFence(prefix, suffix) {
   const rightTrimmedPrefix = (prefix || '').replace(/[ \t\r\n]+$/g, '');
   const fenceIdx = rightTrimmedPrefix.lastIndexOf('```');
-  if (fenceIdx < 0) {
-    return { prefix, suffix };
-  }
-  // Only strip when this behaves like an opening fence.
-  // If it's a legitimate closing fence before standalone tool JSON, keep it.
+  if (fenceIdx < 0) return { prefix, suffix };
   const fenceCount = (rightTrimmedPrefix.slice(0, fenceIdx + 3).match(/```/g) || []).length;
   if (fenceCount % 2 === 0) {
     return { prefix, suffix };

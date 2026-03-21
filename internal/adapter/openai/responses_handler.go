@@ -113,7 +113,8 @@ func (h *Handler) handleResponsesNonStream(w http.ResponseWriter, resp *http.Res
 		return
 	}
 	result := sse.CollectStream(resp, thinkingEnabled, true)
-	textParsed := util.ParseStandaloneToolCallsDetailed(result.Text, toolNames)
+	sanitizedText := sanitizeLeakedToolHistory(result.Text)
+	textParsed := util.ParseStandaloneToolCallsDetailed(sanitizedText, toolNames)
 	logResponsesToolPolicyRejection(traceID, toolChoice, textParsed, "text")
 
 	callCount := len(textParsed.Calls)
@@ -122,7 +123,7 @@ func (h *Handler) handleResponsesNonStream(w http.ResponseWriter, resp *http.Res
 		return
 	}
 
-	responseObj := openaifmt.BuildResponseObject(responseID, model, finalPrompt, result.Thinking, result.Text, toolNames)
+	responseObj := openaifmt.BuildResponseObject(responseID, model, finalPrompt, result.Thinking, sanitizedText, toolNames)
 	h.getResponseStore().put(owner, responseID, responseObj)
 	writeJSON(w, http.StatusOK, responseObj)
 }

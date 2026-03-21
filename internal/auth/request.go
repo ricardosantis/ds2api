@@ -7,6 +7,8 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"sync"
+	"time"
 
 	"ds2api/internal/account"
 	"ds2api/internal/config"
@@ -37,10 +39,20 @@ type Resolver struct {
 	Store *config.Store
 	Pool  *account.Pool
 	Login LoginFunc
+
+	mu                   sync.Mutex
+	tokenRefreshedAt     map[string]time.Time
+	tokenRefreshInterval time.Duration
 }
 
 func NewResolver(store *config.Store, pool *account.Pool, login LoginFunc) *Resolver {
-	return &Resolver{Store: store, Pool: pool, Login: login}
+	return &Resolver{
+		Store:                store,
+		Pool:                 pool,
+		Login:                login,
+		tokenRefreshedAt:     map[string]time.Time{},
+		tokenRefreshInterval: 6 * time.Hour,
+	}
 }
 
 func (r *Resolver) Determine(req *http.Request) (*RequestAuth, error) {
@@ -72,13 +84,9 @@ func (r *Resolver) Determine(req *http.Request) (*RequestAuth, error) {
 		TriedAccounts:  map[string]bool{},
 		resolver:       r,
 	}
-	if acc.Token == "" {
-		if err := r.loginAndPersist(ctx, a); err != nil {
-			r.Pool.Release(a.AccountID)
-			return nil, err
-		}
-	} else {
-		a.DeepSeekToken = acc.Token
+	if err := r.ensureManagedToken(ctx, a); err != nil {
+		r.Pool.Release(a.AccountID)
+		return nil, err
 	}
 	return a, nil
 }
@@ -120,6 +128,7 @@ func (r *Resolver) loginAndPersist(ctx context.Context, a *RequestAuth) error {
 	}
 	a.Account.Token = token
 	a.DeepSeekToken = token
+	r.markTokenRefreshedNow(a.AccountID)
 	return r.Store.UpdateAccountToken(a.AccountID, token)
 }
 
@@ -142,6 +151,7 @@ func (r *Resolver) MarkTokenInvalid(a *RequestAuth) {
 	}
 	a.Account.Token = ""
 	a.DeepSeekToken = ""
+	r.clearTokenRefreshMark(a.AccountID)
 	_ = r.Store.UpdateAccountToken(a.AccountID, "")
 }
 
@@ -162,12 +172,8 @@ func (r *Resolver) SwitchAccount(ctx context.Context, a *RequestAuth) bool {
 	}
 	a.Account = acc
 	a.AccountID = acc.Identifier()
-	if acc.Token == "" {
-		if err := r.loginAndPersist(ctx, a); err != nil {
-			return false
-		}
-	} else {
-		a.DeepSeekToken = acc.Token
+	if err := r.ensureManagedToken(ctx, a); err != nil {
+		return false
 	}
 	return true
 }
@@ -209,4 +215,54 @@ func callerTokenID(token string) string {
 	}
 	sum := sha256.Sum256([]byte(token))
 	return "caller:" + hex.EncodeToString(sum[:8])
+}
+
+func (r *Resolver) ensureManagedToken(ctx context.Context, a *RequestAuth) error {
+	if strings.TrimSpace(a.Account.Token) == "" {
+		return r.loginAndPersist(ctx, a)
+	}
+	if r.shouldForceRefresh(a.AccountID) {
+		if err := r.loginAndPersist(ctx, a); err != nil {
+			return err
+		}
+		return nil
+	}
+	a.DeepSeekToken = a.Account.Token
+	return nil
+}
+
+func (r *Resolver) shouldForceRefresh(accountID string) bool {
+	if strings.TrimSpace(accountID) == "" {
+		return false
+	}
+	if r.tokenRefreshInterval <= 0 {
+		return false
+	}
+	now := time.Now()
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	last, ok := r.tokenRefreshedAt[accountID]
+	if !ok || last.IsZero() {
+		r.tokenRefreshedAt[accountID] = now
+		return false
+	}
+	return now.Sub(last) >= r.tokenRefreshInterval
+}
+
+func (r *Resolver) markTokenRefreshedNow(accountID string) {
+	if strings.TrimSpace(accountID) == "" {
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.tokenRefreshedAt[accountID] = time.Now()
+}
+
+func (r *Resolver) clearTokenRefreshMark(accountID string) {
+	if strings.TrimSpace(accountID) == "" {
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.tokenRefreshedAt, accountID)
 }

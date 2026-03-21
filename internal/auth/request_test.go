@@ -3,7 +3,9 @@ package auth
 import (
 	"context"
 	"net/http"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"ds2api/internal/account"
 	"ds2api/internal/config"
@@ -191,5 +193,54 @@ func TestDetermineCallerMissingToken(t *testing.T) {
 	}
 	if err != ErrUnauthorized {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestDetermineManagedAccountForcesRefreshEverySixHours(t *testing.T) {
+	t.Setenv("DS2API_CONFIG_JSON", `{
+		"keys":["managed-key"],
+		"accounts":[{"email":"acc@example.com","password":"pwd","token":"seed-token"}]
+	}`)
+	store := config.LoadStore()
+	if err := store.UpdateAccountToken("acc@example.com", "seed-token"); err != nil {
+		t.Fatalf("update token failed: %v", err)
+	}
+	pool := account.NewPool(store)
+
+	var loginCount int32
+	resolver := NewResolver(store, pool, func(_ context.Context, _ config.Account) (string, error) {
+		n := atomic.AddInt32(&loginCount, 1)
+		return "fresh-token-" + string(rune('0'+n)), nil
+	})
+
+	req, _ := http.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+	req.Header.Set("x-api-key", "managed-key")
+
+	a1, err := resolver.Determine(req)
+	if err != nil {
+		t.Fatalf("determine failed: %v", err)
+	}
+	if a1.DeepSeekToken != "seed-token" {
+		t.Fatalf("expected initial token without forced refresh, got %q", a1.DeepSeekToken)
+	}
+	resolver.Release(a1)
+	if got := atomic.LoadInt32(&loginCount); got != 0 {
+		t.Fatalf("expected no login before refresh interval, got %d", got)
+	}
+
+	resolver.mu.Lock()
+	resolver.tokenRefreshedAt["acc@example.com"] = time.Now().Add(-7 * time.Hour)
+	resolver.mu.Unlock()
+
+	a2, err := resolver.Determine(req)
+	if err != nil {
+		t.Fatalf("determine after interval failed: %v", err)
+	}
+	defer resolver.Release(a2)
+	if a2.DeepSeekToken != "fresh-token-1" {
+		t.Fatalf("expected refreshed token after interval, got %q", a2.DeepSeekToken)
+	}
+	if got := atomic.LoadInt32(&loginCount); got != 1 {
+		t.Fatalf("expected exactly one forced refresh login, got %d", got)
 	}
 }

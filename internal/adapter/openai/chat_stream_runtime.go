@@ -97,7 +97,7 @@ func (s *chatStreamRuntime) sendDone() {
 
 func (s *chatStreamRuntime) finalize(finishReason string) {
 	finalThinking := s.thinking.String()
-	finalText := s.text.String()
+	finalText := sanitizeLeakedToolHistory(s.text.String())
 	detected := util.ParseStandaloneToolCallsDetailed(finalText, s.toolNames)
 	if len(detected.Calls) > 0 && !s.toolCallsDoneEmitted {
 		finishReason = "tool_calls"
@@ -141,8 +141,12 @@ func (s *chatStreamRuntime) finalize(finishReason string) {
 			if evt.Content == "" {
 				continue
 			}
+			cleaned := sanitizeLeakedToolHistory(evt.Content)
+			if cleaned == "" {
+				continue
+			}
 			delta := map[string]any{
-				"content": evt.Content,
+				"content": cleaned,
 			}
 			if !s.firstChunkSent {
 				delta["role"] = "assistant"
@@ -246,8 +250,12 @@ func (s *chatStreamRuntime) onParsed(parsed sse.LineResult) streamengine.ParsedD
 						continue
 					}
 					if evt.Content != "" {
+						cleaned := sanitizeLeakedToolHistory(evt.Content)
+						if cleaned == "" {
+							continue
+						}
 						contentDelta := map[string]any{
-							"content": evt.Content,
+							"content": cleaned,
 						}
 						if !s.firstChunkSent {
 							contentDelta["role"] = "assistant"

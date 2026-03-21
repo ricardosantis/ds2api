@@ -167,7 +167,7 @@ func findToolSegmentStart(s string) int {
 		return -1
 	}
 	lower := strings.ToLower(s)
-	keywords := []string{"tool_calls", "function.name:", "[tool_call_history]"}
+	keywords := []string{"tool_calls", "function.name:", "[tool_call_history]", "[tool_result_history]"}
 	bestKeyIdx := -1
 	for _, kw := range keywords {
 		idx := strings.Index(lower, kw)
@@ -194,9 +194,8 @@ func consumeToolCapture(state *toolStreamSieveState, toolNames []string) (prefix
 		return "", nil, "", false
 	}
 	lower := strings.ToLower(captured)
-
 	keyIdx := -1
-	keywords := []string{"tool_calls", "function.name:", "[tool_call_history]"}
+	keywords := []string{"tool_calls", "function.name:", "[tool_call_history]", "[tool_result_history]"}
 	for _, kw := range keywords {
 		idx := strings.Index(lower, kw)
 		if idx >= 0 && (keyIdx < 0 || idx < keyIdx) {
@@ -209,6 +208,9 @@ func consumeToolCapture(state *toolStreamSieveState, toolNames []string) (prefix
 	}
 	start := strings.LastIndex(captured[:keyIdx], "{")
 	if start < 0 {
+		if blockStart, blockEnd, ok := extractToolHistoryBlock(captured, keyIdx); ok {
+			return captured[:blockStart], nil, captured[blockEnd:], true
+		}
 		start = keyIdx
 	}
 	obj, end, ok := extractJSONObjectFrom(captured, start)
@@ -231,6 +233,31 @@ func consumeToolCapture(state *toolStreamSieveState, toolNames []string) (prefix
 	}
 	prefixPart, suffixPart = trimWrappingJSONFence(prefixPart, suffixPart)
 	return prefixPart, parsed.Calls, suffixPart, true
+}
+
+func extractToolHistoryBlock(captured string, keyIdx int) (start int, end int, ok bool) {
+	if keyIdx < 0 || keyIdx >= len(captured) {
+		return 0, 0, false
+	}
+	rest := strings.ToLower(captured[keyIdx:])
+	switch {
+	case strings.HasPrefix(rest, "[tool_call_history]"):
+		closeTag := "[/tool_call_history]"
+		closeIdx := strings.Index(rest, closeTag)
+		if closeIdx < 0 {
+			return 0, 0, false
+		}
+		return keyIdx, keyIdx + closeIdx + len(closeTag), true
+	case strings.HasPrefix(rest, "[tool_result_history]"):
+		closeTag := "[/tool_result_history]"
+		closeIdx := strings.Index(rest, closeTag)
+		if closeIdx < 0 {
+			return 0, 0, false
+		}
+		return keyIdx, keyIdx + closeIdx + len(closeTag), true
+	default:
+		return 0, 0, false
+	}
 }
 
 func trimWrappingJSONFence(prefix, suffix string) (string, string) {
