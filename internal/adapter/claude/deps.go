@@ -24,6 +24,10 @@ type ConfigReader interface {
 	ClaudeMapping() map[string]string
 }
 
+type OpenAIChatRunner interface {
+	ChatCompletions(w http.ResponseWriter, r *http.Request)
+}
+
 var _ AuthResolver = (*auth.Resolver)(nil)
 var _ DeepSeekCaller = (*deepseek.Client)(nil)
 var _ ConfigReader = (*config.Store)(nil)
