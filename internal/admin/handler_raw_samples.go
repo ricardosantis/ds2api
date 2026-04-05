@@ -324,11 +324,13 @@ func buildCaptureChains(snapshot []devcapture.Entry) []captureChain {
 		return nil
 	}
 	ordered := make([]devcapture.Entry, len(snapshot))
-	copy(ordered, snapshot)
+	// devcapture snapshots are newest-first because the store prepends entries.
+	// Reverse once so equal-second timestamps can preserve the actual capture
+	// order (completion before continue) under the stable CreatedAt sort below.
+	for i := range snapshot {
+		ordered[len(snapshot)-1-i] = snapshot[i]
+	}
 	sort.SliceStable(ordered, func(i, j int) bool {
-		if ordered[i].CreatedAt == ordered[j].CreatedAt {
-			return ordered[i].ID < ordered[j].ID
-		}
 		return ordered[i].CreatedAt < ordered[j].CreatedAt
 	})
 

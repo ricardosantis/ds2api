@@ -285,6 +285,39 @@ func TestQueryRawSampleCapturesGroupsBySessionAndMatchesQuestion(t *testing.T) {
 	}
 }
 
+func TestBuildCaptureChainsPreservesCaptureOrderWhenTimestampsCollide(t *testing.T) {
+	snapshot := []devcapture.Entry{
+		{
+			ID:          "cap_continue",
+			CreatedAt:   1712365200,
+			Label:       "deepseek_continue",
+			RequestBody: `{"chat_session_id":"session-collision","message_id":2}`,
+			ResponseBody: "data: {\"v\":\"第二段\"}\n\n",
+		},
+		{
+			ID:          "cap_completion",
+			CreatedAt:   1712365200,
+			Label:       "deepseek_completion",
+			RequestBody: `{"chat_session_id":"session-collision","prompt":"题目"}`,
+			ResponseBody: "data: {\"v\":\"第一段\"}\n\n",
+		},
+	}
+
+	chains := buildCaptureChains(snapshot)
+	if len(chains) != 1 {
+		t.Fatalf("expected 1 chain, got %d", len(chains))
+	}
+	if len(chains[0].Entries) != 2 {
+		t.Fatalf("expected 2 entries, got %d", len(chains[0].Entries))
+	}
+	if chains[0].Entries[0].Label != "deepseek_completion" {
+		t.Fatalf("expected completion first, got %#v", chains[0].Entries)
+	}
+	if chains[0].Entries[1].Label != "deepseek_continue" {
+		t.Fatalf("expected continue second, got %#v", chains[0].Entries)
+	}
+}
+
 func TestSaveRawSampleFromCapturesPersistsSelectedChain(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("DS2API_RAW_STREAM_SAMPLE_ROOT", root)
