@@ -69,7 +69,7 @@ func (s *responsesStreamRuntime) ensureMessageContentPartAdded() {
 }
 
 func (s *responsesStreamRuntime) emitTextDelta(content string) {
-	if strings.TrimSpace(content) == "" {
+	if content == "" {
 		return
 	}
 	s.ensureMessageContentPartAdded()

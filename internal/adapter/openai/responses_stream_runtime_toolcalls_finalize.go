@@ -83,13 +83,13 @@ func (s *responsesStreamRuntime) buildCompletedResponseObject(finalThinking, fin
 		})
 	} else if len(calls) == 0 {
 		content := make([]map[string]any, 0, 2)
-		if strings.TrimSpace(finalThinking) != "" {
+		if finalThinking != "" {
 			content = append(content, map[string]any{
 				"type": "reasoning",
 				"text": finalThinking,
 			})
 		}
-		if strings.TrimSpace(finalText) != "" {
+		if finalText != "" {
 			content = append(content, map[string]any{
 				"type": "output_text",
 				"text": finalText,
@@ -136,10 +136,10 @@ func (s *responsesStreamRuntime) buildCompletedResponseObject(finalThinking, fin
 	}
 
 	outputText := s.visibleText.String()
-	if strings.TrimSpace(outputText) == "" && len(calls) == 0 {
-		if strings.TrimSpace(finalText) != "" {
+	if outputText == "" && len(calls) == 0 {
+		if finalText != "" {
 			outputText = finalText
-		} else if strings.TrimSpace(finalThinking) != "" {
+		} else if finalThinking != "" {
 			outputText = finalThinking
 		}
 	}

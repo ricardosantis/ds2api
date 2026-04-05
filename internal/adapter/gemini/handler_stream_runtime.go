@@ -27,7 +27,7 @@ func (h *Handler) handleStreamGenerateContent(w http.ResponseWriter, r *http.Req
 
 	rc := http.NewResponseController(w)
 	_, canFlush := w.(http.Flusher)
-	runtime := newGeminiStreamRuntime(w, rc, canFlush, model, finalPrompt, thinkingEnabled, searchEnabled, toolNames)
+	runtime := newGeminiStreamRuntime(w, rc, canFlush, model, finalPrompt, thinkingEnabled, searchEnabled, h.compatStripReferenceMarkers(), toolNames)
 
 	initialType := "text"
 	if thinkingEnabled {
@@ -57,13 +57,14 @@ type geminiStreamRuntime struct {
 	model       string
 	finalPrompt string
 
-	thinkingEnabled bool
-	searchEnabled   bool
-	bufferContent   bool
-	toolNames       []string
+	thinkingEnabled       bool
+	searchEnabled         bool
+	bufferContent         bool
+	stripReferenceMarkers bool
+	toolNames             []string
 
-	thinking strings.Builder
-	text     strings.Builder
+	thinking     strings.Builder
+	text         strings.Builder
 	outputTokens int
 }
 
@@ -75,18 +76,20 @@ func newGeminiStreamRuntime(
 	finalPrompt string,
 	thinkingEnabled bool,
 	searchEnabled bool,
+	stripReferenceMarkers bool,
 	toolNames []string,
 ) *geminiStreamRuntime {
 	return &geminiStreamRuntime{
-		w:               w,
-		rc:              rc,
-		canFlush:        canFlush,
-		model:           model,
-		finalPrompt:     finalPrompt,
-		thinkingEnabled: thinkingEnabled,
-		searchEnabled:   searchEnabled,
-		bufferContent:   len(toolNames) > 0,
-		toolNames:       toolNames,
+		w:                     w,
+		rc:                    rc,
+		canFlush:              canFlush,
+		model:                 model,
+		finalPrompt:           finalPrompt,
+		thinkingEnabled:       thinkingEnabled,
+		searchEnabled:         searchEnabled,
+		bufferContent:         len(toolNames) > 0,
+		stripReferenceMarkers: stripReferenceMarkers,
+		toolNames:             toolNames,
 	}
 }
 
@@ -113,20 +116,21 @@ func (s *geminiStreamRuntime) onParsed(parsed sse.LineResult) streamengine.Parse
 
 	contentSeen := false
 	for _, p := range parsed.Parts {
-		if p.Text == "" {
+		cleanedText := cleanVisibleOutput(p.Text, s.stripReferenceMarkers)
+		if cleanedText == "" {
 			continue
 		}
-		if p.Type != "thinking" && s.searchEnabled && sse.IsCitation(p.Text) {
+		if p.Type != "thinking" && s.searchEnabled && sse.IsCitation(cleanedText) {
 			continue
 		}
 		contentSeen = true
 		if p.Type == "thinking" {
 			if s.thinkingEnabled {
-				s.thinking.WriteString(p.Text)
+				s.thinking.WriteString(cleanedText)
 			}
 			continue
 		}
-		s.text.WriteString(p.Text)
+		s.text.WriteString(cleanedText)
 		if s.bufferContent {
 			continue
 		}
@@ -136,7 +140,7 @@ func (s *geminiStreamRuntime) onParsed(parsed sse.LineResult) streamengine.Parse
 					"index": 0,
 					"content": map[string]any{
 						"role":  "model",
-						"parts": []map[string]any{{"text": p.Text}},
+						"parts": []map[string]any{{"text": cleanedText}},
 					},
 				},
 			},
@@ -148,7 +152,7 @@ func (s *geminiStreamRuntime) onParsed(parsed sse.LineResult) streamengine.Parse
 
 func (s *geminiStreamRuntime) finalize() {
 	finalThinking := s.thinking.String()
-	finalText := s.text.String()
+	finalText := cleanVisibleOutput(s.text.String(), s.stripReferenceMarkers)
 
 	if s.bufferContent {
 		parts := buildGeminiPartsFromFinal(finalText, finalThinking, s.toolNames)

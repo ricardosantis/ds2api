@@ -42,6 +42,15 @@ func (s *Store) CompatWideInputStrictOutput() bool {
 	return *s.cfg.Compat.WideInputStrictOutput
 }
 
+func (s *Store) CompatStripReferenceMarkers() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.cfg.Compat.StripReferenceMarkers == nil {
+		return true
+	}
+	return *s.cfg.Compat.StripReferenceMarkers
+}
+
 func (s *Store) ToolcallMode() string {
 	return "feature_match"
 }
@@ -63,6 +72,20 @@ func (s *Store) EmbeddingsProvider() string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return strings.TrimSpace(s.cfg.Embeddings.Provider)
+}
+
+func (s *Store) AutoDeleteMode() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	mode := strings.ToLower(strings.TrimSpace(s.cfg.AutoDelete.Mode))
+	switch mode {
+	case "none", "single", "all":
+		return mode
+	}
+	if s.cfg.AutoDelete.Sessions {
+		return "all"
+	}
+	return "none"
 }
 
 func (s *Store) AdminPasswordHash() string {
@@ -97,13 +120,8 @@ func (s *Store) RuntimeAccountMaxInflight() int {
 	if s.cfg.Runtime.AccountMaxInflight > 0 {
 		return s.cfg.Runtime.AccountMaxInflight
 	}
-	for _, key := range []string{"DS2API_ACCOUNT_MAX_INFLIGHT", "DS2API_ACCOUNT_CONCURRENCY"} {
-		raw := strings.TrimSpace(os.Getenv(key))
-		if raw == "" {
-			continue
-		}
-		n, err := strconv.Atoi(raw)
-		if err == nil && n > 0 {
+	if raw := strings.TrimSpace(os.Getenv("DS2API_ACCOUNT_MAX_INFLIGHT")); raw != "" {
+		if n, err := strconv.Atoi(raw); err == nil && n > 0 {
 			return n
 		}
 	}
@@ -116,13 +134,8 @@ func (s *Store) RuntimeAccountMaxQueue(defaultSize int) int {
 	if s.cfg.Runtime.AccountMaxQueue > 0 {
 		return s.cfg.Runtime.AccountMaxQueue
 	}
-	for _, key := range []string{"DS2API_ACCOUNT_MAX_QUEUE", "DS2API_ACCOUNT_QUEUE_SIZE"} {
-		raw := strings.TrimSpace(os.Getenv(key))
-		if raw == "" {
-			continue
-		}
-		n, err := strconv.Atoi(raw)
-		if err == nil && n >= 0 {
+	if raw := strings.TrimSpace(os.Getenv("DS2API_ACCOUNT_MAX_QUEUE")); raw != "" {
+		if n, err := strconv.Atoi(raw); err == nil && n >= 0 {
 			return n
 		}
 	}
@@ -138,13 +151,8 @@ func (s *Store) RuntimeGlobalMaxInflight(defaultSize int) int {
 	if s.cfg.Runtime.GlobalMaxInflight > 0 {
 		return s.cfg.Runtime.GlobalMaxInflight
 	}
-	for _, key := range []string{"DS2API_GLOBAL_MAX_INFLIGHT", "DS2API_MAX_INFLIGHT"} {
-		raw := strings.TrimSpace(os.Getenv(key))
-		if raw == "" {
-			continue
-		}
-		n, err := strconv.Atoi(raw)
-		if err == nil && n > 0 {
+	if raw := strings.TrimSpace(os.Getenv("DS2API_GLOBAL_MAX_INFLIGHT")); raw != "" {
+		if n, err := strconv.Atoi(raw); err == nil && n > 0 {
 			return n
 		}
 	}
@@ -164,7 +172,5 @@ func (s *Store) RuntimeTokenRefreshIntervalHours() int {
 }
 
 func (s *Store) AutoDeleteSessions() bool {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.cfg.AutoDelete.Sessions
+	return s.AutoDeleteMode() != "none"
 }

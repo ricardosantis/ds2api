@@ -9,6 +9,7 @@ config.json
 *.swo
 *~
 .DS_Store
+opencode.json
 
 # Logs
 *.log

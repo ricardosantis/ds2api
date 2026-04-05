@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT_DIR"
 
 CONFIG_PATH="${1:-config.json}"
-SAMPLE_ID="${2:-sample-$(date -u +%Y%m%dT%H%M%SZ)}"
+SAMPLE_ID="${2:-capture-$(date -u +%Y%m%dT%H%M%SZ)}"
 QUESTION="${3:-广州天气}"
 MODEL="${4:-deepseek-reasoner-search}"
 API_KEY="${5:-}"
@@ -26,10 +26,11 @@ if [[ -z "$API_KEY" ]]; then
   exit 1
 fi
 
-OUT_DIR="tests/raw_stream_samples/${SAMPLE_ID}"
-mkdir -p "$OUT_DIR"
+HDR_FILE="$(mktemp)"
+BODY_FILE="$(mktemp)"
 
 cleanup() {
+  rm -f "$HDR_FILE" "$BODY_FILE"
   pkill -f "cmd/ds2api" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
@@ -47,52 +48,50 @@ for _ in $(seq 1 120); do
   sleep 1
 done
 
-REQUEST_BODY="$(python3 - <<'PY' "$MODEL" "$QUESTION"
+REQUEST_BODY="$(python3 - <<'PY' "$SAMPLE_ID" "$MODEL" "$QUESTION" "$API_KEY"
 import json,sys
-model,question=sys.argv[1:3]
+sample_id,model,question,api_key=sys.argv[1:5]
 payload={
-  'model':model,
-  'stream':True,
-  'messages':[{'role':'user','content':question}],
+  'sample_id': sample_id,
+  'api_key': api_key,
+  'model': model,
+  'stream': True,
+  'messages': [{'role': 'user', 'content': question}],
 }
 print(json.dumps(payload, ensure_ascii=False))
 PY
 )"
 
-curl -sS http://127.0.0.1:5001/v1/chat/completions \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer ${API_KEY}" \
-  --data-binary "${REQUEST_BODY}" \
-  >"${OUT_DIR}/openai.stream.sse"
-
-curl -sS http://127.0.0.1:5001/admin/dev/captures \
+curl -sS \
+  -D "$HDR_FILE" \
+  http://127.0.0.1:5001/admin/dev/raw-samples/capture \
   -H "Authorization: Bearer ${ADMIN_KEY}" \
-  >"${OUT_DIR}/captures.json"
+  -H 'Content-Type: application/json' \
+  --data-binary "${REQUEST_BODY}" \
+  >"$BODY_FILE"
 
-python3 - <<'PY' "$OUT_DIR" "$SAMPLE_ID" "$QUESTION" "$MODEL"
-import json,sys,pathlib,datetime
-out=pathlib.Path(sys.argv[1])
-sample_id,question,model=sys.argv[2:5]
-captures=json.loads((out/'captures.json').read_text())
-items=captures.get('items') or []
-if not items:
-  raise SystemExit('no captured upstream stream found')
-best=max(items,key=lambda x:len((x.get('response_body') or '')))
-raw=best.get('response_body') or ''
-(out/'upstream.stream.sse').write_text(raw)
-meta={
-  'sample_id':sample_id,
-  'captured_at_utc':datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
-  'request':{'model':model,'stream':True,'messages':[{'role':'user','content':question}]},
-  'capture':{
-    'label':best.get('label'),'url':best.get('url'),'status_code':best.get('status_code'),
-    'response_bytes':len(raw),'contains_finished_token':('FINISHED' in raw),'finished_token_count':raw.count('FINISHED')
-  }
-}
-(out/'meta.json').write_text(json.dumps(meta,ensure_ascii=False,indent=2))
-print(f'[capture] wrote sample to {out}')
-print(f'[capture] upstream bytes={len(raw)} finished_count={raw.count("FINISHED")}')
+SAMPLE_DIR="$(python3 - <<'PY' "$HDR_FILE"
+import sys,pathlib
+headers=pathlib.Path(sys.argv[1]).read_text().splitlines()
+for line in headers:
+  if line.lower().startswith('x-ds2-sample-dir:'):
+    print(line.split(':',1)[1].strip())
+    raise SystemExit
+print('')
 PY
+)"
 
-rm -f "${OUT_DIR}/captures.json"
-echo "[capture] done: ${OUT_DIR}"
+SAMPLE_ID_HEADER="$(python3 - <<'PY' "$HDR_FILE"
+import sys,pathlib
+headers=pathlib.Path(sys.argv[1]).read_text().splitlines()
+for line in headers:
+  if line.lower().startswith('x-ds2-sample-id:'):
+    print(line.split(':',1)[1].strip())
+    raise SystemExit
+print('')
+PY
+)"
+
+echo "[capture] sample_id=${SAMPLE_ID_HEADER:-$SAMPLE_ID}"
+echo "[capture] sample_dir=${SAMPLE_DIR:-tests/raw_stream_samples/$SAMPLE_ID}"
+cat "$BODY_FILE"

@@ -17,7 +17,8 @@ import (
 
 type testGeminiConfig struct{}
 
-func (testGeminiConfig) ModelAliases() map[string]string { return nil }
+func (testGeminiConfig) ModelAliases() map[string]string   { return nil }
+func (testGeminiConfig) CompatStripReferenceMarkers() bool { return true }
 
 type testGeminiAuth struct {
 	a   *auth.RequestAuth
@@ -62,8 +63,8 @@ func (m testGeminiDS) CallCompletion(_ context.Context, _ *auth.RequestAuth, _ m
 }
 
 type geminiOpenAIErrorStub struct {
-	status int
-	body   string
+	status  int
+	body    string
 	headers map[string]string
 }
 
@@ -247,7 +248,7 @@ func TestStreamGenerateContentEmitsSSE(t *testing.T) {
 
 func TestGenerateContentOpenAIProxyErrorUsesGeminiEnvelope(t *testing.T) {
 	h := &Handler{
-		Store:  testGeminiConfig{},
+		Store: testGeminiConfig{},
 		OpenAI: geminiOpenAIErrorStub{
 			status: http.StatusUnauthorized,
 			body:   `{"error":{"message":"invalid api key"}}`,

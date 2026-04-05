@@ -1,17 +1,12 @@
 package openai
 
-import (
-	"net/http"
-	"strings"
+import "net/http"
 
-	"ds2api/internal/sse"
-)
-
-func writeUpstreamEmptyOutputError(w http.ResponseWriter, result sse.CollectResult) bool {
-	if strings.TrimSpace(result.Thinking) != "" || strings.TrimSpace(sanitizeLeakedOutput(result.Text)) != "" {
+func writeUpstreamEmptyOutputError(w http.ResponseWriter, thinking, text string, contentFilter bool) bool {
+	if thinking != "" || text != "" {
 		return false
 	}
-	if result.ContentFilter {
+	if contentFilter {
 		writeOpenAIErrorWithCode(w, http.StatusBadRequest, "Upstream content filtered the response and returned no output.", "content_filter")
 		return true
 	}

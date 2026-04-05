@@ -9,9 +9,9 @@ var leakedToolCallArrayPattern = regexp.MustCompile(`(?is)\[\{\s*"function"\s*:\
 var leakedToolResultBlobPattern = regexp.MustCompile(`(?is)<\s*\|\s*tool\s*\|\s*>\s*\{[\s\S]*?"tool_call_id"\s*:\s*"call[^"]*"\s*}`)
 
 // leakedMetaMarkerPattern matches DeepSeek special tokens in BOTH forms:
-//   - ASCII underscore: <｜end_of_sentence｜>
-//   - U+2581 variant:   <｜end▁of▁sentence｜>  (used in some DeepSeek outputs)
-var leakedMetaMarkerPattern = regexp.MustCompile(`(?i)<[｜\|]\s*(?:assistant|tool|end[_▁]of[_▁]sentence|end[_▁]of[_▁]thinking)\s*[｜\|]>`)
+//   - ASCII underscore: <｜end_of_sentence｜>, <｜end_of_toolresults｜>, <｜end_of_instructions｜>
+//   - U+2581 variant:   <｜end▁of▁sentence｜>, <｜end▁of▁toolresults｜>, <｜end▁of▁instructions｜>
+var leakedMetaMarkerPattern = regexp.MustCompile(`(?i)<[｜\|]\s*(?:assistant|tool|end[_▁]of[_▁]sentence|end[_▁]of[_▁]thinking|end[_▁]of[_▁]toolresults|end[_▁]of[_▁]instructions)\s*[｜\|]>`)
 
 // leakedAgentXMLBlockPatterns catch agent-style XML blocks that leak through
 // when the sieve fails to capture them. These are applied only to complete

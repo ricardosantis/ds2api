@@ -16,6 +16,8 @@ func (s claudeProxyStoreStub) ClaudeMapping() map[string]string {
 	return s.mapping
 }
 
+func (claudeProxyStoreStub) CompatStripReferenceMarkers() bool { return true }
+
 type openAIProxyStub struct {
 	status int
 	body   string

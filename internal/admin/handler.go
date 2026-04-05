@@ -5,9 +5,10 @@ import (
 )
 
 type Handler struct {
-	Store ConfigStore
-	Pool  PoolController
-	DS    DeepSeekCaller
+	Store  ConfigStore
+	Pool   PoolController
+	DS     DeepSeekCaller
+	OpenAI OpenAIChatCaller
 }
 
 func RegisterRoutes(r chi.Router, h *Handler) {
@@ -34,6 +35,7 @@ func RegisterRoutes(r chi.Router, h *Handler) {
 		pr.Post("/accounts/sessions/delete-all", h.deleteAllSessions)
 		pr.Post("/import", h.batchImport)
 		pr.Post("/test", h.testAPI)
+		pr.Post("/dev/raw-samples/capture", h.captureRawSample)
 		pr.Post("/vercel/sync", h.syncVercel)
 		pr.Get("/vercel/status", h.vercelStatus)
 		pr.Post("/vercel/status", h.vercelStatus)

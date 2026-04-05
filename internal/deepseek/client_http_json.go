@@ -39,7 +39,7 @@ func (c *Client) postJSONWithStatus(ctx context.Context, doer trans.Doer, url st
 		config.Logger.Warn("[deepseek] fingerprint request failed, fallback to std transport", "url", url, "error", err)
 		req2, reqErr := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(b))
 		if reqErr != nil {
-			return nil, 0, err
+			return nil, 0, reqErr
 		}
 		for k, v := range headers {
 			req2.Header.Set(k, v)
@@ -76,7 +76,7 @@ func (c *Client) getJSONWithStatus(ctx context.Context, doer trans.Doer, url str
 		config.Logger.Warn("[deepseek] fingerprint GET request failed, fallback to std transport", "url", url, "error", err)
 		req2, reqErr := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 		if reqErr != nil {
-			return nil, 0, err
+			return nil, 0, reqErr
 		}
 		for k, v := range headers {
 			req2.Header.Set(k, v)

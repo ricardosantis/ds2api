@@ -173,6 +173,9 @@ func TestMessagesPrepareMergesConsecutiveSameRole(t *testing.T) {
 	if count != 1 {
 		t.Fatalf("expected one User marker for the merged pair, got %d occurrences", count)
 	}
+	if count := strings.Count(got, "<｜end▁of▁sentence｜>"); count != 1 {
+		t.Fatalf("expected one sentence terminator for the merged pair, got %d occurrences", count)
+	}
 }
 
 func TestMessagesPrepareAssistantMarkers(t *testing.T) {
@@ -186,6 +189,15 @@ func TestMessagesPrepareAssistantMarkers(t *testing.T) {
 	}
 	if !strings.Contains(got, "<｜end▁of▁sentence｜>") {
 		t.Fatalf("expected end of sentence marker, got %q", got)
+	}
+	if strings.Count(got, "<｜end▁of▁sentence｜>") != 2 {
+		t.Fatalf("expected both turns to be terminated, got %q", got)
+	}
+	if !strings.Contains(got, "<｜Assistant｜>\nHello!<｜end▁of▁sentence｜>") {
+		t.Fatalf("expected assistant EOS suffix, got %q", got)
+	}
+	if strings.Contains(got, "<system_instructions>") {
+		t.Fatalf("did not expect legacy system marker, got %q", got)
 	}
 }
 

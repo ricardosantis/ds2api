@@ -32,23 +32,36 @@ func TestGoCompatSSEFixtures(t *testing.T) {
 		mustLoadJSON(t, fixturePath, &fixture)
 
 		var expected struct {
-			Parts    []map[string]any `json:"parts"`
-			Finished bool             `json:"finished"`
-			NewType  string           `json:"new_type"`
+			Parts         []map[string]any `json:"parts"`
+			Finished      bool             `json:"finished"`
+			NewType       string           `json:"new_type"`
+			ContentFilter bool             `json:"content_filter"`
+			OutputTokens  int              `json:"output_tokens"`
+			ErrorMessage  string           `json:"error_message"`
 		}
 		mustLoadJSON(t, expectedPath, &expected)
 
-		parts, finished, newType := sse.ParseSSEChunkForContent(fixture.Chunk, fixture.ThinkingEnable, fixture.CurrentType)
-		gotParts := make([]map[string]any, 0, len(parts))
-		for _, p := range parts {
+		raw, err := json.Marshal(fixture.Chunk)
+		if err != nil {
+			t.Fatalf("marshal fixture %s failed: %v", name, err)
+		}
+		res := sse.ParseDeepSeekContentLine(append([]byte("data: "), raw...), fixture.ThinkingEnable, fixture.CurrentType)
+		gotParts := make([]map[string]any, 0, len(res.Parts))
+		for _, p := range res.Parts {
 			gotParts = append(gotParts, map[string]any{
 				"text": p.Text,
 				"type": p.Type,
 			})
 		}
-		if !reflect.DeepEqual(gotParts, expected.Parts) || finished != expected.Finished || newType != expected.NewType {
-			t.Fatalf("fixture %s mismatch:\n got parts=%#v finished=%v newType=%q\nwant parts=%#v finished=%v newType=%q",
-				name, gotParts, finished, newType, expected.Parts, expected.Finished, expected.NewType)
+		if !reflect.DeepEqual(gotParts, expected.Parts) ||
+			res.Stop != expected.Finished ||
+			res.NextType != expected.NewType ||
+			res.ContentFilter != expected.ContentFilter ||
+			res.OutputTokens != expected.OutputTokens ||
+			res.ErrorMessage != expected.ErrorMessage {
+			t.Fatalf("fixture %s mismatch:\n got parts=%#v finished=%v newType=%q contentFilter=%v outputTokens=%d errorMessage=%q\nwant parts=%#v finished=%v newType=%q contentFilter=%v outputTokens=%d errorMessage=%q",
+				name, gotParts, res.Stop, res.NextType, res.ContentFilter, res.OutputTokens, res.ErrorMessage,
+				expected.Parts, expected.Finished, expected.NewType, expected.ContentFilter, expected.OutputTokens, expected.ErrorMessage)
 		}
 	}
 }

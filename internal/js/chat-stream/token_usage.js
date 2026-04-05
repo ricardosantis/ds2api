@@ -1,13 +1,15 @@
 'use strict';
 
-function buildUsage(prompt, thinking, output) {
+function buildUsage(prompt, thinking, output, outputTokens = 0) {
   const promptTokens = estimateTokens(prompt);
   const reasoningTokens = estimateTokens(thinking);
   const completionTokens = estimateTokens(output);
+  const overriddenCompletionTokens = Number.isFinite(outputTokens) && outputTokens > 0 ? Math.trunc(outputTokens) : 0;
+  const finalCompletionTokens = overriddenCompletionTokens > 0 ? overriddenCompletionTokens : reasoningTokens + completionTokens;
   return {
     prompt_tokens: promptTokens,
-    completion_tokens: reasoningTokens + completionTokens,
-    total_tokens: promptTokens + reasoningTokens + completionTokens,
+    completion_tokens: finalCompletionTokens,
+    total_tokens: promptTokens + finalCompletionTokens,
     completion_tokens_details: {
       reasoning_tokens: reasoningTokens,
     },
@@ -15,7 +17,7 @@ function buildUsage(prompt, thinking, output) {
 }
 
 function estimateTokens(text) {
-  const t = asString(text);
+  const t = asTokenString(text);
   if (!t) {
     return 0;
   }
@@ -32,17 +34,17 @@ function estimateTokens(text) {
   return n < 1 ? 1 : n;
 }
 
-function asString(v) {
+function asTokenString(v) {
   if (typeof v === 'string') {
-    return v.trim();
+    return v;
   }
   if (Array.isArray(v)) {
-    return asString(v[0]);
+    return asTokenString(v[0]);
   }
   if (v == null) {
     return '';
   }
-  return String(v).trim();
+  return String(v);
 }
 
 module.exports = {

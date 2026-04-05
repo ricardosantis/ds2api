@@ -140,7 +140,15 @@ func (h *Handler) handleNonStreamGenerateContent(w http.ResponseWriter, resp *ht
 	}
 
 	result := sse.CollectStream(resp, thinkingEnabled, true)
-	writeJSON(w, http.StatusOK, buildGeminiGenerateContentResponse(model, finalPrompt, result.Thinking, result.Text, toolNames, result.OutputTokens))
+	stripReferenceMarkers := h.compatStripReferenceMarkers()
+	writeJSON(w, http.StatusOK, buildGeminiGenerateContentResponse(
+		model,
+		finalPrompt,
+		cleanVisibleOutput(result.Thinking, stripReferenceMarkers),
+		cleanVisibleOutput(result.Text, stripReferenceMarkers),
+		toolNames,
+		result.OutputTokens,
+	))
 }
 
 func buildGeminiGenerateContentResponse(model, finalPrompt, finalThinking, finalText string, toolNames []string, outputTokens int) map[string]any {
@@ -179,7 +187,7 @@ func buildGeminiUsage(finalPrompt, finalThinking, finalText string, outputTokens
 
 func buildGeminiPartsFromFinal(finalText, finalThinking string, toolNames []string) []map[string]any {
 	detected := util.ParseToolCalls(finalText, toolNames)
-	if len(detected) == 0 && strings.TrimSpace(finalThinking) != "" {
+	if len(detected) == 0 && finalThinking != "" {
 		detected = util.ParseToolCalls(finalThinking, toolNames)
 	}
 	if len(detected) > 0 {
@@ -196,7 +204,7 @@ func buildGeminiPartsFromFinal(finalText, finalThinking string, toolNames []stri
 	}
 
 	text := finalText
-	if strings.TrimSpace(text) == "" {
+	if text == "" {
 		text = finalThinking
 	}
 	return []map[string]any{{"text": text}}

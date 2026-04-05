@@ -13,9 +13,10 @@ const MAX_AUTO_FETCH_FAILURES = 3
 const DEFAULT_FORM = {
     admin: { jwt_expire_hours: 24 },
     runtime: { account_max_inflight: 2, account_max_queue: 10, global_max_inflight: 10, token_refresh_interval_hours: 6 },
+    compat: { strip_reference_markers: true },
     responses: { store_ttl_seconds: 900 },
     embeddings: { provider: '' },
-    auto_delete: { sessions: false },
+    auto_delete: { mode: 'none' },
     claude_mapping_text: '{\n  "fast": "deepseek-chat",\n  "slow": "deepseek-reasoner"\n}',
     model_aliases_text: '{}',
 }
@@ -37,6 +38,17 @@ function parseJSONMap(raw, fieldName, t) {
     return parsed
 }
 
+function normalizeAutoDeleteMode(raw) {
+    const mode = String(raw?.mode || '').trim().toLowerCase()
+    if (mode === 'none' || mode === 'single' || mode === 'all') {
+        return mode
+    }
+    if (Boolean(raw?.sessions)) {
+        return 'all'
+    }
+    return 'none'
+}
+
 function fromServerForm(data) {
     return {
         admin: { jwt_expire_hours: Number(data.admin?.jwt_expire_hours || 24) },
@@ -46,6 +58,9 @@ function fromServerForm(data) {
             global_max_inflight: Number(data.runtime?.global_max_inflight || 10),
             token_refresh_interval_hours: Number(data.runtime?.token_refresh_interval_hours || 6),
         },
+        compat: {
+            strip_reference_markers: data.compat?.strip_reference_markers ?? true,
+        },
         responses: {
             store_ttl_seconds: Number(data.responses?.store_ttl_seconds || 900),
         },
@@ -53,7 +68,7 @@ function fromServerForm(data) {
             provider: data.embeddings?.provider || '',
         },
         auto_delete: {
-            sessions: Boolean(data.auto_delete?.sessions || false),
+            mode: normalizeAutoDeleteMode(data.auto_delete),
         },
         claude_mapping_text: JSON.stringify(data.claude_mapping || {}, null, 2),
         model_aliases_text: JSON.stringify(data.model_aliases || {}, null, 2),
@@ -69,9 +84,12 @@ function toServerPayload(form) {
             global_max_inflight: Number(form.runtime.global_max_inflight),
             token_refresh_interval_hours: Number(form.runtime.token_refresh_interval_hours),
         },
+        compat: {
+            strip_reference_markers: Boolean(form.compat?.strip_reference_markers ?? true),
+        },
         responses: { store_ttl_seconds: Number(form.responses.store_ttl_seconds) },
         embeddings: { provider: String(form.embeddings.provider || '').trim() },
-        auto_delete: { sessions: Boolean(form.auto_delete?.sessions) },
+        auto_delete: { mode: normalizeAutoDeleteMode(form.auto_delete) },
     }
 }
 

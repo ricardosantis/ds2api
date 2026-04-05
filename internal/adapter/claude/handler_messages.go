@@ -149,6 +149,7 @@ func (h *Handler) handleClaudeStreamRealtime(w http.ResponseWriter, r *http.Requ
 		messages,
 		thinkingEnabled,
 		searchEnabled,
+		h.compatStripReferenceMarkers(),
 		toolNames,
 	)
 	streamRuntime.sendMessageStart()

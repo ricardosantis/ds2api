@@ -19,13 +19,14 @@ type claudeStreamRuntime struct {
 	toolNames []string
 	messages  []any
 
-	thinkingEnabled   bool
-	searchEnabled     bool
-	bufferToolContent bool
+	thinkingEnabled       bool
+	searchEnabled         bool
+	bufferToolContent     bool
+	stripReferenceMarkers bool
 
-	messageID string
-	thinking  strings.Builder
-	text      strings.Builder
+	messageID    string
+	thinking     strings.Builder
+	text         strings.Builder
 	outputTokens int
 
 	nextBlockIndex     int
@@ -45,21 +46,23 @@ func newClaudeStreamRuntime(
 	messages []any,
 	thinkingEnabled bool,
 	searchEnabled bool,
+	stripReferenceMarkers bool,
 	toolNames []string,
 ) *claudeStreamRuntime {
 	return &claudeStreamRuntime{
-		w:                  w,
-		rc:                 rc,
-		canFlush:           canFlush,
-		model:              model,
-		messages:           messages,
-		thinkingEnabled:    thinkingEnabled,
-		searchEnabled:      searchEnabled,
-		bufferToolContent:  len(toolNames) > 0,
-		toolNames:          toolNames,
-		messageID:          fmt.Sprintf("msg_%d", time.Now().UnixNano()),
-		thinkingBlockIndex: -1,
-		textBlockIndex:     -1,
+		w:                     w,
+		rc:                    rc,
+		canFlush:              canFlush,
+		model:                 model,
+		messages:              messages,
+		thinkingEnabled:       thinkingEnabled,
+		searchEnabled:         searchEnabled,
+		bufferToolContent:     len(toolNames) > 0,
+		stripReferenceMarkers: stripReferenceMarkers,
+		toolNames:             toolNames,
+		messageID:             fmt.Sprintf("msg_%d", time.Now().UnixNano()),
+		thinkingBlockIndex:    -1,
+		textBlockIndex:        -1,
 	}
 }
 
@@ -80,10 +83,11 @@ func (s *claudeStreamRuntime) onParsed(parsed sse.LineResult) streamengine.Parse
 
 	contentSeen := false
 	for _, p := range parsed.Parts {
-		if p.Text == "" {
+		cleanedText := cleanVisibleOutput(p.Text, s.stripReferenceMarkers)
+		if cleanedText == "" {
 			continue
 		}
-		if p.Type != "thinking" && s.searchEnabled && sse.IsCitation(p.Text) {
+		if p.Type != "thinking" && s.searchEnabled && sse.IsCitation(cleanedText) {
 			continue
 		}
 		contentSeen = true
@@ -92,7 +96,7 @@ func (s *claudeStreamRuntime) onParsed(parsed sse.LineResult) streamengine.Parse
 			if !s.thinkingEnabled {
 				continue
 			}
-			s.thinking.WriteString(p.Text)
+			s.thinking.WriteString(cleanedText)
 			s.closeTextBlock()
 			if !s.thinkingBlockOpen {
 				s.thinkingBlockIndex = s.nextBlockIndex
@@ -112,13 +116,13 @@ func (s *claudeStreamRuntime) onParsed(parsed sse.LineResult) streamengine.Parse
 				"index": s.thinkingBlockIndex,
 				"delta": map[string]any{
 					"type":     "thinking_delta",
-					"thinking": p.Text,
+					"thinking": cleanedText,
 				},
 			})
 			continue
 		}
 
-		s.text.WriteString(p.Text)
+		s.text.WriteString(cleanedText)
 		if s.bufferToolContent {
 			if hasUnclosedCodeFence(s.text.String()) {
 				continue
@@ -144,7 +148,7 @@ func (s *claudeStreamRuntime) onParsed(parsed sse.LineResult) streamengine.Parse
 			"index": s.textBlockIndex,
 			"delta": map[string]any{
 				"type": "text_delta",
-				"text": p.Text,
+				"text": cleanedText,
 			},
 		})
 	}

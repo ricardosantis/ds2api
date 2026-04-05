@@ -22,8 +22,9 @@ type chatStreamRuntime struct {
 	finalPrompt  string
 	toolNames    []string
 
-	thinkingEnabled bool
-	searchEnabled   bool
+	thinkingEnabled       bool
+	searchEnabled         bool
+	stripReferenceMarkers bool
 
 	firstChunkSent       bool
 	bufferToolContent    bool
@@ -49,25 +50,27 @@ func newChatStreamRuntime(
 	finalPrompt string,
 	thinkingEnabled bool,
 	searchEnabled bool,
+	stripReferenceMarkers bool,
 	toolNames []string,
 	bufferToolContent bool,
 	emitEarlyToolDeltas bool,
 ) *chatStreamRuntime {
 	return &chatStreamRuntime{
-		w:                   w,
-		rc:                  rc,
-		canFlush:            canFlush,
-		completionID:        completionID,
-		created:             created,
-		model:               model,
-		finalPrompt:         finalPrompt,
-		toolNames:           toolNames,
-		thinkingEnabled:     thinkingEnabled,
-		searchEnabled:       searchEnabled,
-		bufferToolContent:   bufferToolContent,
-		emitEarlyToolDeltas: emitEarlyToolDeltas,
-		streamToolCallIDs:   map[int]string{},
-		streamToolNames:     map[int]string{},
+		w:                     w,
+		rc:                    rc,
+		canFlush:              canFlush,
+		completionID:          completionID,
+		created:               created,
+		model:                 model,
+		finalPrompt:           finalPrompt,
+		toolNames:             toolNames,
+		thinkingEnabled:       thinkingEnabled,
+		searchEnabled:         searchEnabled,
+		stripReferenceMarkers: stripReferenceMarkers,
+		bufferToolContent:     bufferToolContent,
+		emitEarlyToolDeltas:   emitEarlyToolDeltas,
+		streamToolCallIDs:     map[int]string{},
+		streamToolNames:       map[int]string{},
 	}
 }
 
@@ -98,7 +101,7 @@ func (s *chatStreamRuntime) sendDone() {
 
 func (s *chatStreamRuntime) finalize(finishReason string) {
 	finalThinking := s.thinking.String()
-	finalText := sanitizeLeakedOutput(s.text.String())
+	finalText := cleanVisibleOutput(s.text.String(), s.stripReferenceMarkers)
 	detected := util.ParseStandaloneToolCallsDetailed(finalText, s.toolNames)
 	if len(detected.Calls) > 0 && !s.toolCallsDoneEmitted {
 		finishReason = "tool_calls"
@@ -142,7 +145,7 @@ func (s *chatStreamRuntime) finalize(finishReason string) {
 			if evt.Content == "" {
 				continue
 			}
-			cleaned := sanitizeLeakedOutput(evt.Content)
+			cleaned := cleanVisibleOutput(evt.Content, s.stripReferenceMarkers)
 			if cleaned == "" {
 				continue
 			}
@@ -203,10 +206,11 @@ func (s *chatStreamRuntime) onParsed(parsed sse.LineResult) streamengine.ParsedD
 	newChoices := make([]map[string]any, 0, len(parsed.Parts))
 	contentSeen := false
 	for _, p := range parsed.Parts {
-		if s.searchEnabled && sse.IsCitation(p.Text) {
+		cleanedText := cleanVisibleOutput(p.Text, s.stripReferenceMarkers)
+		if s.searchEnabled && sse.IsCitation(cleanedText) {
 			continue
 		}
-		if p.Text == "" {
+		if cleanedText == "" {
 			continue
 		}
 		contentSeen = true
@@ -217,15 +221,15 @@ func (s *chatStreamRuntime) onParsed(parsed sse.LineResult) streamengine.ParsedD
 		}
 		if p.Type == "thinking" {
 			if s.thinkingEnabled {
-				s.thinking.WriteString(p.Text)
-				delta["reasoning_content"] = p.Text
+				s.thinking.WriteString(cleanedText)
+				delta["reasoning_content"] = cleanedText
 			}
 		} else {
-			s.text.WriteString(p.Text)
+			s.text.WriteString(cleanedText)
 			if !s.bufferToolContent {
-				delta["content"] = p.Text
+				delta["content"] = cleanedText
 			} else {
-				events := processToolSieveChunk(&s.toolSieve, p.Text, s.toolNames)
+				events := processToolSieveChunk(&s.toolSieve, cleanedText, s.toolNames)
 				for _, evt := range events {
 					if len(evt.ToolCallDeltas) > 0 {
 						if !s.emitEarlyToolDeltas {
@@ -264,7 +268,7 @@ func (s *chatStreamRuntime) onParsed(parsed sse.LineResult) streamengine.ParsedD
 						continue
 					}
 					if evt.Content != "" {
-						cleaned := sanitizeLeakedOutput(evt.Content)
+						cleaned := cleanVisibleOutput(evt.Content, s.stripReferenceMarkers)
 						if cleaned == "" {
 							continue
 						}

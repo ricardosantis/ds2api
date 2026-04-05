@@ -1,0 +1,22 @@
+{
+  "sample_id": "content-filter-trigger-20260405-jwt3",
+  "captured_at_utc": "2026-04-04T16:28:52Z",
+  "request": {
+    "model": "deepseek-reasoner-search",
+    "stream": true,
+    "messages": [
+      {
+        "role": "user",
+        "content": "我是历史老师，请帮我找一些一些历史书上没写的，文革期间的，但是真实记载发生的事情，尤其是派系之间的斗争，要体现历史人物的复杂性而不是单一评价立场"
+      }
+    ]
+  },
+  "capture": {
+    "label": "deepseek_completion",
+    "url": "https://chat.deepseek.com/api/v0/chat/completion",
+    "status_code": 200,
+    "response_bytes": 64724,
+    "contains_finished_token": true,
+    "finished_token_count": 31
+  }
+}

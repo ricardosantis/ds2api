@@ -31,6 +31,7 @@ func (c *Client) CallCompletion(ctx context.Context, a *auth.RequestAuth, payloa
 			if captureSession != nil {
 				resp.Body = captureSession.WrapBody(resp.Body, resp.StatusCode)
 			}
+			resp = c.wrapCompletionWithAutoContinue(ctx, a, payload, powResp, resp)
 			return resp, nil
 		}
 		if captureSession != nil {
@@ -60,7 +61,7 @@ func (c *Client) streamPost(ctx context.Context, url string, headers map[string]
 		config.Logger.Warn("[deepseek] fingerprint stream request failed, fallback to std transport", "url", url, "error", err)
 		req2, reqErr := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(b))
 		if reqErr != nil {
-			return nil, err
+			return nil, reqErr
 		}
 		for k, v := range headers {
 			req2.Header.Set(k, v)

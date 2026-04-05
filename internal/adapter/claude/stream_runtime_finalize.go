@@ -43,7 +43,7 @@ func (s *claudeStreamRuntime) finalize(stopReason string) {
 	s.closeTextBlock()
 
 	finalThinking := s.thinking.String()
-	finalText := s.text.String()
+	finalText := cleanVisibleOutput(s.text.String(), s.stripReferenceMarkers)
 
 	if s.bufferToolContent {
 		detected := util.ParseStandaloneToolCalls(finalText, s.toolNames)
@@ -64,7 +64,7 @@ func (s *claudeStreamRuntime) finalize(stopReason string) {
 						"input": map[string]any{},
 					},
 				})
-				
+
 				inputBytes, _ := json.Marshal(tc.Input)
 				s.send("content_block_delta", map[string]any{
 					"type":  "content_block_delta",

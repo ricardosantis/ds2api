@@ -52,8 +52,7 @@ cp config.example.json config.json
 Use it per deployment mode:
 
 - Local run: read `config.json` directly
-- Docker / Vercel: generate Base64 from `config.json`, then set `DS2API_CONFIG_JSON`
-- Compatibility note: `DS2API_CONFIG_JSON` may also contain raw JSON directly; `CONFIG_JSON` is the legacy fallback variable
+- Docker / Vercel: generate Base64 from `config.json`, then set `DS2API_CONFIG_JSON`, or paste raw JSON directly
 
 ```bash
 DS2API_CONFIG_JSON="$(base64 < config.json | tr -d '\n')"
@@ -356,7 +355,8 @@ data: [DONE]
 ```
 
 If `tool_choice=required` is violated in stream mode, DS2API emits `response.failed` then `[DONE]` (no `response.completed`).
-Unknown tool names (outside declared `tools`) are rejected and will not be emitted as valid tool calls.
+
+> Current behavior: the parser tries to extract structured tool calls and does not enforce a hard allow-list reject; your tool executor should still validate against a whitelist before executing.
 
 ### `GET /v1/responses/{response_id}`
 
@@ -642,8 +642,9 @@ Reads runtime settings and status, including:
 - `success`
 - `admin` (`has_password_hash`, `jwt_expire_hours`, `jwt_valid_after_unix`, `default_password_warning`)
 - `runtime` (`account_max_inflight`, `account_max_queue`, `global_max_inflight`, `token_refresh_interval_hours`)
+- `compat` (`wide_input_strict_output`, `strip_reference_markers`)
 - `responses` / `embeddings`
-- `auto_delete` (`sessions`)
+- `auto_delete` (`mode`: `none` / `single` / `all`; legacy `sessions=true` is still treated as `all`)
 - `claude_mapping` / `model_aliases`
 - `env_backed`, `needs_vercel_sync`
 - `toolcall` policy is fixed to `feature_match + high` and is no longer returned or editable via settings
@@ -654,9 +655,10 @@ Hot-updates runtime settings. Supported fields:
 
 - `admin.jwt_expire_hours`
 - `runtime.account_max_inflight` / `runtime.account_max_queue` / `runtime.global_max_inflight` / `runtime.token_refresh_interval_hours`
+- `compat.wide_input_strict_output` / `compat.strip_reference_markers`
 - `responses.store_ttl_seconds`
 - `embeddings.provider`
-- `auto_delete.sessions`
+- `auto_delete.mode`
 - `claude_mapping`
 - `model_aliases`
 - `toolcall` policy is fixed and is no longer writable through settings
@@ -683,6 +685,8 @@ Imports full config with:
 The request can send config directly, or wrapped as `{"config": {...}, "mode":"merge"}`.
 Query params `?mode=merge` / `?mode=replace` are also supported.
 Import accepts `keys`, `accounts`, `claude_mapping` / `claude_model_mapping`, `model_aliases`, `admin`, `runtime`, `responses`, `embeddings`, and `auto_delete`; legacy `toolcall` fields are ignored.
+
+> `compat` fields are managed via `/admin/settings` or the config file; this import endpoint does not update `compat`.
 
 ### `GET /admin/config/export`
 
@@ -758,17 +762,25 @@ Returned items also include `test_status`, usually `ok` or `failed`.
   "available_accounts": ["a@example.com"],
   "in_use_accounts": ["b@example.com"],
   "max_inflight_per_account": 2,
-  "recommended_concurrency": 8
+  "global_max_inflight": 8,
+  "recommended_concurrency": 8,
+  "waiting": 0,
+  "max_queue_size": 8
 }
 ```
 
 | Field | Description |
 | --- | --- |
-| `available` | Currently available accounts |
-| `in_use` | Currently in-use accounts |
+| `available` | Accounts that still have spare inflight capacity |
+| `in_use` | Number of occupied in-flight slots |
 | `total` | Total accounts |
+| `available_accounts` | List of account IDs with remaining inflight capacity |
+| `in_use_accounts` | List of account IDs currently in use |
 | `max_inflight_per_account` | Per-account inflight limit |
+| `global_max_inflight` | Global inflight limit |
 | `recommended_concurrency` | Suggested concurrency (`total × max_inflight_per_account`) |
+| `waiting` | Number of queued requests currently waiting |
+| `max_queue_size` | Waiting queue limit |
 
 ### `POST /admin/accounts/test`
 

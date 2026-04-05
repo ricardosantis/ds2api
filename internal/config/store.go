@@ -21,23 +21,36 @@ type Store struct {
 }
 
 func LoadStore() *Store {
-	cfg, fromEnv, err := loadConfig()
+	store, err := loadStore()
 	if err != nil {
 		Logger.Warn("[config] load failed", "error", err)
 	}
-	if len(cfg.Keys) == 0 && len(cfg.Accounts) == 0 {
+	if len(store.cfg.Keys) == 0 && len(store.cfg.Accounts) == 0 {
 		Logger.Warn("[config] empty config loaded")
 	}
-	s := &Store{cfg: cfg, path: ConfigPath(), fromEnv: fromEnv}
-	s.rebuildIndexes()
-	return s
+	store.rebuildIndexes()
+	return store
+}
+
+func LoadStoreWithError() (*Store, error) {
+	store, err := loadStore()
+	if err != nil {
+		return nil, err
+	}
+	store.rebuildIndexes()
+	return store, nil
+}
+
+func loadStore() (*Store, error) {
+	cfg, fromEnv, err := loadConfig()
+	if validateErr := ValidateConfig(cfg); validateErr != nil {
+		err = errors.Join(err, validateErr)
+	}
+	return &Store{cfg: cfg, path: ConfigPath(), fromEnv: fromEnv}, err
 }
 
 func loadConfig() (Config, bool, error) {
 	rawCfg := strings.TrimSpace(os.Getenv("DS2API_CONFIG_JSON"))
-	if rawCfg == "" {
-		rawCfg = strings.TrimSpace(os.Getenv("CONFIG_JSON"))
-	}
 	if rawCfg != "" {
 		cfg, err := parseConfigString(rawCfg)
 		if err != nil {
@@ -62,6 +75,9 @@ func loadConfig() (Config, bool, error) {
 			}
 		}
 		if errors.Is(fileErr, os.ErrNotExist) {
+			if validateErr := ValidateConfig(cfg); validateErr != nil {
+				return cfg, true, validateErr
+			}
 			if writeErr := writeConfigFile(ConfigPath(), cfg.Clone()); writeErr == nil {
 				return cfg, false, err
 			} else {

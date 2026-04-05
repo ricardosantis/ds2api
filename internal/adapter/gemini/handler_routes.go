@@ -17,6 +17,13 @@ type Handler struct {
 	OpenAI OpenAIChatRunner
 }
 
+func (h *Handler) compatStripReferenceMarkers() bool {
+	if h == nil || h.Store == nil {
+		return true
+	}
+	return h.Store.CompatStripReferenceMarkers()
+}
+
 func RegisterRoutes(r chi.Router, h *Handler) {
 	r.Post("/v1beta/models/{model}:generateContent", h.GenerateContent)
 	r.Post("/v1beta/models/{model}:streamGenerateContent", h.StreamGenerateContent)

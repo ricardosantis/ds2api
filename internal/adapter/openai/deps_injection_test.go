@@ -3,23 +3,31 @@ package openai
 import "testing"
 
 type mockOpenAIConfig struct {
-	aliases      map[string]string
-	wideInput    bool
-	toolMode     string
-	earlyEmit    string
-	responsesTTL int
-	embedProv    string
+	aliases        map[string]string
+	wideInput      bool
+	autoDeleteMode string
+	toolMode       string
+	earlyEmit      string
+	responsesTTL   int
+	embedProv      string
 }
 
 func (m mockOpenAIConfig) ModelAliases() map[string]string { return m.aliases }
 func (m mockOpenAIConfig) CompatWideInputStrictOutput() bool {
 	return m.wideInput
 }
+func (m mockOpenAIConfig) CompatStripReferenceMarkers() bool   { return true }
 func (m mockOpenAIConfig) ToolcallMode() string                { return m.toolMode }
 func (m mockOpenAIConfig) ToolcallEarlyEmitConfidence() string { return m.earlyEmit }
 func (m mockOpenAIConfig) ResponsesStoreTTLSeconds() int       { return m.responsesTTL }
 func (m mockOpenAIConfig) EmbeddingsProvider() string          { return m.embedProv }
-func (m mockOpenAIConfig) AutoDeleteSessions() bool            { return false }
+func (m mockOpenAIConfig) AutoDeleteMode() string {
+	if m.autoDeleteMode == "" {
+		return "none"
+	}
+	return m.autoDeleteMode
+}
+func (m mockOpenAIConfig) AutoDeleteSessions() bool { return false }
 
 func TestNormalizeOpenAIChatRequestWithConfigInterface(t *testing.T) {
 	cfg := mockOpenAIConfig{

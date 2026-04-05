@@ -35,22 +35,9 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		writeOpenAIError(w, status, detail)
 		return
 	}
+	var sessionID string
 	defer func() {
-		// 自动删除会话（同步）
-		// 必须在 Release 之前同步删除，否则：
-		// 1. 异步删除时账号已被 Release
-		// 2. 新请求可能获取到同一账号并开始使用
-		// 3. 异步删除仍在进行，会截断新请求正在使用的会话
-		if h.Store.AutoDeleteSessions() && a.DeepSeekToken != "" {
-			deleteCtx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
-			defer cancel()
-			err := h.DS.DeleteAllSessionsForToken(deleteCtx, a.DeepSeekToken)
-			if err != nil {
-				config.Logger.Warn("[auto_delete_sessions] failed", "account", a.AccountID, "error", err)
-			} else {
-				config.Logger.Debug("[auto_delete_sessions] success", "account", a.AccountID)
-			}
-		}
+		h.autoDeleteRemoteSession(r.Context(), a, sessionID)
 		h.Auth.Release(a)
 	}()
 
@@ -67,7 +54,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sessionID, err := h.DS.CreateSession(r.Context(), a, 3)
+	sessionID, err = h.DS.CreateSession(r.Context(), a, 3)
 	if err != nil {
 		if a.UseConfigToken {
 			writeOpenAIError(w, http.StatusUnauthorized, "Account token is invalid. Please re-login the account in admin.")
@@ -94,6 +81,39 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	h.handleNonStream(w, r.Context(), resp, sessionID, stdReq.ResponseModel, stdReq.FinalPrompt, stdReq.Thinking, stdReq.ToolNames)
 }
 
+func (h *Handler) autoDeleteRemoteSession(ctx context.Context, a *auth.RequestAuth, sessionID string) {
+	mode := h.Store.AutoDeleteMode()
+	if mode == "none" || a.DeepSeekToken == "" {
+		return
+	}
+
+	deleteBaseCtx := context.WithoutCancel(ctx)
+	deleteCtx, cancel := context.WithTimeout(deleteBaseCtx, 10*time.Second)
+	defer cancel()
+
+	switch mode {
+	case "single":
+		if sessionID == "" {
+			config.Logger.Warn("[auto_delete_sessions] skipped single-session delete because session_id is empty", "account", a.AccountID)
+			return
+		}
+		_, err := h.DS.DeleteSessionForToken(deleteCtx, a.DeepSeekToken, sessionID)
+		if err != nil {
+			config.Logger.Warn("[auto_delete_sessions] failed", "account", a.AccountID, "mode", mode, "session_id", sessionID, "error", err)
+			return
+		}
+		config.Logger.Debug("[auto_delete_sessions] success", "account", a.AccountID, "mode", mode, "session_id", sessionID)
+	case "all":
+		if err := h.DS.DeleteAllSessionsForToken(deleteCtx, a.DeepSeekToken); err != nil {
+			config.Logger.Warn("[auto_delete_sessions] failed", "account", a.AccountID, "mode", mode, "error", err)
+			return
+		}
+		config.Logger.Debug("[auto_delete_sessions] success", "account", a.AccountID, "mode", mode)
+	default:
+		config.Logger.Warn("[auto_delete_sessions] unknown mode", "account", a.AccountID, "mode", mode)
+	}
+}
+
 func (h *Handler) handleNonStream(w http.ResponseWriter, ctx context.Context, resp *http.Response, completionID, model, finalPrompt string, thinkingEnabled bool, toolNames []string) {
 	if resp.StatusCode != http.StatusOK {
 		defer resp.Body.Close()
@@ -104,9 +124,10 @@ func (h *Handler) handleNonStream(w http.ResponseWriter, ctx context.Context, re
 	_ = ctx
 	result := sse.CollectStream(resp, thinkingEnabled, true)
 
-	finalThinking := result.Thinking
-	finalText := sanitizeLeakedOutput(result.Text)
-	if writeUpstreamEmptyOutputError(w, result) {
+	stripReferenceMarkers := h.compatStripReferenceMarkers()
+	finalThinking := cleanVisibleOutput(result.Thinking, stripReferenceMarkers)
+	finalText := cleanVisibleOutput(result.Text, stripReferenceMarkers)
+	if writeUpstreamEmptyOutputError(w, finalThinking, finalText, result.ContentFilter) {
 		return
 	}
 	respBody := openaifmt.BuildChatCompletion(completionID, model, finalPrompt, finalThinking, finalText, toolNames)
@@ -141,6 +162,7 @@ func (h *Handler) handleStream(w http.ResponseWriter, r *http.Request, resp *htt
 	created := time.Now().Unix()
 	bufferToolContent := len(toolNames) > 0
 	emitEarlyToolDeltas := h.toolcallFeatureMatchEnabled() && h.toolcallEarlyEmitHighConfidence()
+	stripReferenceMarkers := h.compatStripReferenceMarkers()
 	initialType := "text"
 	if thinkingEnabled {
 		initialType = "thinking"
@@ -156,6 +178,7 @@ func (h *Handler) handleStream(w http.ResponseWriter, r *http.Request, resp *htt
 		finalPrompt,
 		thinkingEnabled,
 		searchEnabled,
+		stripReferenceMarkers,
 		toolNames,
 		bufferToolContent,
 		emitEarlyToolDeltas,

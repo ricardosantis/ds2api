@@ -1,6 +1,9 @@
 package prompt
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestNormalizeContentNilReturnsEmpty(t *testing.T) {
 	if got := NormalizeContent(nil); got != "" {
@@ -19,6 +22,24 @@ func TestMessagesPrepareNilContentNoNullLiteral(t *testing.T) {
 	}
 	if got == "null" {
 		t.Fatalf("expected no null literal output, got %q", got)
+	}
+}
+
+func TestMessagesPrepareUsesTurnSuffixes(t *testing.T) {
+	messages := []map[string]any{
+		{"role": "system", "content": "System rule"},
+		{"role": "user", "content": "Question"},
+		{"role": "assistant", "content": "Answer"},
+	}
+	got := MessagesPrepare(messages)
+	if !strings.Contains(got, "<｜System｜>\nSystem rule<｜end▁of▁instructions｜>") {
+		t.Fatalf("expected system instructions suffix, got %q", got)
+	}
+	if !strings.Contains(got, "<｜User｜>\nQuestion<｜end▁of▁sentence｜>") {
+		t.Fatalf("expected user sentence suffix, got %q", got)
+	}
+	if !strings.Contains(got, "<｜Assistant｜>\nAnswer<｜end▁of▁sentence｜>") {
+		t.Fatalf("expected assistant sentence suffix, got %q", got)
 	}
 }
 

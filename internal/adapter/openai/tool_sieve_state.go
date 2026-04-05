@@ -48,7 +48,7 @@ func (s *toolStreamSieveState) resetIncrementalToolState() {
 }
 
 func (s *toolStreamSieveState) noteText(content string) {
-	if strings.TrimSpace(content) == "" {
+	if content == "" {
 		return
 	}
 	s.recentTextTail = appendTail(s.recentTextTail, content, toolSieveContextTailLimit)

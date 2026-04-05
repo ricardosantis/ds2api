@@ -31,8 +31,7 @@
 配置来源（任选其一）：
 
 - **文件方式**：`config.json`（推荐本地/Docker 使用）
-- **环境变量方式**：`DS2API_CONFIG_JSON`（推荐 Vercel 使用，支持 JSON 字符串或 Base64 编码）
-- 兼容写法：`CONFIG_JSON` 是旧版回退变量；`DS2API_CONFIG_JSON` 也可以直接写原始 JSON
+- **环境变量方式**：`DS2API_CONFIG_JSON`（推荐 Vercel 使用，支持 JSON 字符串或 Base64 编码，也可以直接写原始 JSON）
 
 统一建议（最优实践）：
 
@@ -117,6 +116,8 @@ cp config.example.json config.json
 
 # 编辑 .env（请改成你的强密码），至少设置：
 #   DS2API_ADMIN_KEY=your-admin-key
+# 如需修改宿主机端口，可额外设置：
+#   DS2API_HOST_PORT=6011
 
 # 启动
 docker-compose up -d
@@ -125,7 +126,7 @@ docker-compose up -d
 docker-compose logs -f
 ```
 
-默认 `docker-compose.yml` 会把宿主机 `6011` 映射到容器内的 `5001`。如果你希望直接对外暴露 `5001`，请调整 `ports` 配置。
+默认 `docker-compose.yml` 会把宿主机 `6011` 映射到容器内的 `5001`。如果你希望直接对外暴露 `5001`，请设置 `DS2API_HOST_PORT=5001`（或者手动调整 `ports` 配置）。
 
 ### 2.2 更新
 
@@ -138,7 +139,7 @@ docker-compose up -d --build
 `Dockerfile` 提供两条构建路径：
 
 1. **本地/开发默认路径（`runtime-from-source`）**：三阶段构建（WebUI 构建 + Go 构建 + 运行阶段）。
-2. **Release 路径（`runtime-from-dist`）**：CI 先生成 `dist/ds2api_<tag>_linux_<arch>.tar.gz`，再由 Docker 直接复用该发布包内的二进制和 `static/admin` 产物组装运行镜像，不再重复执行 `npm build`/`go build`。
+2. **Release 路径（`runtime-from-dist`）**：发布工作流先生成 tag 命名的 Release 压缩包，再把 Linux 产物复制成 `dist/docker-input/linux_amd64.tar.gz` / `linux_arm64.tar.gz`；Docker 构建阶段直接消费这些输入，不再重复执行 `npm build`/`go build`。
 
 Release 路径可确保 Docker 镜像与 release 压缩包使用同一套产物，减少重复构建带来的差异。
 
@@ -198,10 +199,10 @@ healthcheck:
 2. **在 Vercel 上导入项目**
 3. **配置环境变量**（最少只需设置以下一项）：
 
-   | 变量 | 说明 |
-   | --- | --- |
-   | `DS2API_ADMIN_KEY` | 管理密钥（必填） |
-   | `DS2API_CONFIG_JSON` | 配置内容，JSON 字符串或 Base64 编码（可选，建议） |
+| 变量 | 说明 |
+| --- | --- |
+| `DS2API_ADMIN_KEY` | 管理密钥（必填） |
+| `DS2API_CONFIG_JSON` | 配置内容，JSON 字符串或 Base64 编码（可选，建议） |
 
 4. **部署**
 
@@ -244,11 +245,8 @@ VERCEL_TEAM_ID=team_xxxxxxxxxxxx   # 个人账号可留空
 | 变量 | 说明 | 默认值 |
 | --- | --- | --- |
 | `DS2API_ACCOUNT_MAX_INFLIGHT` | 每账号并发上限 | `2` |
-| `DS2API_ACCOUNT_CONCURRENCY` | 同上（兼容别名） | — |
 | `DS2API_ACCOUNT_MAX_QUEUE` | 等待队列上限 | `recommended_concurrency` |
-| `DS2API_ACCOUNT_QUEUE_SIZE` | 同上（兼容别名） | — |
 | `DS2API_GLOBAL_MAX_INFLIGHT` | 全局并发上限 | `recommended_concurrency` |
-| `DS2API_MAX_INFLIGHT` | 同上（兼容别名） | — |
 | `DS2API_ENV_WRITEBACK` | 检测到 `DS2API_CONFIG_JSON` 时自动写入 `DS2API_CONFIG_PATH`，并在成功后转为文件模式（`1/true/yes/on`） | 关闭 |
 | `DS2API_VERCEL_INTERNAL_SECRET` | 混合流式内部鉴权 | 回退用 `DS2API_ADMIN_KEY` |
 | `DS2API_VERCEL_STREAM_LEASE_TTL_SECONDS` | 流式 lease TTL | `900` |
@@ -314,7 +312,7 @@ Error: Command failed: go build -ldflags -s -w -o .../bootstrap ...
 1. 进入 Vercel Project Settings → Build and Development Settings
 2. **清空**自定义 Go Build Flags / Build Command（推荐）
 3. 若必须设置 ldflags，使用 `-ldflags="-s -w"`（保证它是一个参数）
-4. 确认仓库 `go.mod` 为受支持版本（当前为 `go 1.24`）
+4. 确认仓库 `go.mod` 为受支持版本（当前为 `go 1.26.0`）
 5. 重新部署（建议清缓存后 Redeploy）
 
 #### Internal 包导入错误

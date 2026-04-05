@@ -13,6 +13,7 @@ import (
 	chimw "github.com/go-chi/chi/v5/middleware"
 
 	"ds2api/internal/auth"
+	"ds2api/internal/deepseek"
 )
 
 type streamStatusAuthStub struct{}
@@ -51,6 +52,10 @@ func (m streamStatusDSStub) GetPow(_ context.Context, _ *auth.RequestAuth, _ int
 
 func (m streamStatusDSStub) CallCompletion(_ context.Context, _ *auth.RequestAuth, _ map[string]any, _ string, _ int) (*http.Response, error) {
 	return m.resp, nil
+}
+
+func (m streamStatusDSStub) DeleteSessionForToken(_ context.Context, _ string, _ string) (*deepseek.DeleteSessionResult, error) {
+	return &deepseek.DeleteSessionResult{Success: true}, nil
 }
 
 func (m streamStatusDSStub) DeleteAllSessionsForToken(_ context.Context, _ string) error {

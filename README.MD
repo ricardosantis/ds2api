@@ -76,7 +76,7 @@ flowchart LR
 - **前端**：React 管理台（`webui/`），运行时托管静态构建产物
 - **部署**：本地运行、Docker、Vercel Serverless、Linux systemd
 
-### 3.0 底层架构调整（相较旧版本）
+### 3.X 底层架构调整（相较旧版本）
 
 - **统一路由内核**：所有协议入口统一汇聚到 `internal/server/router.go`，并在同一路由树中注册 OpenAI / Claude / Gemini / Admin / WebUI 路由，避免多入口行为漂移。
 - **统一执行链路**：Claude / Gemini 入口先经 `internal/translatorcliproxy` 做协议转换，再进入 `openai.ChatCompletions` 统一处理工具调用与流式语义，最后再转换回原协议响应。
@@ -111,7 +111,6 @@ flowchart LR
 | P0 | Anthropic SDK（messages） | ✅ |
 | P0 | Google Gemini SDK（generateContent） | ✅ |
 | P1 | LangChain / LlamaIndex / OpenWebUI（OpenAI 兼容接入） | ✅ |
-| P2 | MCP 独立桥接层 | 规划中 |
 
 ## 模型支持
 
@@ -160,8 +159,7 @@ cp config.example.json config.json
 
 后续部署建议：
 - 本地运行：直接读取 `config.json`
-- Docker / Vercel：由 `config.json` 生成 `DS2API_CONFIG_JSON`（Base64）注入环境变量
-- 兼容写法：`DS2API_CONFIG_JSON` 也可以直接写原始 JSON；`CONFIG_JSON` 是旧版回退变量
+- Docker / Vercel：由 `config.json` 生成 `DS2API_CONFIG_JSON`（Base64）注入环境变量，也可以直接写原始 JSON
 
 ### 方式一：本地运行
 
@@ -191,7 +189,7 @@ go run ./cmd/ds2api
 cp .env.example .env
 cp config.example.json config.json
 
-# 2. 编辑 .env（至少设置 DS2API_ADMIN_KEY）
+# 2. 编辑 .env（至少设置 DS2API_ADMIN_KEY；如需修改宿主机端口，可额外设置 DS2API_HOST_PORT）
 #    DS2API_ADMIN_KEY=请替换为强密码
 
 # 3. 启动
@@ -201,7 +199,7 @@ docker-compose up -d
 docker-compose logs -f
 ```
 
-默认 `docker-compose.yml` 会把宿主机 `6011` 映射到容器内的 `5001`。如果你希望直接对外暴露 `5001`，请调整 `ports` 配置。
+默认 `docker-compose.yml` 会把宿主机 `6011` 映射到容器内的 `5001`。如果你希望直接对外暴露 `5001`，请设置 `DS2API_HOST_PORT=5001`（或者手动调整 `ports` 配置）。
 
 更新镜像：`docker-compose up -d --build`
 
@@ -290,7 +288,8 @@ cp opencode.json.example opencode.json
     "o3": "deepseek-reasoner"
   },
   "compat": {
-    "wide_input_strict_output": true
+    "wide_input_strict_output": true,
+    "strip_reference_markers": true
   },
   "responses": {
     "store_ttl_seconds": 900
@@ -312,7 +311,7 @@ cp opencode.json.example opencode.json
     "token_refresh_interval_hours": 6
   },
   "auto_delete": {
-    "sessions": false
+    "mode": "none"
   }
 }
 ```
@@ -322,13 +321,14 @@ cp opencode.json.example opencode.json
 - `token`：配置文件中即使填写也会在加载时被清空（不会从 `config.json` 读取 token）；实际 token 仅在运行时内存中维护并自动刷新
 - `model_aliases`：常见模型名（如 GPT/Codex/Claude）到 DeepSeek 模型的映射
 - `compat.wide_input_strict_output`：建议保持 `true`（当前实现默认宽进严出）
-- `toolcall`：策略已固定为特征匹配 + 高置信早发，不再作为可配置项
+- `compat.strip_reference_markers`：建议保持 `true`，用于清理可见输出中的引用/标记
+- `toolcall`：旧字段，当前实现已固定为特征匹配 + 高置信早发；即使保留在配置里也会被忽略
 - `responses.store_ttl_seconds`：`/v1/responses/{id}` 的内存缓存 TTL
 - `embeddings.provider`：embedding 提供方（当前内置 `deterministic/mock/builtin`）
 - `claude_mapping`：字典中 `fast`/`slow` 后缀映射到对应 DeepSeek 模型（兼容读取 `claude_model_mapping`）
 - `admin`：管理后台设置（JWT 过期时间、密码哈希等），可通过 Admin Settings API 热更新
 - `runtime`：运行时参数（并发限制、队列大小、托管账号 token 刷新间隔），可通过 Admin Settings API 热更新；`account_max_queue=0`/`global_max_inflight=0` 表示按推荐值自动计算，`token_refresh_interval_hours=6` 为默认强制重登间隔
-- `auto_delete.sessions`：是否在请求结束后自动清理 DeepSeek 会话（默认 `false`，可在 Settings 热更新）
+- `auto_delete.mode`：请求结束后如何清理 DeepSeek 远端聊天记录，支持 `none`（默认，不删除）、`single`（仅删除当前会话）、`all`（清空全部会话）；旧配置里的 `auto_delete.sessions=true` 仍会被视为 `all`
 
 ### 环境变量
 
@@ -341,7 +341,6 @@ cp opencode.json.example opencode.json
 | `DS2API_JWT_EXPIRE_HOURS` | Admin JWT 过期小时数 | `24` |
 | `DS2API_CONFIG_PATH` | 配置文件路径 | `config.json` |
 | `DS2API_CONFIG_JSON` | 直接注入配置（JSON 或 Base64） | — |
-| `CONFIG_JSON` | 旧版兼容配置注入 | — |
 | `DS2API_ENV_WRITEBACK` | 环境变量模式下自动写回配置文件并切换文件模式（`1/true/yes/on`） | 关闭 |
 | `DS2API_WASM_PATH` | PoW WASM 文件路径 | 自动查找 |
 | `DS2API_STATIC_ADMIN_DIR` | 管理台静态文件目录 | `static/admin` |
@@ -350,22 +349,16 @@ cp opencode.json.example opencode.json
 | `DS2API_DEV_PACKET_CAPTURE_LIMIT` | 本地抓包保留条数（超出自动淘汰） | `5` |
 | `DS2API_DEV_PACKET_CAPTURE_MAX_BODY_BYTES` | 单条响应体最大记录字节数 | `2097152` |
 | `DS2API_ACCOUNT_MAX_INFLIGHT` | 每账号最大并发 in-flight 请求数 | `2` |
-| `DS2API_ACCOUNT_CONCURRENCY` | 同上（兼容旧名） | — |
 | `DS2API_ACCOUNT_MAX_QUEUE` | 等待队列上限 | `recommended_concurrency` |
-| `DS2API_ACCOUNT_QUEUE_SIZE` | 同上（兼容旧名） | — |
 | `DS2API_GLOBAL_MAX_INFLIGHT` | 全局最大 in-flight 请求数 | `recommended_concurrency` |
-| `DS2API_MAX_INFLIGHT` | 同上（兼容旧名） | — |
 | `DS2API_VERCEL_INTERNAL_SECRET` | Vercel 混合流式内部鉴权密钥 | 回退用 `DS2API_ADMIN_KEY` |
 | `DS2API_VERCEL_STREAM_LEASE_TTL_SECONDS` | 流式 lease 过期秒数 | `900` |
-| `DS2API_DEV_PACKET_CAPTURE` | 本地开发抓包开关（记录最近会话请求/响应体） | 本地非 Vercel 默认开启 |
-| `DS2API_DEV_PACKET_CAPTURE_LIMIT` | 本地抓包保留条数（超出自动淘汰） | `5` |
-| `DS2API_DEV_PACKET_CAPTURE_MAX_BODY_BYTES` | 单条响应体最大记录字节数 | `2097152` |
 | `VERCEL_TOKEN` | Vercel 同步 token | — |
 | `VERCEL_PROJECT_ID` | Vercel 项目 ID | — |
 | `VERCEL_TEAM_ID` | Vercel 团队 ID | — |
 | `DS2API_VERCEL_PROTECTION_BYPASS` | Vercel 部署保护绕过密钥（内部 Node→Go 调用） | — |
 
-> 提示：当检测到 `DS2API_CONFIG_JSON/CONFIG_JSON` 时，管理台会显示当前模式风险与自动持久化状态（含 `DS2API_CONFIG_PATH` 路径与模式切换说明）。
+> 提示：当检测到 `DS2API_CONFIG_JSON` 时，管理台会显示当前模式风险与自动持久化状态（含 `DS2API_CONFIG_PATH` 路径与模式切换说明）。
 
 ## 鉴权模式
 
@@ -455,6 +448,7 @@ ds2api/
 │   ├── deepseek/            # DeepSeek API 客户端、PoW WASM
 │   ├── js/                  # Node 运行时流式处理与兼容逻辑
 │   ├── devcapture/          # 开发抓包模块
+│   ├── rawsample/           # 原始流样本可见文本提取与回放辅助
 │   ├── format/              # 输出格式化
 │   ├── prompt/              # Prompt 构建
 │   ├── server/              # HTTP 路由与中间件（chi router）
@@ -476,6 +470,7 @@ ds2api/
 ├── tests/
 │   ├── compat/              # 兼容性测试夹具与期望输出
 │   ├── node/                # Node 侧单元测试（chat-stream / tool-sieve）
+│   ├── raw_stream_samples/  # 原始 SSE 样本与回放元数据
 │   └── scripts/             # 统一测试脚本入口（unit/e2e）
 ├── docs/                    # 部署 / 贡献 / 测试等辅助文档
 ├── static/admin/            # WebUI 构建产物（不提交到 Git）

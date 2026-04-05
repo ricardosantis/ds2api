@@ -233,9 +233,32 @@ go run ./cmd/ds2api-tests --no-preflight
 ```
 
 说明：
-- 该工具会重放 `tests/raw_stream_samples` 下全部样本，按上游 SSE 顺序做 1:1 仿真解析。
+- 该工具默认重放 `tests/raw_stream_samples/manifest.json` 声明的 canonical 样本，按上游 SSE 顺序做 1:1 仿真解析。
 - 默认校验不出现 `FINISHED` 文本泄露，并要求存在结束信号。
-- 结果会写入 `artifacts/raw-stream-sim/*.json`，可供其他测试脚本或排障流程复用。
+- 每次运行都会把本地派生结果写入 `artifacts/raw-stream-sim/<run-id>/<sample-id>/replay.output.txt`，并输出结构化报告。
+- 如果你有历史基线目录，可以通过 `--baseline-root` 让工具直接做文本对比。
+- 更完整的协议级行为结构说明见 [DeepSeekSSE行为结构说明-2026-04-05.md](./DeepSeekSSE行为结构说明-2026-04-05.md)。
+
+### 对单个样本做回放比对
+
+```bash
+./tests/scripts/compare-raw-stream-sample.sh markdown-format-example-20260405-spacefix
+```
+
+说明：
+- 该脚本会从 raw-only 样本目录读取 `upstream.stream.sse`。
+- 回放结果会写入 `artifacts/raw-stream-sim/<run-id>/<sample-id>/`，便于直接查阅。
+- 如果传入历史基线目录，脚本会自动对比当前回放输出和基线文本。
+
+### 采集永久样本
+
+本地启动服务后，可以直接打：
+
+```bash
+POST /admin/dev/raw-samples/capture
+```
+
+这个接口会把请求元信息和上游原始流写入 `tests/raw_stream_samples/<sample-id>/`，以后可以直接拿来做回放和字段分析。派生输出会在本地回放时再生成，不再落在样本目录里。
 
 ### 指定输出目录和超时
 

@@ -28,6 +28,13 @@ type Handler struct {
 	responses    *responseStore
 }
 
+func (h *Handler) compatStripReferenceMarkers() bool {
+	if h == nil || h.Store == nil {
+		return true
+	}
+	return h.Store.CompatStripReferenceMarkers()
+}
+
 type streamLease struct {
 	Auth      *auth.RequestAuth
 	ExpiresAt time.Time

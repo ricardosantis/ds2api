@@ -176,6 +176,24 @@ func TestParseToolCallsSupportsCanonicalXMLParametersJSON(t *testing.T) {
 	}
 }
 
+func TestParseToolCallsPreservesRawMalformedXMLParameters(t *testing.T) {
+	text := `<tool_call><tool_name>execute_command</tool_name><parameters>cd /root && git status</parameters></tool_call>`
+	calls := ParseToolCalls(text, []string{"execute_command"})
+	if len(calls) != 1 {
+		t.Fatalf("expected 1 call, got %#v", calls)
+	}
+	if calls[0].Name != "execute_command" {
+		t.Fatalf("expected tool name execute_command, got %q", calls[0].Name)
+	}
+	raw, ok := calls[0].Input["_raw"].(string)
+	if !ok {
+		t.Fatalf("expected raw argument tracking, got %#v", calls[0].Input)
+	}
+	if raw != "cd /root && git status" {
+		t.Fatalf("expected raw arguments to be preserved, got %q", raw)
+	}
+}
+
 func TestParseToolCallsSupportsXMLParametersJSONWithAmpersandCommand(t *testing.T) {
 	text := `<tool_calls><tool_call><tool_name>execute_command</tool_name><parameters>{"command":"sshpass -p 'xxx' ssh -o StrictHostKeyChecking=no -p 1111 root@111.111.111.111 'cd /root && git clone https://github.com/ericc-ch/copilot-api.git'","cwd":null,"timeout":null}</parameters></tool_call></tool_calls>`
 	calls := ParseToolCalls(text, []string{"execute_command"})

@@ -6,7 +6,11 @@ const {
 const {
   parseChunkForContent,
   extractContentRecursive,
+  filterLeakedContentFilterParts,
+  hasContentFilterStatus,
+  extractAccumulatedTokenUsage,
   shouldSkipPath,
+  stripReferenceMarkers,
 } = require('./sse_parse');
 const {
   resolveToolcallPolicy,
@@ -17,6 +21,7 @@ const {
 } = require('./toolcall_policy');
 const {
   estimateTokens,
+  buildUsage,
 } = require('./token_usage');
 const {
   setCorsHeaders,
@@ -100,6 +105,7 @@ module.exports.__test = {
   parseChunkForContent,
   extractContentRecursive,
   shouldSkipPath,
+  stripReferenceMarkers,
   asString,
   resolveToolcallPolicy,
   formatIncrementalToolCallDeltas,
@@ -107,6 +113,10 @@ module.exports.__test = {
   boolDefaultTrue,
   filterIncrementalToolCallDeltasByAllowed,
   estimateTokens,
+  buildUsage,
+  filterLeakedContentFilterParts,
+  hasContentFilterStatus,
+  extractAccumulatedTokenUsage,
   isNodeStreamSupportedPath,
   extractPathname,
 };

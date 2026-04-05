@@ -19,9 +19,9 @@ func TestSanitizeLeakedOutputRemovesLeakedWireToolCallAndResult(t *testing.T) {
 }
 
 func TestSanitizeLeakedOutputRemovesStandaloneMetaMarkers(t *testing.T) {
-	raw := "A<| end_of_sentence |><| Assistant |>B<| end_of_thinking |>C<｜end▁of▁thinking｜>D<｜end▁of▁sentence｜>E"
+	raw := "A<| end_of_sentence |><| Assistant |>B<| end_of_thinking |>C<｜end▁of▁thinking｜>D<｜end▁of▁sentence｜>E<| end_of_toolresults |>F<｜end▁of▁instructions｜>G"
 	got := sanitizeLeakedOutput(raw)
-	if got != "ABCDE" {
+	if got != "ABCDEFG" {
 		t.Fatalf("unexpected sanitize result for meta markers: %q", got)
 	}
 }

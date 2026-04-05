@@ -17,6 +17,8 @@ const {
   normalizePreparedToolNames,
   boolDefaultTrue,
   filterIncrementalToolCallDeltasByAllowed,
+  buildUsage,
+  estimateTokens,
   shouldSkipPath,
   isNodeStreamSupportedPath,
   extractPathname,
@@ -220,6 +222,107 @@ test('parseChunkForContent supports wrapped response.fragments object shape', ()
   const parsed = parseChunkForContent(chunk, false, 'text');
   assert.equal(parsed.finished, false);
   assert.equal(parsed.parts.map((p) => p.text).join(''), 'AB');
+});
+
+test('parseChunkForContent preserves space-only content tokens', () => {
+  const chunk = {
+    p: 'response/content',
+    v: ' ',
+  };
+  const parsed = parseChunkForContent(chunk, false, 'text');
+  assert.equal(parsed.finished, false);
+  assert.deepEqual(parsed.parts, [{ text: ' ', type: 'text' }]);
+});
+
+test('parseChunkForContent strips reference markers from fragment content', () => {
+  const chunk = {
+    p: 'response/fragments',
+    o: 'APPEND',
+    v: [
+      { type: 'RESPONSE', content: '广州天气 [reference:12] 多云' },
+    ],
+  };
+  const parsed = parseChunkForContent(chunk, false, 'text');
+  assert.equal(parsed.finished, false);
+  assert.deepEqual(parsed.parts, [{ text: '广州天气  多云', type: 'text' }]);
+});
+
+test('parseChunkForContent detects content_filter status and carries output tokens', () => {
+  const chunk = {
+    p: 'response',
+    v: [
+      { p: 'status', v: 'CONTENT_FILTER' },
+      { p: 'accumulated_token_usage', v: 77 },
+    ],
+  };
+  const parsed = parseChunkForContent(chunk, false, 'text');
+  assert.equal(parsed.parsed, true);
+  assert.equal(parsed.finished, true);
+  assert.equal(parsed.contentFilter, true);
+  assert.equal(parsed.outputTokens, 77);
+  assert.deepEqual(parsed.parts, []);
+});
+
+test('parseChunkForContent keeps error branches distinct from content_filter status', () => {
+  const chunk = {
+    error: { message: 'boom' },
+    code: 'content_filter',
+    accumulated_token_usage: 88,
+  };
+  const parsed = parseChunkForContent(chunk, false, 'text');
+  assert.equal(parsed.parsed, true);
+  assert.equal(parsed.finished, true);
+  assert.equal(parsed.contentFilter, false);
+  assert.equal(parsed.errorMessage.length > 0, true);
+  assert.equal(parsed.outputTokens, 0);
+  assert.deepEqual(parsed.parts, []);
+});
+
+test('parseChunkForContent preserves output tokens on FINISHED lines', () => {
+  const parsed = parseChunkForContent(
+    { p: 'response/status', v: 'FINISHED', accumulated_token_usage: 190 },
+    false,
+    'text',
+  );
+  assert.equal(parsed.parsed, true);
+  assert.equal(parsed.finished, true);
+  assert.equal(parsed.contentFilter, false);
+  assert.equal(parsed.outputTokens, 190);
+  assert.deepEqual(parsed.parts, []);
+});
+
+test('parseChunkForContent strips leaked CONTENT_FILTER suffix and preserves line breaks', () => {
+  const leaked = parseChunkForContent(
+    { p: 'response/content', v: '正常输出CONTENT_FILTER你好，这个问题我暂时无法回答' },
+    false,
+    'text',
+  );
+  assert.deepEqual(leaked.parts, [{ text: '正常输出', type: 'text' }]);
+
+  const newlineTail = parseChunkForContent(
+    { p: 'response/content', v: 'line1\nCONTENT_FILTERblocked' },
+    false,
+    'text',
+  );
+  assert.deepEqual(newlineTail.parts, [{ text: 'line1\n', type: 'text' }]);
+
+  const newlineOnly = parseChunkForContent(
+    { p: 'response/content', v: '\nCONTENT_FILTERblocked' },
+    false,
+    'text',
+  );
+  assert.deepEqual(newlineOnly.parts, [{ text: '\n', type: 'text' }]);
+});
+
+test('estimateTokens preserves whitespace-only strings and buildUsage accepts output token overrides', () => {
+  assert.equal(estimateTokens('   '), 1);
+  assert.equal(estimateTokens('\n'), 1);
+
+  const usage = buildUsage('abcd', 'ef', 'gh', 99);
+  assert.equal(usage.prompt_tokens, 1);
+  assert.equal(usage.completion_tokens, 99);
+  assert.equal(usage.total_tokens, 100);
+  assert.equal(usage.completion_tokens_details.reasoning_tokens, 1);
 });
 
 test('shouldSkipPath skips dynamic response/fragments/*/status paths only', () => {

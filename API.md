@@ -52,8 +52,7 @@ cp config.example.json config.json
 按部署方式使用：
 
 - 本地运行：直接读取 `config.json`
-- Docker / Vercel：从 `config.json` 生成 Base64，填入 `DS2API_CONFIG_JSON`
-- 兼容写法：`DS2API_CONFIG_JSON` 也可直接填原始 JSON；`CONFIG_JSON` 是旧版兼容回退变量
+- Docker / Vercel：从 `config.json` 生成 Base64，填入 `DS2API_CONFIG_JSON`，也可以直接填原始 JSON
 
 ```bash
 DS2API_CONFIG_JSON="$(base64 < config.json | tr -d '\n')"
@@ -509,8 +508,6 @@ data: {"type":"message_stop"}
 }
 ```
 
-返回项还会包含 `test_status`，当前值通常为 `ok` 或 `failed`。
-
 ---
 
 ## Gemini 兼容接口
@@ -651,8 +648,9 @@ data: {"type":"message_stop"}
 - `success`
 - `admin`（`has_password_hash`、`jwt_expire_hours`、`jwt_valid_after_unix`、`default_password_warning`）
 - `runtime`（`account_max_inflight`、`account_max_queue`、`global_max_inflight`、`token_refresh_interval_hours`）
+- `compat`（`wide_input_strict_output`、`strip_reference_markers`）
 - `responses` / `embeddings`
-- `auto_delete`（`sessions`）
+- `auto_delete`（`mode`：`none` / `single` / `all`；旧配置 `sessions=true` 仍按 `all` 处理）
 - `claude_mapping` / `model_aliases`
 - `env_backed`、`needs_vercel_sync`
 - `toolcall` 策略已固定为 `feature_match + high`，不再通过 settings 返回或修改
@@ -663,9 +661,10 @@ data: {"type":"message_stop"}
 
 - `admin.jwt_expire_hours`
 - `runtime.account_max_inflight` / `runtime.account_max_queue` / `runtime.global_max_inflight` / `runtime.token_refresh_interval_hours`
+- `compat.wide_input_strict_output` / `compat.strip_reference_markers`
 - `responses.store_ttl_seconds`
 - `embeddings.provider`
-- `auto_delete.sessions`
+- `auto_delete.mode`
 - `claude_mapping`
 - `model_aliases`
 - `toolcall` 策略已固定，不再作为可写入字段
@@ -692,6 +691,8 @@ data: {"type":"message_stop"}
 请求可直接传配置对象，或使用 `{"config": {...}, "mode":"merge"}` 包裹格式。
 也支持在查询参数里传 `?mode=merge` / `?mode=replace`。
 导入时会接受 `keys`、`accounts`、`claude_mapping` / `claude_model_mapping`、`model_aliases`、`admin`、`runtime`、`responses`、`embeddings`、`auto_delete` 等字段；`toolcall` 相关字段会被忽略。
+
+> `compat` 相关字段请通过 `/admin/settings` 或配置文件管理；该导入接口不会更新 `compat`。
 
 ### `GET /admin/config/export`
 
@@ -765,17 +766,25 @@ data: {"type":"message_stop"}
   "available_accounts": ["a@example.com"],
   "in_use_accounts": ["b@example.com"],
   "max_inflight_per_account": 2,
-  "recommended_concurrency": 8
+  "global_max_inflight": 8,
+  "recommended_concurrency": 8,
+  "waiting": 0,
+  "max_queue_size": 8
 }
 ```
 
 | 字段 | 说明 |
 | --- | --- |
-| `available` | 当前可用账号数 |
-| `in_use` | 当前使用中的账号数 |
+| `available` | 仍有剩余并发槽位的账号数 |
+| `in_use` | 当前已占用的 in-flight 槽位数 |
 | `total` | 总账号数 |
+| `available_accounts` | 仍有剩余并发槽位的账号 ID 列表 |
+| `in_use_accounts` | 当前处于使用中的账号 ID 列表 |
 | `max_inflight_per_account` | 每账号并发上限 |
+| `global_max_inflight` | 全局并发上限 |
 | `recommended_concurrency` | 建议并发值（`total × max_inflight_per_account`） |
+| `waiting` | 当前等待中的请求数 |
+| `max_queue_size` | 等待队列上限 |
 
 ### `POST /admin/accounts/test`
 

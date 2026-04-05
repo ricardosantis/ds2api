@@ -51,8 +51,8 @@ RULES:
 3) Multiple tools → multiple <tool_call> blocks inside ONE <tool_calls> root.
 4) Do NOT wrap the XML in markdown code fences (no triple backticks).
 5) After receiving a tool result, use it directly. Only call another tool if the result is insufficient.
-6) If you want to say something AND call a tool, output text first, then the XML block on its own.
-7) Parameters MUST use the exact field names from the selected tool schema.
+6) Parameters MUST use the exact field names from the selected tool schema.
+7) CRITICAL: Do NOT invent or add any extra fields (such as "_raw", "_xml"). Use ONLY the fields strictly defined in the schema. Extra fields will cause execution failure.
 
 ❌ WRONG — Do NOT do these:
 Wrong 1 — mixed text and XML:
@@ -61,6 +61,9 @@ Wrong 2 — describing tool calls in text:
   [调用 Bash] {"command": "ls"}
 Wrong 3 — missing <tool_calls> wrapper:
   <tool_call><tool_name>` + ex1 + `</tool_name><parameters>{}</parameters></tool_call>
+Wrong 4 — extra/invented fields:
+  <parameters>{"_raw": "...", "command": "ls"}</parameters>
+
 
 ✅ CORRECT EXAMPLES:
 

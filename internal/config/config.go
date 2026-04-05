@@ -52,6 +52,7 @@ func (c *Config) DropInvalidAccounts() {
 
 type CompatConfig struct {
 	WideInputStrictOutput *bool `json:"wide_input_strict_output,omitempty"`
+	StripReferenceMarkers *bool `json:"strip_reference_markers,omitempty"`
 }
 
 type AdminConfig struct {
@@ -76,5 +77,6 @@ type EmbeddingsConfig struct {
 }
 
 type AutoDeleteConfig struct {
-	Sessions bool `json:"sessions"`
+	Mode     string `json:"mode,omitempty"`
+	Sessions bool   `json:"sessions,omitempty"`
 }

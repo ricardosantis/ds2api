@@ -28,11 +28,8 @@
     "o3": "deepseek-reasoner"
   },
   "compat": {
-    "wide_input_strict_output": true
-  },
-  "toolcall": {
-    "mode": "feature_match",
-    "early_emit_confidence": "high"
+    "wide_input_strict_output": true,
+    "strip_reference_markers": true
   },
   "responses": {
     "store_ttl_seconds": 900
@@ -50,9 +47,10 @@
   "runtime": {
     "account_max_inflight": 2,
     "account_max_queue": 0,
-    "global_max_inflight": 0
+    "global_max_inflight": 0,
+    "token_refresh_interval_hours": 6
   },
   "auto_delete": {
-    "sessions": false
+    "mode": "none"
   }
 }
