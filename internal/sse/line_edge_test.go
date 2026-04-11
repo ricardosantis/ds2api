@@ -40,8 +40,8 @@ func TestParseDeepSeekContentLineContentFilterMessage(t *testing.T) {
 	if !res.ContentFilter {
 		t.Fatal("expected content filter flag")
 	}
-	if res.ErrorMessage == "" {
-		t.Fatal("expected error message on content filter")
+	if res.ErrorMessage != "" {
+		t.Fatalf("expected empty error message on content filter, got %q", res.ErrorMessage)
 	}
 }
 

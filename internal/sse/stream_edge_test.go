@@ -103,7 +103,7 @@ func TestStartParsedLinePumpContextCancellation(t *testing.T) {
 	// Cancel context - this will cause the pump to exit on next send
 	cancel()
 	// Close the pipe to unblock scanner.Scan()
-	pw.Close()
+	_ = pw.Close()
 
 	// Drain remaining results
 	for range results {

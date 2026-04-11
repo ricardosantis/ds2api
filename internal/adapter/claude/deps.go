@@ -22,6 +22,11 @@ type DeepSeekCaller interface {
 
 type ConfigReader interface {
 	ClaudeMapping() map[string]string
+	CompatStripReferenceMarkers() bool
+}
+
+type OpenAIChatRunner interface {
+	ChatCompletions(w http.ResponseWriter, r *http.Request)
 }
 
 var _ AuthResolver = (*auth.Resolver)(nil)

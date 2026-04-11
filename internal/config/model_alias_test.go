@@ -2,6 +2,10 @@ package config
 
 import "testing"
 
+type mockModelAliasReader map[string]string
+
+func (m mockModelAliasReader) ModelAliases() map[string]string { return m }
+
 func TestResolveModelDirectDeepSeek(t *testing.T) {
 	got, ok := ResolveModel(nil, "deepseek-chat")
 	if !ok || got != "deepseek-chat" {
@@ -27,6 +31,31 @@ func TestResolveModelUnknown(t *testing.T) {
 	_, ok := ResolveModel(nil, "totally-custom-model")
 	if ok {
 		t.Fatal("expected unknown model to fail resolve")
+	}
+}
+
+func TestResolveModelDirectDeepSeekExpert(t *testing.T) {
+	got, ok := ResolveModel(nil, "deepseek-expert-chat")
+	if !ok || got != "deepseek-expert-chat" {
+		t.Fatalf("expected deepseek-expert-chat, got ok=%v model=%q", ok, got)
+	}
+}
+
+func TestResolveModelCustomAliasToExpert(t *testing.T) {
+	got, ok := ResolveModel(mockModelAliasReader{
+		"my-expert-model": "deepseek-expert-reasoner-search",
+	}, "my-expert-model")
+	if !ok || got != "deepseek-expert-reasoner-search" {
+		t.Fatalf("expected alias -> deepseek-expert-reasoner-search, got ok=%v model=%q", ok, got)
+	}
+}
+
+func TestResolveModelCustomAliasToVision(t *testing.T) {
+	got, ok := ResolveModel(mockModelAliasReader{
+		"my-vision-model": "deepseek-vision-chat-search",
+	}, "my-vision-model")
+	if !ok || got != "deepseek-vision-chat-search" {
+		t.Fatalf("expected alias -> deepseek-vision-chat-search, got ok=%v model=%q", ok, got)
 	}
 }
 

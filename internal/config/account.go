@@ -1,10 +1,6 @@
 package config
 
-import (
-	"crypto/sha256"
-	"encoding/hex"
-	"strings"
-)
+import "strings"
 
 func (a Account) Identifier() string {
 	if strings.TrimSpace(a.Email) != "" {
@@ -13,12 +9,5 @@ func (a Account) Identifier() string {
 	if mobile := NormalizeMobileForStorage(a.Mobile); mobile != "" {
 		return mobile
 	}
-	// Backward compatibility: old configs may contain token-only accounts.
-	// Use a stable non-sensitive synthetic id so they can still join the pool.
-	token := strings.TrimSpace(a.Token)
-	if token == "" {
-		return ""
-	}
-	sum := sha256.Sum256([]byte(token))
-	return "token:" + hex.EncodeToString(sum[:8])
+	return ""
 }

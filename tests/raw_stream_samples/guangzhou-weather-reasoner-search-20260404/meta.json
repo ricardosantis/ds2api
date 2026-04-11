@@ -1,0 +1,24 @@
+{
+  "sample_id": "guangzhou-weather-reasoner-search-20260404",
+  "captured_at_utc": "2026-04-04T16:01:27Z",
+  "request": {
+    "model": "deepseek-reasoner-search",
+    "stream": true,
+    "messages": [
+      {
+        "role": "user",
+        "content": "广州天气"
+      }
+    ]
+  },
+  "capture": {
+    "label": "deepseek_completion",
+    "url": "https://chat.deepseek.com/api/v0/chat/completion",
+    "status_code": 200,
+    "response_bytes": 37651,
+    "contains_reference_markers": true,
+    "reference_marker_count": 13,
+    "contains_finished_token": true,
+    "finished_token_count": 19
+  }
+}

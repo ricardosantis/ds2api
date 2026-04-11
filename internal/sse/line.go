@@ -35,11 +35,19 @@ func ParseDeepSeekContentLine(raw []byte, thinkingEnabled bool, currentType stri
 			Parsed:        true,
 			Stop:          true,
 			ContentFilter: true,
-			ErrorMessage:  "content filtered by upstream",
+			NextType:      currentType,
+		}
+	}
+	if hasContentFilterStatus(chunk) {
+		return LineResult{
+			Parsed:        true,
+			Stop:          true,
+			ContentFilter: true,
 			NextType:      currentType,
 		}
 	}
 	parts, finished, nextType := ParseSSEChunkForContent(chunk, thinkingEnabled, currentType)
+	parts = filterLeakedContentFilterParts(parts)
 	return LineResult{
 		Parsed:   true,
 		Stop:     finished,

@@ -53,6 +53,10 @@ func (r *Runner) caseModelsOpenAI(ctx context.Context, cc *caseContext) error {
 	ids := extractModelIDs(resp.Body)
 	cc.assert("has_deepseek_chat", contains(ids, "deepseek-chat"), strings.Join(ids, ","))
 	cc.assert("has_deepseek_reasoner", contains(ids, "deepseek-reasoner"), strings.Join(ids, ","))
+	cc.assert("has_deepseek_expert_chat", contains(ids, "deepseek-expert-chat"), strings.Join(ids, ","))
+	cc.assert("has_deepseek_expert_reasoner", contains(ids, "deepseek-expert-reasoner"), strings.Join(ids, ","))
+	cc.assert("has_deepseek_vision_chat", contains(ids, "deepseek-vision-chat"), strings.Join(ids, ","))
+	cc.assert("has_deepseek_vision_reasoner", contains(ids, "deepseek-vision-reasoner"), strings.Join(ids, ","))
 	return nil
 }
 

@@ -3,7 +3,7 @@ package openai
 import (
 	"strings"
 
-	"ds2api/internal/util"
+	"ds2api/internal/toolcall"
 )
 
 func processToolSieveChunk(state *toolStreamSieveState, chunk string, toolNames []string) []toolStreamEvent {
@@ -114,8 +114,14 @@ func flushToolSieve(state *toolStreamSieveState, toolNames []string) []toolStrea
 		} else {
 			content := state.capture.String()
 			if content != "" {
-				state.noteText(content)
-				events = append(events, toolStreamEvent{Content: content})
+				// If the captured text looks like an incomplete XML tool call block,
+				// swallow it to prevent leaking raw XML tags to the client.
+				if hasOpenXMLToolTag(content) {
+					// Drop it silently — incomplete tool call.
+				} else {
+					state.noteText(content)
+					events = append(events, toolStreamEvent{Content: content})
+				}
 			}
 		}
 		state.capture.Reset()
@@ -124,8 +130,14 @@ func flushToolSieve(state *toolStreamSieveState, toolNames []string) []toolStrea
 	}
 	if state.pending.Len() > 0 {
 		content := state.pending.String()
-		state.noteText(content)
-		events = append(events, toolStreamEvent{Content: content})
+		// Safety: if pending contains XML tool tag fragments (e.g. "tool_calls>"
+		// from a split closing tag), swallow them instead of leaking.
+		if hasOpenXMLToolTag(content) || looksLikeXMLToolTagFragment(content) {
+			// Drop it — likely an incomplete tool call fragment.
+		} else {
+			state.noteText(content)
+			events = append(events, toolStreamEvent{Content: content})
+		}
 		state.pending.Reset()
 	}
 	return events
@@ -159,6 +171,10 @@ func findSuspiciousPrefixStart(s string) int {
 			start = idx
 		}
 	}
+	// Also check for partial XML tool tag at end of string.
+	if xmlIdx := findPartialXMLToolTagStart(s); xmlIdx >= 0 && xmlIdx > start {
+		start = xmlIdx
+	}
 	return start
 }
 
@@ -167,37 +183,83 @@ func findToolSegmentStart(s string) int {
 		return -1
 	}
 	lower := strings.ToLower(s)
-	offset := 0
-	for {
-		keyRel := strings.Index(lower[offset:], "tool_calls")
-		if keyRel < 0 {
-			return -1
+	keywords := []string{"tool_calls", "\"function\"", "function.name:", "\"tool_use\""}
+	bestKeyIdx := -1
+	for _, kw := range keywords {
+		idx := strings.Index(lower, kw)
+		if idx >= 0 && (bestKeyIdx < 0 || idx < bestKeyIdx) {
+			bestKeyIdx = idx
 		}
-		keyIdx := offset + keyRel
-		start := strings.LastIndex(s[:keyIdx], "{")
-		if start < 0 {
-			start = keyIdx
-		}
-		if !insideCodeFence(s[:start]) {
-			return start
-		}
-		offset = keyIdx + len("tool_calls")
 	}
+	if fnKeyIdx := findQuotedFunctionCallKeyStart(s); fnKeyIdx >= 0 && (bestKeyIdx < 0 || fnKeyIdx < bestKeyIdx) {
+		bestKeyIdx = fnKeyIdx
+	}
+	// Also detect XML tool call tags.
+	for _, tag := range xmlToolTagsToDetect {
+		idx := strings.Index(lower, tag)
+		if idx >= 0 && (bestKeyIdx < 0 || idx < bestKeyIdx) {
+			bestKeyIdx = idx
+		}
+	}
+	if bestKeyIdx < 0 {
+		return -1
+	}
+	// For XML tags, the '<' is itself the segment start.
+	if bestKeyIdx < len(s) && s[bestKeyIdx] == '<' {
+		if fenceStart, ok := openFenceStartBefore(s, bestKeyIdx); ok {
+			return fenceStart
+		}
+		return bestKeyIdx
+	}
+	start := strings.LastIndex(s[:bestKeyIdx], "{")
+	if start < 0 {
+		start = bestKeyIdx
+	}
+	// If the keyword matched inside an XML tag (e.g. "tool_calls" in "<tool_calls>"),
+	// back up past the '<' to capture the full tag.
+	if start > 0 && s[start-1] == '<' {
+		start--
+	}
+	if fenceStart, ok := openFenceStartBefore(s, start); ok {
+		return fenceStart
+	}
+	return start
 }
 
-func consumeToolCapture(state *toolStreamSieveState, toolNames []string) (prefix string, calls []util.ParsedToolCall, suffix string, ready bool) {
+func consumeToolCapture(state *toolStreamSieveState, toolNames []string) (prefix string, calls []toolcall.ParsedToolCall, suffix string, ready bool) {
 	captured := state.capture.String()
 	if captured == "" {
 		return "", nil, "", false
 	}
+
+	// Try XML tool call extraction first.
+	if xmlPrefix, xmlCalls, xmlSuffix, xmlReady := consumeXMLToolCapture(captured, toolNames); xmlReady {
+		return xmlPrefix, xmlCalls, xmlSuffix, true
+	}
+	// If XML tags are present but block is incomplete, keep buffering.
+	if hasOpenXMLToolTag(captured) {
+		return "", nil, "", false
+	}
+
 	lower := strings.ToLower(captured)
-	keyIdx := strings.Index(lower, "tool_calls")
+	keyIdx := -1
+	keywords := []string{"tool_calls", "\"function\"", "function.name:", "\"tool_use\""}
+	for _, kw := range keywords {
+		idx := strings.Index(lower, kw)
+		if idx >= 0 && (keyIdx < 0 || idx < keyIdx) {
+			keyIdx = idx
+		}
+	}
+	if fnKeyIdx := findQuotedFunctionCallKeyStart(captured); fnKeyIdx >= 0 && (keyIdx < 0 || fnKeyIdx < keyIdx) {
+		keyIdx = fnKeyIdx
+	}
+
 	if keyIdx < 0 {
 		return "", nil, "", false
 	}
 	start := strings.LastIndex(captured[:keyIdx], "{")
 	if start < 0 {
-		return "", nil, "", false
+		start = keyIdx
 	}
 	obj, end, ok := extractJSONObjectFrom(captured, start)
 	if !ok {
@@ -205,17 +267,18 @@ func consumeToolCapture(state *toolStreamSieveState, toolNames []string) (prefix
 	}
 	prefixPart := captured[:start]
 	suffixPart := captured[end:]
-	if insideCodeFence(state.recentTextTail + prefixPart) {
-		return captured, nil, "", true
-	}
-	parsed := util.ParseStandaloneToolCallsDetailed(obj, toolNames)
+	parsed := toolcall.ParseStandaloneToolCallsDetailed(obj, toolNames)
 	if len(parsed.Calls) == 0 {
 		if parsed.SawToolCallSyntax && parsed.RejectedByPolicy {
 			// Parsed as tool-call payload but rejected by schema/policy:
 			// consume it to avoid leaking raw tool_calls JSON to user content.
 			return prefixPart, nil, suffixPart, true
 		}
+		// If it has obvious keywords but failed to parse even after loose repair,
+		// we still might want to intercept it if it looks like an attempt at tool call.
+		// For now, keep the original logic but rely on loose JSON repair.
 		return captured, nil, "", true
 	}
+	prefixPart, suffixPart = trimWrappingJSONFence(prefixPart, suffixPart)
 	return prefixPart, parsed.Calls, suffixPart, true
 }

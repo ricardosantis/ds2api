@@ -115,7 +115,7 @@ func (cc *caseContext) requestOnce(ctx context.Context, spec requestSpec, attemp
 		cc.mu.Unlock()
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, _ := io.ReadAll(resp.Body)
 
 	cc.mu.Lock()
@@ -131,7 +131,7 @@ func (cc *caseContext) requestOnce(ctx context.Context, spec requestSpec, attemp
 	})
 
 	if spec.Stream {
-		cc.streamRaw.WriteString(fmt.Sprintf("### trace=%s url=%s\n", traceID, fullURL))
+		_, _ = fmt.Fprintf(&cc.streamRaw, "### trace=%s url=%s\n", traceID, fullURL)
 		cc.streamRaw.Write(body)
 		cc.streamRaw.WriteString("\n\n")
 	}

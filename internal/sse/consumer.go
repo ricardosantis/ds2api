@@ -10,8 +10,9 @@ import (
 // CollectResult holds the aggregated text and thinking content from a
 // DeepSeek SSE stream, consumed to completion (non-streaming use case).
 type CollectResult struct {
-	Text     string
-	Thinking string
+	Text          string
+	Thinking      string
+	ContentFilter bool
 }
 
 // CollectStream fully consumes a DeepSeek SSE response and separates
@@ -22,10 +23,11 @@ type CollectResult struct {
 // The caller is responsible for closing resp.Body unless closeBody is true.
 func CollectStream(resp *http.Response, thinkingEnabled bool, closeBody bool) CollectResult {
 	if closeBody {
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 	}
 	text := strings.Builder{}
 	thinking := strings.Builder{}
+	contentFilter := false
 	currentType := "text"
 	if thinkingEnabled {
 		currentType = "thinking"
@@ -37,16 +39,25 @@ func CollectStream(resp *http.Response, thinkingEnabled bool, closeBody bool) Co
 			return true
 		}
 		if result.Stop {
+			if result.ContentFilter {
+				contentFilter = true
+			}
 			return false
 		}
 		for _, p := range result.Parts {
 			if p.Type == "thinking" {
-				thinking.WriteString(p.Text)
+				trimmed := TrimContinuationOverlap(thinking.String(), p.Text)
+				thinking.WriteString(trimmed)
 			} else {
-				text.WriteString(p.Text)
+				trimmed := TrimContinuationOverlap(text.String(), p.Text)
+				text.WriteString(trimmed)
 			}
 		}
 		return true
 	})
-	return CollectResult{Text: text.String(), Thinking: thinking.String()}
+	return CollectResult{
+		Text:          text.String(),
+		Thinking:      thinking.String(),
+		ContentFilter: contentFilter,
+	}
 }

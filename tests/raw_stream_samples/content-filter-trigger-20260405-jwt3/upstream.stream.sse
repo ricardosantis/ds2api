@@ -1,0 +1,2969 @@
+event: ready
+data: {"request_message_id":1,"response_message_id":2,"model_type":"default"}
+
+event: update_session
+data: {"updated_at":1775320081.745077}
+
+data: {"v":{"response":{"message_id":2,"parent_id":1,"model":"","role":"ASSISTANT","thinking_enabled":true,"ban_edit":false,"ban_regenerate":false,"status":"WIP","incomplete_message":null,"accumulated_token_usage":0,"files":[],"feedback":null,"inserted_at":1775320081.741936,"search_enabled":true,"fragments":[{"id":2,"type":"THINK","content":"用户","elapsed_secs":null,"references":[],"stage_id":1}],"conversation_mode":"DEEP_SEARCH","has_pending_fragment":false,"auto_continue":false,"search_triggered":true}}}
+
+data: {"p":"response/fragments/-1/content","o":"APPEND","v":"是一位"}
+
+data: {"v":"历史"}
+
+data: {"v":"老师"}
+
+data: {"v":"，"}
+
+data: {"v":"需要"}
+
+data: {"v":"寻找"}
+
+data: {"v":"文革"}
+
+data: {"v":"期间"}
+
+data: {"v":"历史"}
+
+data: {"v":"书上"}
+
+data: {"v":"没有"}
+
+data: {"v":"记载"}
+
+data: {"v":"、"}
+
+data: {"v":"真实"}
+
+data: {"v":"发生的"}
+
+data: {"v":"派"}
+
+data: {"v":"系"}
+
+data: {"v":"斗争"}
+
+data: {"v":"事例"}
+
+data: {"v":"，"}
+
+data: {"v":"特别是"}
+
+data: {"v":"能"}
+
+data: {"v":"体现"}
+
+data: {"v":"历史"}
+
+data: {"v":"人物"}
+
+data: {"v":"复杂"}
+
+data: {"v":"性的"}
+
+data: {"v":"内容"}
+
+data: {"v":"。"}
+
+data: {"v":"用户"}
+
+data: {"v":"明确"}
+
+data: {"v":"要求"}
+
+data: {"v":"提供"}
+
+data: {"v":"多个"}
+
+data: {"v":"具体"}
+
+data: {"v":"事例"}
+
+data: {"v":"，"}
+
+data: {"v":"并"}
+
+data: {"v":"强调"}
+
+data: {"v":"要"}
+
+data: {"v":"体现"}
+
+data: {"v":"复杂性"}
+
+data: {"v":"而非"}
+
+data: {"v":"单一"}
+
+data: {"v":"评价"}
+
+data: {"v":"立场"}
+
+data: {"v":"。"}
+
+data: {"v":"为了"}
+
+data: {"v":"全面"}
+
+data: {"v":"获取"}
+
+data: {"v":"信息"}
+
+data: {"v":"，"}
+
+data: {"v":"我将"}
+
+data: {"v":"同时"}
+
+data: {"v":"进行"}
+
+data: {"v":"多项"}
+
+data: {"v":"搜索"}
+
+data: {"v":"，"}
+
+data: {"v":"涵盖"}
+
+data: {"v":"不同类型的"}
+
+data: {"v":"派"}
+
+data: {"v":"系"}
+
+data: {"v":"斗争"}
+
+data: {"v":"、"}
+
+data: {"v":"具体"}
+
+data: {"v":"事件"}
+
+data: {"v":"、"}
+
+data: {"v":"原始"}
+
+data: {"v":"材料"}
+
+data: {"v":"以及"}
+
+data: {"v":"相关"}
+
+data: {"v":"研究"}
+
+data: {"v":"。"}
+
+data: {"p":"response/fragments/-1/elapsed_secs","o":"SET","v":1.8544618019999999}
+
+data: {"p":"response/has_pending_fragment","v":true}
+
+: 
+
+data: {"p":"response","o":"BATCH","v":[{"p":"fragments","o":"APPEND","v":[{"id":3,"type":"TOOL_SEARCH","status":"WIP","content":null,"queries":[{"query":"文革 派系斗争 事例 历史人物 复杂性 非官方记载"}],"results":[],"stage_id":1},{"id":4,"type":"TOOL_SEARCH","status":"WIP","content":null,"queries":[{"query":"文革 群众组织 派系斗争 武斗 事例"}],"results":[],"stage_id":1},{"id":5,"type":"TOOL_SEARCH","status":"WIP","content":null,"queries":[{"query":"王力 关锋 戚本禹 文革 派系 中央文革小组"}],"results":[],"stage_id":1},{"id":6,"type":"TOOL_SEARCH","status":"WIP","content":null,"queries":[{"query":"武汉七二〇事件 详细经过 派系 人物"}],"results":[],"stage_id":1},{"id":7,"type":"TOOL_SEARCH","status":"WIP","content":null,"queries":[{"query":"李雪峰 文革 派系 人物 复杂性"}],"results":[],"stage_id":1},{"id":8,"type":"TOOL_SEARCH","status":"WIP","content":null,"queries":[{"query":"赵健民 云南 文革 滇西挺进纵队 冤案"}],"results":[],"stage_id":1},{"id":9,"type":"TOOL_SEARCH","status":"WIP","content":null,"queries":[{"query":"文革 派系斗争 原始材料 回忆录 口述史 研究"}],"results":[],"stage_id":1},{"id":10,"type":"TOOL_SEARCH","status":"WIP","content":null,"queries":[{"query":"site:cnki.net 文革 派系斗争 历史人物 复杂性"}],"results":[],"stage_id":1}]},{"p":"has_pending_fragment","o":"SET","v":false}]}
+
+data: {"p":"response/fragments/-7/results","o":"SET","v":[{"url":"http://www.zzdsw.com/yjcg/ztyj/201603/t20160331_1521613.html","title":"专题研究- 枣庄党史史志网","snippet":"发生在1967年7月25日至26日，是文化大革命中枣庄地区两派不同观点群众，发生的较大规模的武斗流血事件，也是枣庄地区两派群众组织派性激化的表现。","cite_index":null,"published_at":1459353600.0,"site_icon":"https://cdn.deepseek.com/site-icons/zzdsw.com","site_name":"zzdsw.com","query_indexes":[0]},{"url":"https://www.hinews.cn:443/news/system/2009/10/16/010588314_01.shtml","title":"“文革”进入狂热时期 “一月风暴”影响海南","snippet":"派性的斗争使得局势变得错综复杂，越来越多的群众参与进来，形成了群众组织派性斗争。由于斗争激烈，扰乱了夺权运动的大方向，并给生产带来了严重影响。海南农垦也被牵扯进来了。","cite_index":null,"published_at":1255622400.0,"site_icon":"https://cdn.deepseek.com/site-icons/hinews.cn","site_name":"南海网","query_indexes":[0]},{"url":"https://m.thepaper.cn/baijiahao_15235200","title":"中华人民共和国成立初期的政治建设(四)","snippet":"9 月，“八五风暴”与“筹委会”两大派对立，在县供销社大楼发生第一次大型武斗事件，全县广播中断，毁坏房屋数十间，伤 30 余人。此后，接连发生了抢县武装部弹药库事件，武斗愈演愈烈。1968 年 1 月...","cite_index":null,"published_at":1635868800.0,"site_icon":"https://cdn.deepseek.com/site-icons/thepaper.cn","site_name":"澎湃新闻","query_indexes":[0]},{"url":"http://zx.hanzhong.gov.cn/hzzxwz/thhm/201605/t20160510_330408.shtml","title":"“文革”期间勉县武斗和“六·二”事件","snippet":"比较大的武斗事件21起，死亡85人（其中打死47人，武器走火死亡12人，武斗汽车肇事死亡13人，武斗中触电死亡1人，打死无辜群众3人，打死中国人民解放军战士9人）。","cite_index":null,"published_at":1618588800.0,"site_icon":"https://cdn.deepseek.com/site-icons/hanzhong.gov.cn","site_name":"汉中市人民政府","query_indexes":[0]},{"url":"http://www.gxdfz.org.cn/flbg/lsrw/202602/t20260224_67313.html","title":"余华祥--广西地情网","snippet":"1967年下半年以后，平南两派群众组织进入武斗高潮，余华祥经常身挎冲锋枪，腰缠手榴弹，进出县城，参加武斗。其时，广西劳动大学生梁宗和(寺面人)，在南宁武斗时潜回寺面，后大安开始大规模武斗，连续出现枪杀群众事件，梁宗和怕受牵连，于12月1日取道六陈、罗秀到桂平想回南宁...","cite_index":null,"published_at":1771862400.0,"site_icon":"https://cdn.deepseek.com/site-icons/gxdfz.org.cn","site_name":"广西数字方志馆","query_indexes":[0]}]}
+
+data: {"p":"response/fragments/-7/status","v":"FINISHED"}
+
+data: {"p":"response/fragments/-8/results","v":[{"url":"http://jhwsw.com/zzdzb/ShowArticle.asp?ArticleID=838","title":"“文革”期间的“反复旧妖风”（唐张新）","snippet":"其实从“文革”开始之初，红卫兵因为政治立场和投身运动的动机各不相同，对待原先当权派的态度就有两派之分，其中主张彻底打倒、严酷斗争的自诩为“左派”，而把那些支持原来老革命当权者的贬称为“保皇派”。到后来...","cite_index":null,"published_at":null,"site_icon":"https://cdn.deepseek.com/site-icons/jhwsw.com","site_name":"Jhwsw","query_indexes":[0]},{"url":"https://m.thepaper.cn/newsDetail_forward_8348578","title":"孟祥才 | 冯友兰为何能逃脱“右派”的厄运？","snippet":"历史所造反派翻身后，通过“民选”产生了“文革”小组，全面领导所里的“文化革命”。其中一项重要的工作是建立尹达的专案组，搜集整理他“执行修正主义路线的材料”。","cite_index":null,"published_at":1595088000.0,"site_icon":"https://cdn.deepseek.com/site-icons/thepaper.cn","site_name":"澎湃新闻","query_indexes":[0]},{"url":"http://mztoday.gov.cn/show/46607.html","title":"今日绵竹 - 《中国共产党四川省绵竹市历史》之“文化大革命”在绵竹兴起（二）","snippet":"1966年12月17日，绵竹县教育系统群众组织“小教兵团”在原老川剧团剧院集中全城区中小学教师及部分其他单位的干部数百人举行批判“三家村”斗争大会。批判斗争当权派是“文化大革命”的重要形式和内容。期间...","cite_index":null,"published_at":1627228800.0,"site_icon":"https://cdn.deepseek.com/site-icons/mztoday.gov.cn","site_name":"今日绵竹","query_indexes":[0]},{"url":"https://www.zjkzx.gov.cn/book/history17/files/basic-html/page76.html","title":"Page 76 - 张家口政协","snippet":"“文革”爆发后，他被隔离审查，仍坚持不承认反党。他把申 诉材料缝在棉袄里，被造反派查出，又多了一个“妄图翻案”","cite_index":null,"published_at":null,"site_icon":"https://cdn.deepseek.com/site-icons/zjkzx.gov.cn","site_name":"Zjkzx","query_indexes":[0]}]}
+
+data: {"p":"response/fragments/-8/status","v":"FINISHED"}
+
+data: {"p":"response/fragments/-2/results","v":[{"url":"https://chinafolklore.org/web/index.php?Page=2&NewsID=5478","title":"[英古阿格]一个纳西族老村长的口述实录 · 中国民俗学网-中国民俗学会","snippet":"文革期间，因为有些造反派想打倒我，但又找不到把柄，因为我才当了村长不到三个月，就想定罪为当权派，他们也没有理由。家庭一直是根正苗红，建国之初就是团员了。他们就查到我家二叔头上来...","cite_index":null,"published_at":1249660800.0,"site_icon":"https://cdn.deepseek.com/site-icons/chinafolklore.org","site_name":"中国民俗学网","query_indexes":[0]},{"url":"http://old.counsellor.gov.cn/wsxc/2009-10-24/10368.shtml","title":"叶永烈：我写“文革”史","snippet":"史学研究历来重视文献，文献的“文”指档案材料，“献”就是口述史。我认为当代人写当代史的优势就在于对“献”的重视。那些档案，现在还处于保密阶段的，有可能过个几十年、上百年，后人能很方便地查阅。但是当事人越来越少...","cite_index":null,"published_at":1256313600.0,"site_icon":"https://cdn.deepseek.com/site-icons/counsellor.gov.cn","site_name":"国务院参事室","query_indexes":[0]},{"url":"https://news.sina.com.cn/c/sd/2009-07-31/131018338282.shtml","title":"亲历者口述“四人帮”兴亡史_新闻中心_新浪网","snippet":"中国历来有官修历史和民间著史的传统，一段由作家采写的10年“文革”史，历经20多年的等待，终于问世。 建国60周年，10年是“文革”，这段历史无法跨越。除了叶永烈的《“四人帮”兴亡》...","cite_index":null,"published_at":1248969600.0,"site_icon":"https://cdn.deepseek.com/site-icons/sina.com.cn","site_name":"新浪网","query_indexes":[0]}]}
+
+data: {"p":"response/fragments/-2/status","v":"FINISHED"}
+
+data: {"p":"response/fragments/-6/results","v":[{"url":"http://zhouenlai.people.cn/BIG5/n1/2019/0725/c409117-31256646-4.html","title":"揭秘\"救火隊長\"周恩來如何在\"文革\"中苦撐危局【4】","snippet":"1967年2月后，中央文革小組實際上取代了中央政治局，更是不可一世，到處煽陰風、點鬼火。這時的王力、關鋒、戚本禹是中央文革的三員“干將”，江青手下名副其實的“車、馬、炮”，成為“文化大革命”中左右橫行的風雲人物。","cite_index":null,"published_at":1563984000.0,"site_icon":"https://cdn.deepseek.com/site-icons/people.cn","site_name":"周恩来纪念网","query_indexes":[0]}]}
+
+data: {"p":"response/fragments/-6/status","v":"FINISHED"}
+
+data: {"p":"response/fragments/-1/results","v":[{"url":"https://bianke.cnki.net/Web/SearchArticle?kw=%E8%AE%B8%E5%B9%BF%E5%B9%B3&field=0&page=9","title":"母亲、女校长、问罪学——关于杨荫榆事件的再思考","snippet":"许广平在“文革”中未曾点成仿吾的名＂文革＂初，山东大学全校人员分成两派，对学校党委和党委书记、校长成仿吾的功过问题展开辩论。成仿吾开始＂靠边站＂...","cite_index":null,"published_at":null,"site_icon":"https://cdn.deepseek.com/site-icons/cnki.net","site_name":"知网百科","query_indexes":[0]},{"url":"https://wap.cnki.net/touch/web/Journal/Article/BNCH200103007.html","title":"师门忆语(三)-百年潮2001年03期-手机知网","snippet":"十一、“文革”风暴中议论陈伯达“文革”祸起,《红旗》杂志的三位副总编辑邓(力群)、胡(绳)、范[若愚],几乎一夜之间就从领导高位上跌落下来,被作为“走资派”打倒。胡绳还因为参加“二月提纲”而罪加一等...","cite_index":null,"published_at":null,"site_icon":"https://cdn.deepseek.com/site-icons/cnki.net","site_name":"CNKI","query_indexes":[0]},{"url":"https://xuewen.cnki.net/R2006050150005248.html","title":"中国科学院第4次学部委员大会","snippet":"全院工作稳步走上正轨。“文革”期间,中科院是重灾区,院中派系斗争不断,科学家和领导干部横遭批判和迫害,局面异常混乱。1977年1月方毅主持全院工作后,抓了粉碎“四人帮”帮派体系的工作,努力清除“左”的干扰。而且在院领导班子的带领下...","cite_index":null,"published_at":null,"site_icon":"https://cdn.deepseek.com/site-icons/cnki.net","site_name":"CNKI","query_indexes":[0]},{"url":"https://mall.cnki.net/magazine/Article/DDSJ201204035.htm","title":"文革时期的海外中共研究","snippet":"文革时期是海外中共研究的兴盛时期。随着研究资料状况的改善,海外学者这一时期的研究成果体现了中共研究范围和研究深度的拓展。尤其重要的是,这一时期海外中共研究的进展,代表了研究范式的转变:原先主导海外中共研究领域的\"极权主义\"模式分崩离析,以\"派系... （共5页)","cite_index":null,"published_at":null,"site_icon":"https://cdn.deepseek.com/site-icons/cnki.net","site_name":"知网阅读","query_indexes":[0]},{"url":"https://mall.cnki.net/magazine/article/FLWS200309000.htm","title":"“文革”发动前的一段经历——从《二月提纲》到东湖之行","snippet":"“七个攻击左派、包庇右派材料”的出台 《二月提纲》的主持者是彭真,“炮制者”是中宣部的两位副部长,许立群和姚溱。 许立群是在周扬住院割治肺癌后,于1966年1月接手分管学术批判的事的。据我的观察...","cite_index":null,"published_at":null,"site_icon":"https://cdn.deepseek.com/site-icons/cnki.net","site_name":"知网阅读","query_indexes":[0]}]}
+
+data: {"p":"response/fragments/-1/status","v":"FINISHED"}
+
+data: {"p":"response/fragments/-4/results","v":[{"url":"http://www.qyhao123.com/xcx/discuz.php?mod=view&tid=58251&show=author","title":"哪位政治局常委只当了四个月的党内“第四号人物”？","snippet":"“文革”初期，全国6个大区中两个大区的一把手，即华北局第一书记李雪峰、中南局第一书记陶铸，受到重用：李雪峰任北京市委第一书记，陶铸任中宣部长。毛泽东为什么选择他们取代被打倒的彭真...","cite_index":null,"published_at":1378656000.0,"site_icon":"https://cdn.deepseek.com/site-icons/qyhao123.com","site_name":"祁阳生活网","query_indexes":[0]}]}
+
+data: {"p":"response/fragments/-4/status","v":"FINISHED"}
+
+data: {"p":"response/fragments/-5/status","v":"FINISHED"}
+
+data: {"p":"response/fragments/-3/results","v":[{"url":"http://hbzx.tsxcfw.com/bookshow.asp?id=887815","title":"康生与赵健民冤案_丁龙嘉，听雨_9787010028347_河北知行文化传播有限公司","snippet":"“赵健民特务案”是“文革”期间康生一手制造的一起特大冤案。这起冤案，使身为云南省委负责人的赵人健民被非法关押长达八年，一百三十八万七千余人被审查，十七万五千余作被立案审查，一万七千余人被打死、逼死。 作者耗时十年...","cite_index":null,"published_at":1159632000.0,"site_icon":"https://cdn.deepseek.com/site-icons/tsxcfw.com","site_name":"tsxcfw.com","query_indexes":[0]},{"url":"http://news.big5.enorth.com.cn/system/2008/10/21/003732191.shtml","title":"史海：康生制造冤案 雲南省委書記被非法關押8年-新聞中心-北方網","snippet":"趙健民冤案，是文革期間康生一手制造的一起特大冤案，使身為雲南省委書記的趙健民被非法關押達8年之久。《康生與『趙健民冤案』》一書是專家治史之作。","cite_index":null,"published_at":1224518400.0,"site_icon":"https://cdn.deepseek.com/site-icons/enorth.com.cn","site_name":"北方网","query_indexes":[0]},{"url":"https://m.163.com/dy/article/HTT55SI90552PRXR.html?spss=adap_pc","title":"他当过云南省委书记，晚年回忆：因为康生一句话，1万多人被害死","snippet":"在这之后，康生围绕赵健民制造了骇人听闻的“赵健民冤案”，把时任云南省委书记的赵健民诬陷为“叛徒”、“国民党特务”，赵健民也被关押起来，并被非法关押了八年时间。同时，受这起冤案牵连，云南省有一万七千余人被迫害致死。","cite_index":null,"published_at":1676736000.0,"site_icon":"https://cdn.deepseek.com/site-icons/163.com","site_name":"网易","query_indexes":[0]},{"url":"https://ccrhm.org/history/yanshutian.htm","title":"阎书田","snippet":"文革中属云南“炮派”观点 ... 在会议中残酷批斗后押回云南原单位，在批斗会上被活活打死。 （资料来源于丁龙嘉、听雨著《康生与“赵健民冤案”》，人民出版社1999年1月版","cite_index":null,"published_at":null,"site_icon":"https://cdn.deepseek.com/site-icons/ccrhm.org","site_name":"中国文革受难者纪念园","query_indexes":[0]},{"url":"https://ccrhm.org/history/gaotangwen.htm","title":"高堂文","snippet":"在会议期间批斗会上被打掉了下巴，押回原单位后在批斗中被铁丝活活勒死。 （资料来源于丁龙嘉、听雨著《康生与“赵健民冤案”》，人民出版社","cite_index":null,"published_at":null,"site_icon":"https://cdn.deepseek.com/site-icons/ccrhm.org","site_name":"中国文革受难者纪念园","query_indexes":[0]}]}
+
+data: {"p":"response/fragments/-3/status","v":"FINISHED"}
+
+data: {"p":"response/has_pending_fragment","v":true}
+
+data: {"p":"response","o":"BATCH","v":[{"p":"fragments","o":"APPEND","v":[{"id":11,"type":"THINK","content":"搜索","elapsed_secs":null,"references":[],"stage_id":2}]},{"p":"has_pending_fragment","o":"SET","v":false}]}
+
+data: {"p":"response/fragments/-1/content","o":"APPEND","v":"结果显示"}
+
+data: {"v":"了一些"}
+
+data: {"v":"相关"}
+
+data: {"v":"页面"}
+
+data: {"v":"。"}
+
+data: {"v":"为了"}
+
+data: {"v":"全面"}
+
+data: {"v":"获取"}
+
+data: {"v":"信息"}
+
+data: {"v":"，"}
+
+data: {"v":"我们需要"}
+
+data: {"v":"同时"}
+
+data: {"v":"打开"}
+
+data: {"v":"这些"}
+
+data: {"v":"页面"}
+
+data: {"v":"。"}
+
+data: {"p":"response/fragments/-1/elapsed_secs","o":"SET","v":0.741001591}
+
+data: {"p":"response/has_pending_fragment","v":true}
+
+: 
+
+: 
+
+data: {"p":"response","o":"BATCH","v":[{"p":"fragments","o":"APPEND","v":[{"id":12,"type":"TOOL_OPEN","status":"WIP","result":{"url":"http://jhwsw.com/zzdzb/ShowArticle.asp?ArticleID=838","title":"“文革”期间的“反复旧妖风”（唐张新）","snippet":"其实从“文革”开始之初，红卫兵因为政治立场和投身运动的动机各不相同，对待原先当权派的态度就有两派之分，其中主张彻底打倒、严酷斗争的自诩为“左派”，而把那些支持原来老革命当权者的贬称为“保皇派”。到后来...","cite_index":null,"published_at":null,"site_icon":"https://cdn.deepseek.com/site-icons/jhwsw.com","site_name":"Jhwsw","query_indexes":[0]},"reference":{"id":3,"type":"TOOL_SEARCH"},"stage_id":2},{"id":13,"type":"TOOL_OPEN","status":"WIP","result":{"url":"http://www.zzdsw.com/yjcg/ztyj/201603/t20160331_1521613.html","title":"专题研究- 枣庄党史史志网","snippet":"发生在1967年7月25日至26日，是文化大革命中枣庄地区两派不同观点群众，发生的较大规模的武斗流血事件，也是枣庄地区两派群众组织派性激化的表现。","cite_index":null,"published_at":1459353600.0,"site_icon":"https://cdn.deepseek.com/site-icons/zzdsw.com","site_name":"zzdsw.com","query_indexes":[0]},"reference":{"id":4,"type":"TOOL_SEARCH"},"stage_id":2},{"id":14,"type":"TOOL_OPEN","status":"WIP","result":{"url":"https://m.thepaper.cn/baijiahao_15235200","title":"中华人民共和国成立初期的政治建设(四)","snippet":"9 月，“八五风暴”与“筹委会”两大派对立，在县供销社大楼发生第一次大型武斗事件，全县广播中断，毁坏房屋数十间，伤 30 余人。此后，接连发生了抢县武装部弹药库事件，武斗愈演愈烈。1968 年 1 月...","cite_index":null,"published_at":1635868800.0,"site_icon":"https://cdn.deepseek.com/site-icons/thepaper.cn","site_name":"澎湃新闻","query_indexes":[0]},"reference":{"id":4,"type":"TOOL_SEARCH"},"stage_id":2},{"id":15,"type":"TOOL_OPEN","status":"WIP","result":{"url":"http://zx.hanzhong.gov.cn/hzzxwz/thhm/201605/t20160510_330408.shtml","title":"“文革”期间勉县武斗和“六·二”事件","snippet":"比较大的武斗事件21起，死亡85人（其中打死47人，武器走火死亡12人，武斗汽车肇事死亡13人，武斗中触电死亡1人，打死无辜群众3人，打死中国人民解放军战士9人）。","cite_index":null,"published_at":1618588800.0,"site_icon":"https://cdn.deepseek.com/site-icons/hanzhong.gov.cn","site_name":"汉中市人民政府","query_indexes":[0]},"reference":{"id":4,"type":"TOOL_SEARCH"},"stage_id":2},{"id":16,"type":"TOOL_OPEN","status":"WIP","result":{"url":"http://zhouenlai.people.cn/BIG5/n1/2019/0725/c409117-31256646-4.html","title":"揭秘\"救火隊長\"周恩來如何在\"文革\"中苦撐危局【4】","snippet":"1967年2月后，中央文革小組實際上取代了中央政治局，更是不可一世，到處煽陰風、點鬼火。這時的王力、關鋒、戚本禹是中央文革的三員“干將”，江青手下名副其實的“車、馬、炮”，成為“文化大革命”中左右橫行的風雲人物。","cite_index":null,"published_at":1563984000.0,"site_icon":"https://cdn.deepseek.com/site-icons/people.cn","site_name":"周恩来纪念网","query_indexes":[0]},"reference":{"id":5,"type":"TOOL_SEARCH"},"stage_id":2},{"id":17,"type":"TOOL_OPEN","status":"WIP","result":{"url":"http://www.qyhao123.com/xcx/discuz.php?mod=view&tid=58251&show=author","title":"哪位政治局常委只当了四个月的党内“第四号人物”？","snippet":"“文革”初期，全国6个大区中两个大区的一把手，即华北局第一书记李雪峰、中南局第一书记陶铸，受到重用：李雪峰任北京市委第一书记，陶铸任中宣部长。毛泽东为什么选择他们取代被打倒的彭真...","cite_index":null,"published_at":1378656000.0,"site_icon":"https://cdn.deepseek.com/site-icons/qyhao123.com","site_name":"祁阳生活网","query_indexes":[0]},"reference":{"id":7,"type":"TOOL_SEARCH"},"stage_id":2},{"id":18,"type":"TOOL_OPEN","status":"WIP","result":{"url":"http://hbzx.tsxcfw.com/bookshow.asp?id=887815","title":"康生与赵健民冤案_丁龙嘉，听雨_9787010028347_河北知行文化传播有限公司","snippet":"“赵健民特务案”是“文革”期间康生一手制造的一起特大冤案。这起冤案，使身为云南省委负责人的赵人健民被非法关押长达八年，一百三十八万七千余人被审查，十七万五千余作被立案审查，一万七千余人被打死、逼死。 作者耗时十年...","cite_index":null,"published_at":1159632000.0,"site_icon":"https://cdn.deepseek.com/site-icons/tsxcfw.com","site_name":"tsxcfw.com","query_indexes":[0]},"reference":{"id":8,"type":"TOOL_SEARCH"},"stage_id":2},{"id":19,"type":"TOOL_OPEN","status":"WIP","result":{"url":"http://news.big5.enorth.com.cn/system/2008/10/21/003732191.shtml","title":"史海：康生制造冤案 雲南省委書記被非法關押8年-新聞中心-北方網","snippet":"趙健民冤案，是文革期間康生一手制造的一起特大冤案，使身為雲南省委書記的趙健民被非法關押達8年之久。《康生與『趙健民冤案』》一書是專家治史之作。","cite_index":null,"published_at":1224518400.0,"site_icon":"https://cdn.deepseek.com/site-icons/enorth.com.cn","site_name":"北方网","query_indexes":[0]},"reference":{"id":8,"type":"TOOL_SEARCH"},"stage_id":2},{"id":20,"type":"TOOL_OPEN","status":"WIP","result":{"url":"https://m.163.com/dy/article/HTT55SI90552PRXR.html?spss=adap_pc","title":"他当过云南省委书记，晚年回忆：因为康生一句话，1万多人被害死","snippet":"在这之后，康生围绕赵健民制造了骇人听闻的“赵健民冤案”，把时任云南省委书记的赵健民诬陷为“叛徒”、“国民党特务”，赵健民也被关押起来，并被非法关押了八年时间。同时，受这起冤案牵连，云南省有一万七千余人被迫害致死。","cite_index":null,"published_at":1676736000.0,"site_icon":"https://cdn.deepseek.com/site-icons/163.com","site_name":"网易","query_indexes":[0]},"reference":{"id":8,"type":"TOOL_SEARCH"},"stage_id":2},{"id":21,"type":"TOOL_OPEN","status":"WIP","result":{"url":"https://chinafolklore.org/web/index.php?Page=2&NewsID=5478","title":"[英古阿格]一个纳西族老村长的口述实录 · 中国民俗学网-中国民俗学会","snippet":"文革期间，因为有些造反派想打倒我，但又找不到把柄，因为我才当了村长不到三个月，就想定罪为当权派，他们也没有理由。家庭一直是根正苗红，建国之初就是团员了。他们就查到我家二叔头上来...","cite_index":null,"published_at":1249660800.0,"site_icon":"https://cdn.deepseek.com/site-icons/chinafolklore.org","site_name":"中国民俗学网","query_indexes":[0]},"reference":{"id":9,"type":"TOOL_SEARCH"},"stage_id":2},{"id":22,"type":"TOOL_OPEN","status":"WIP","result":{"url":"http://old.counsellor.gov.cn/wsxc/2009-10-24/10368.shtml","title":"叶永烈：我写“文革”史","snippet":"史学研究历来重视文献，文献的“文”指档案材料，“献”就是口述史。我认为当代人写当代史的优势就在于对“献”的重视。那些档案，现在还处于保密阶段的，有可能过个几十年、上百年，后人能很方便地查阅。但是当事人越来越少...","cite_index":null,"published_at":1256313600.0,"site_icon":"https://cdn.deepseek.com/site-icons/counsellor.gov.cn","site_name":"国务院参事室","query_indexes":[0]},"reference":{"id":9,"type":"TOOL_SEARCH"},"stage_id":2},{"id":23,"type":"TOOL_OPEN","status":"WIP","result":{"url":"https://news.sina.com.cn/c/sd/2009-07-31/131018338282.shtml","title":"亲历者口述“四人帮”兴亡史_新闻中心_新浪网","snippet":"中国历来有官修历史和民间著史的传统，一段由作家采写的10年“文革”史，历经20多年的等待，终于问世。 建国60周年，10年是“文革”，这段历史无法跨越。除了叶永烈的《“四人帮”兴亡》...","cite_index":null,"published_at":1248969600.0,"site_icon":"https://cdn.deepseek.com/site-icons/sina.com.cn","site_name":"新浪网","query_indexes":[0]},"reference":{"id":9,"type":"TOOL_SEARCH"},"stage_id":2},{"id":24,"type":"TOOL_OPEN","status":"WIP","result":{"url":"https://bianke.cnki.net/Web/SearchArticle?kw=%E8%AE%B8%E5%B9%BF%E5%B9%B3&field=0&page=9","title":"母亲、女校长、问罪学——关于杨荫榆事件的再思考","snippet":"许广平在“文革”中未曾点成仿吾的名＂文革＂初，山东大学全校人员分成两派，对学校党委和党委书记、校长成仿吾的功过问题展开辩论。成仿吾开始＂靠边站＂...","cite_index":null,"published_at":null,"site_icon":"https://cdn.deepseek.com/site-icons/cnki.net","site_name":"知网百科","query_indexes":[0]},"reference":{"id":10,"type":"TOOL_SEARCH"},"stage_id":2},{"id":25,"type":"TOOL_OPEN","status":"WIP","result":{"url":"https://wap.cnki.net/touch/web/Journal/Article/BNCH200103007.html","title":"师门忆语(三)-百年潮2001年03期-手机知网","snippet":"十一、“文革”风暴中议论陈伯达“文革”祸起,《红旗》杂志的三位副总编辑邓(力群)、胡(绳)、范[若愚],几乎一夜之间就从领导高位上跌落下来,被作为“走资派”打倒。胡绳还因为参加“二月提纲”而罪加一等...","cite_index":null,"published_at":null,"site_icon":"https://cdn.deepseek.com/site-icons/cnki.net","site_name":"CNKI","query_indexes":[0]},"reference":{"id":10,"type":"TOOL_SEARCH"},"stage_id":2},{"id":26,"type":"TOOL_OPEN","status":"WIP","result":{"url":"https://mall.cnki.net/magazine/Article/DDSJ201204035.htm","title":"文革时期的海外中共研究","snippet":"文革时期是海外中共研究的兴盛时期。随着研究资料状况的改善,海外学者这一时期的研究成果体现了中共研究范围和研究深度的拓展。尤其重要的是,这一时期海外中共研究的进展,代表了研究范式的转变:原先主导海外中共研究领域的\"极权主义\"模式分崩离析,以\"派系... （共5页)","cite_index":null,"published_at":null,"site_icon":"https://cdn.deepseek.com/site-icons/cnki.net","site_name":"知网阅读","query_indexes":[0]},"reference":{"id":10,"type":"TOOL_SEARCH"},"stage_id":2}]},{"p":"has_pending_fragment","o":"SET","v":false}]}
+
+data: {"p":"response/fragments/-3/status","o":"SET","v":"FINISHED"}
+
+data: {"p":"response/fragments/-2/status","v":"FINISHED"}
+
+data: {"p":"response/fragments/-1/status","v":"FINISHED"}
+
+data: {"p":"response/fragments/-10/status","v":"FINISHED"}
+
+data: {"p":"response/fragments/-9/status","v":"FINISHED"}
+
+data: {"p":"response/fragments/-7/status","v":"FINISHED"}
+
+data: {"p":"response/fragments/-5/status","v":"FINISHED"}
+
+data: {"p":"response/fragments/-4/status","v":"FINISHED"}
+
+data: {"p":"response/fragments/-15/status","v":"FINISHED"}
+
+data: {"p":"response/fragments/-14/status","v":"FINISHED"}
+
+data: {"p":"response/fragments/-13/status","v":"FINISHED"}
+
+data: {"p":"response/fragments/-12/status","v":"FINISHED"}
+
+data: {"p":"response/fragments/-8/status","v":"FINISHED"}
+
+data: {"p":"response/fragments/-6/status","v":"FINISHED"}
+
+data: {"p":"response/fragments/-11/status","v":"FINISHED"}
+
+data: {"p":"response/has_pending_fragment","v":true}
+
+data: {"p":"response","o":"BATCH","v":[{"p":"fragments","o":"APPEND","v":[{"id":27,"type":"THINK","content":"搜索","elapsed_secs":null,"references":[],"stage_id":3}]},{"p":"has_pending_fragment","o":"SET","v":false}]}
+
+data: {"p":"response/fragments/-1/content","o":"APPEND","v":"结果显示"}
+
+data: {"v":"了一些"}
+
+data: {"v":"相关"}
+
+data: {"v":"页面"}
+
+data: {"v":"。"}
+
+data: {"v":"为了"}
+
+data: {"v":"更"}
+
+data: {"v":"全面地"}
+
+data: {"v":"覆盖"}
+
+data: {"v":"用户"}
+
+data: {"v":"需求"}
+
+data: {"v":"，"}
+
+data: {"v":"我们需要"}
+
+data: {"v":"同时"}
+
+data: {"v":"进行"}
+
+data: {"v":"多项"}
+
+data: {"v":"搜索"}
+
+data: {"v":"，"}
+
+data: {"v":"以"}
+
+data: {"v":"获取"}
+
+data: {"v":"更多"}
+
+data: {"v":"关于"}
+
+data: {"v":"派"}
+
+data: {"v":"系"}
+
+data: {"v":"斗争"}
+
+data: {"v":"、"}
+
+data: {"v":"具体"}
+
+data: {"v":"事件"}
+
+data: {"v":"、"}
+
+data: {"v":"地方"}
+
+data: {"v":"案例"}
+
+data: {"v":"、"}
+
+data: {"v":"高层"}
+
+data: {"v":"斗争"}
+
+data: {"v":"以及"}
+
+data: {"v":"不同"}
+
+data: {"v":"研究"}
+
+data: {"v":"视角"}
+
+data: {"v":"的信息"}
+
+data: {"v":"。"}
+
+data: {"p":"response/fragments/-1/elapsed_secs","o":"SET","v":1.177853049}
+
+data: {"p":"response/has_pending_fragment","v":true}
+
+: 
+
+data: {"p":"response","o":"BATCH","v":[{"p":"fragments","o":"APPEND","v":[{"id":28,"type":"TOOL_SEARCH","status":"WIP","content":null,"queries":[{"query":"文革 派系 斗争 群众组织 武斗 案例 研究"}],"results":[],"stage_id":3},{"id":29,"type":"TOOL_SEARCH","status":"WIP","content":null,"queries":[{"query":"王力 八七讲话 外交部 夺权 派系"}],"results":[],"stage_id":3},{"id":30,"type":"TOOL_SEARCH","status":"WIP","content":null,"queries":[{"query":"北京 红卫兵 派系 斗争 联动 天派 地派"}],"results":[],"stage_id":3},{"id":31,"type":"TOOL_SEARCH","status":"WIP","content":null,"queries":[{"query":"上海 文革 派系 斗争 工总司 联司"}],"results":[],"stage_id":3},{"id":32,"type":"TOOL_SEARCH","status":"WIP","content":null,"queries":[{"query":"广州 文革 派系 斗争 红旗派 东风派"}],"results":[],"stage_id":3},{"id":33,"type":"TOOL_SEARCH","status":"WIP","content":null,"queries":[{"query":"湖南 文革 派系 斗争 湘江风雷 红一线"}],"results":[],"stage_id":3},{"id":34,"type":"TOOL_SEARCH","status":"WIP","content":null,"queries":[{"query":"广西 文革 派系 斗争 联指 四二二 派"}],"results":[],"stage_id":3}]},{"p":"has_pending_fragment","o":"SET","v":false}]}
+
+data: {"p":"response/fragments/-4/results","o":"SET","v":[{"url":"https://m.163.com/dy/article/HL9HAKRH0552PRXR.html?spss=adap_pc","title":"他与王洪文一起创立了“工总司”，却被王洪文架空，后来两度入狱","snippet":"于是“工总司”就在王洪文以及潘国平等人的带领下前往上海市委，11月10日凌晨又乘坐火车前往安亭车站，制造了安亭事件。潘国平也是这起事件的带头人 ... 潘国平是“工总司”的早期领导人，与王洪文平起平坐。潘国平有一定的文化基础，为人比较外向...","cite_index":null,"published_at":1667491200.0,"site_icon":"https://cdn.deepseek.com/site-icons/163.com","site_name":"网易","query_indexes":[0]}]}
+
+data: {"p":"response/fragments/-4/status","v":"FINISHED"}
+
+data: {"p":"response/fragments/-5/results","v":[{"url":"https://baike.baidu.com/item/%E5%A4%A9%E6%B4%BE/9569880","title":"天派_百度百科","snippet":"天派，全称红卫兵天派，是文化大革命期间以北京航空学院“红旗”组织为核心力量的政治团体，主要活跃于北京地区。其名称源于北航的航空专业属性，“航”与“天”相关联，故简称“天派” [1。","cite_index":null,"published_at":1750867200.0,"site_icon":"https://cdn.deepseek.com/site-icons/baidu.com","site_name":"百度百科","query_indexes":[0]},{"url":"http://www.chinazhiqing.com/forum.php?mod=viewthread&action=printable&tid=102766","title":"中国知青网-中国知青网络家园","snippet":"红卫兵运动，发起者是首都各大专院校的大学生，首都红卫兵的“天派”是北航，“地派”是北京地质学院，窜遍全国掀起造反浪潮最著名的所谓首都红卫兵第三司令部，也基本以大学生为主！中学虽然有很多红卫兵组织...","cite_index":null,"published_at":null,"site_icon":"https://cdn.deepseek.com/site-icons/chinazhiqing.com","site_name":"中国知青网","query_indexes":[0]},{"url":"https://upimg.baike.haosou.com/doc/529356-560419.html","title":"天派 免费编辑 添加义项名","snippet":"\"天派\"，全名红卫兵天派，指的是文革期间由北京航空学院\"红旗\"为主要力量的组织，北航的\"航\"即航空，是和天有关的，所以称为\"天派\"。","cite_index":null,"published_at":1535212800.0,"site_icon":"https://cdn.deepseek.com/site-icons/haosou.com","site_name":"haosou.com","query_indexes":[0]},{"url":"https://baike.baidu.com/searchword/?word=%E9%9F%A9%E7%88%B1%E6%99%B6&pic=1&sug=1&enc=utf8","title":"","snippet":"“天派”、“地派”的“领头羊”北大“新北大公社”、清华“井冈山”、北航“红旗”、地质“东方红”、师大“井冈山”等都是“文革”初期名震一方的“左派”组织，他们的头头聂元梓、蒯大富、 _韩爱晶_ 、谭厚兰、王大宾号称北京造反派红卫兵的“五大领袖”。中央文革小组则对两派采取又拉又捧...","cite_index":null,"published_at":null,"site_icon":"https://cdn.deepseek.com/site-icons/baidu.com","site_name":"百度百科","query_indexes":[0]}]}
+
+data: {"p":"response/fragments/-5/status","v":"FINISHED"}
+
+data: {"p":"response/fragments/-1/results","v":[{"url":"http://lib.gxdfz.org.cn/view2022-c32-480.html","title":"480 第五节 派性斗争与冤假错案","snippet":"1967年5月6日，县内群众组织开始分化为“联指”(无产阶级革命派联合指挥部)和“四 ·二二”(四·二二火线指挥部，后改为革命造反大军)，两大派展开激烈的派性斗争，他们 互相争论、指责斗殴，你叫我“保皇派”，我叫你“匪徒派”。当年9月1日高岭区两派发生 冲突...","cite_index":null,"published_at":null,"site_icon":"https://cdn.deepseek.com/site-icons/gxdfz.org.cn","site_name":"Gxdfz","query_indexes":[0]},{"url":"http://lib.gxdfz.org.cn/view-c37-707.html","title":"707 第四节 派性斗争","snippet":"1967年秋冬，广西四二二钦州指挥郎(简称四·二二，又称造反派)、钦州县无产阶级革 命联合指挥部(简称联指)两大派群众组织矛盾越来越尖锐，相继出现互相抓人、抢枪事件， 大规模的示威游行不断发生。11月1日...","cite_index":null,"published_at":null,"site_icon":"https://cdn.deepseek.com/site-icons/gxdfz.org.cn","site_name":"Gxdfz","query_indexes":[0]},{"url":"http://www.gxdfz.org.cn/flbg/lsrw/202602/t20260224_67312.html","title":"杨明--广西地情网","snippet":"21日，“联指”胡北荣被冷枪打死。武斗便迅速推向高潮。22晚，杨明与谭朝东亲自指挥武装民兵用冲锋枪袭击“4·22”的据点——南江旅社。随后...","cite_index":null,"published_at":1771862400.0,"site_icon":"https://cdn.deepseek.com/site-icons/gxdfz.org.cn","site_name":"广西数字方志馆","query_indexes":[0]},{"url":"https://www.gxdag.org.cn/show/142/3576","title":"广西档案信息网 - 看旧图说南宁（展览馆、解放路、广西大学）(图)","snippet":"三”布告通告后被6912部队和“联指”组织围歼。 解放路，以前叫做德邻路。文化大革命时期被“4。22”造反派组织称之为“解放区”，“4。22”的很多主要组织都盘踞在这里。有“青年近卫军”...","cite_index":null,"published_at":1329753600.0,"site_icon":"https://cdn.deepseek.com/site-icons/gxdag.org.cn","site_name":"广西壮族自治区档案馆","query_indexes":[0]},{"url":"http://bbs.rauz.net.cn/archiver/tid-5626.html","title":"[原创]一段往事 两个冤魂[僚人家园]——壮族、布依族、岱侬族共同论坛★Riuzmingz 僚人人物","snippet":"<P> 文革开始，两人被定为历史反革命分子。1968年春的某一天被红卫兵揪斗，因一人倾向“联指”，另一人偏向“4.22”（联指：广西革命造反派联合指挥部，矛头指向武振南书记；“4.22”...","cite_index":null,"published_at":1091980800.0,"site_icon":"https://cdn.deepseek.com/site-icons/rauz.net.cn","site_name":"僚人家园","query_indexes":[0]},{"url":"https://www.semanticscholar.org/author/%E6%9D%8E%E6%9E%9C%E6%B2%B3/2033988088","title":"李果河 | Semantic Scholar","snippet":"“文革”时，广西红卫兵和各地群众因为“支持韦国清”还是“打倒韦国清”，出现分歧，分裂成势不两立的两大派。一派叫广西“无产阶级革命派联合指挥部”（简称广西“联指”），另一派叫“广西革命造反派4·22指挥部”（简称广西“4·22”）。","cite_index":null,"published_at":null,"site_icon":"https://cdn.deepseek.com/site-icons/semanticscholar.org","site_name":"Semantic Scholar","query_indexes":[0]},{"url":"http://bbs.rauz.net.cn/forum.php?mod=viewthread&tid=5626&page=1&authorid=1463","title":"[原创]一段往事 两个冤魂","snippet":"1968年春的某一天被红卫兵揪斗，因一人倾向“联指”，另一人偏向“4.22”（联指：广西革命造反派联合指挥部，矛头指向武振南书记；“4.22”...","cite_index":null,"published_at":1091980800.0,"site_icon":"https://cdn.deepseek.com/site-icons/rauz.net.cn","site_name":"僚人家园","query_indexes":[0]},{"url":"https://kiss.kstudy.com/Detail/Ar?key=3975781","title":"周邊에서 본 文化大革命 -廣西 派閥鬪爭을 중심으로- - 중국사연구 - 중국사학회 - KISS","snippet":"最終\"4·22\"成爲主要攻擊目標的廣西文革的悲劇也許是按照預告的程序進行的。在北京進行的接見政治中，慫恿協商及矛盾的權宜之計也許是在戰爭和革命的矛盾中不可避免的。但是...","cite_index":null,"published_at":1664553600.0,"site_icon":"https://cdn.deepseek.com/site-icons/kstudy.com","site_name":"학술논문검색사이트 KISS","query_indexes":[0]}]}
+
+data: {"p":"response/fragments/-1/status","v":"FINISHED"}
+
+data: {"p":"response/fragments/-7/results","v":[{"url":"http://www.zzdsw.com/yjcg/ztyj/201603/t20160331_1521613.html","title":"专题研究- 枣庄党史史志网","snippet":"发生在1967年7月25日至26日，是文化大革命中枣庄地区两派不同观点群众，发生的较大规模的武斗流血事件，也是枣庄地区两派群众组织派性激化的表现。","cite_index":null,"published_at":1459353600.0,"site_icon":"https://cdn.deepseek.com/site-icons/zzdsw.com","site_name":"zzdsw.com","query_indexes":[0]},{"url":"http://zx.hanzhong.gov.cn/hzzxwz/thhm/201605/t20160510_330408.shtml","title":"“文革”期间勉县武斗和“六·二”事件","snippet":"比较大的武斗事件21起，死亡85人（其中打死47人，武器走火死亡12人，武斗汽车肇事死亡13人，武斗中触电死亡1人，打死无辜群众3人...","cite_index":null,"published_at":1618588800.0,"site_icon":"https://cdn.deepseek.com/site-icons/hanzhong.gov.cn","site_name":"汉中市人民政府","query_indexes":[0]},{"url":"https://www.hinews.cn:443/news/system/2009/10/16/010588314_01.shtml","title":"“文革”进入狂热时期 “一月风暴”影响海南","snippet":"派性的斗争使得局势变得错综复杂，越来越多的群众参与进来，形成了群众组织派性斗争。由于斗争激烈，扰乱了夺权运动的大方向，并给生产带来了严重影响。海南农垦也被牵扯进来了。","cite_index":null,"published_at":1255622400.0,"site_icon":"https://cdn.deepseek.com/site-icons/hinews.cn","site_name":"南海网","query_indexes":[0]},{"url":"https://www.songjiang.gov.cn/sjsz/sjds/zggcdsjdfsz/files/basic-html/page202.html","title":"Page 202 - 中国共产党松江历史图志","snippet":"革委会成立不久，造反组织在对待 县革委会的态度上，分裂成“炮轰” 和“支持”两大派（即“轰派”和 “支派”）。于是两派斗争不断， 且愈演愈烈，最后导致 1967 年发","cite_index":null,"published_at":null,"site_icon":"https://cdn.deepseek.com/site-icons/songjiang.gov.cn","site_name":"上海市松江区人民政府","query_indexes":[0]}]}
+
+data: {"p":"response/fragments/-7/status","v":"FINISHED"}
+
+data: {"p":"response/fragments/-6/results","v":[{"url":"https://www.163.com/dy/article/ILUUJUG00552PRXR.html","title":"陈毅受到批斗，她被派去“摸情况”，得到指示：运去英雄不自由","snippet":"王力的这次讲话也被称为“八七讲话”，在讲话中，王力对造反派讲，批斗陈毅的大方向是对的，同时，他还表示要改变外交部的现有制度，并声称谁都可以当外交部部长，鼓励他们批斗陈毅。当时陈毅担任外交部部长...","cite_index":null,"published_at":1702483200.0,"site_icon":"https://cdn.deepseek.com/site-icons/163.com","site_name":"网易","query_indexes":[0]},{"url":"http://epaper.voc.com.cn/wczm/html/2012-08/30/content_552828.htm?div=-1","title":"王季范解诗精准判时势-----文萃报数字报刊平台","snippet":"王力在讲话中，称外交部“运动阻力太大”，鼓吹要夺外交部的权，矛头直指外交部长陈毅。 王力的讲话发表后，我们外交部的“保陈派”们要弄清毛泽东对王力讲话的态度，便派出王海容去毛泽东那里“摸情况”。","cite_index":null,"published_at":1346256000.0,"site_icon":"https://cdn.deepseek.com/site-icons/voc.com.cn","site_name":"三湘都市报","query_indexes":[0]},{"url":"http://zhouenlai.people.cn/BIG5/n1/2021/0107/c409117-31992422-4.html","title":"揭秘\"救火隊長\"周恩來如何在\"文革\"中苦撐危局【4】","snippet":"造反派一陣“訴苦”后，王力開講了：“外交部運動阻力大？外交唬人嘛！別人不能干，了不起？這麼神秘，隻有少數專家才能干，你這個外交就這麼難？紅衛兵就不能干外交？","cite_index":null,"published_at":1609948800.0,"site_icon":"https://cdn.deepseek.com/site-icons/people.cn","site_name":"周恩来纪念网","query_indexes":[0]},{"url":"http://m.people.cn/n4/0/2017/0724/c677-9387667-2_2.html","title":"67年周恩来一针见血斥责何人的行径“是剜心战术”","snippet":"8月7日，谢富治与王力两人各发表了一次著名的造反讲话。王力在接见外交系统造反派代表时，煽动要向外交部夺权，打倒陈毅，引起了外交部的大动乱，酿成了火烧英国驻华代办处的恶劣外交事件。这个讲话被称为“王八七讲话”。","cite_index":null,"published_at":1500825600.0,"site_icon":"https://cdn.deepseek.com/site-icons/people.cn","site_name":"人民网","query_indexes":[0]}]}
+
+data: {"p":"response/fragments/-6/status","v":"FINISHED"}
+
+data: {"p":"response/fragments/-2/results","v":[{"url":"http://copyright.hktdc.com/tc/book-info.aspx?book_id=823d7c975971437786dc61e0f69bcdf8","title":"版權交易專區","snippet":"本書是湖南長沙一名工人造反派有關他在文革期間活動的回憶錄。書內釐清了一些史實和理論上的疑難問題，如所謂湘江風雷搶武器問題以及這一湖南最大造反派組織是如何興起的、湖南文革中武鬥經過以及一些目前忽略的造反派組織等等。這些資料...","cite_index":null,"published_at":null,"site_icon":"https://cdn.deepseek.com/site-icons/hktdc.com","site_name":"HKTDC.com","query_indexes":[0]},{"url":"https://www.4305.cn/w/l8z6r48080t","title":"血色记忆：1967年武冈的\"武斗\"","snippet":"武冈大武斗的起因是二派大组织：武工联，湘武工联，这是文化大革命”出现的群众组织，对于谁是“造反派”，谁是“保守派”争论不休。各造反派组织之间从维护他们各自的利益出发...","cite_index":null,"published_at":1593964800.0,"site_icon":"https://cdn.deepseek.com/site-icons/4305.cn","site_name":"武冈人网","query_indexes":[0]}]}
+
+data: {"p":"response/fragments/-2/status","v":"FINISHED"}
+
+data: {"p":"response/fragments/-3/results","v":[{"url":"https://www.bilibili.com/video/BV1ynNGe1EAo/?spm_id_from=333.1387.homepage.video_card.click","title":"“羊城革命浪潮起，封《红卫报》遭市民抵制，陶铸倒台后，以中大为核心的造反派夺得省市大权，但与地总，红总爆发冲突”——【广州文革地方史】（1）_哔哩哔哩_bilibili","snippet":"起，封《红卫报》遭市民抵制，陶铸倒台后，以中大为核心的造反派夺得省市大权，但与地总，红总爆发冲突”——【广州文革地方史】（1）_哔哩哔哩_bilibili | # “羊城革命浪潮起...","cite_index":null,"published_at":1738944000.0,"site_icon":"https://cdn.deepseek.com/site-icons/bilibili.com","site_name":"B站","query_indexes":[0]},{"url":"https://baijiahao.baidu.com/s?id=1743184378359987823","title":"梁锦棠：曾任广东革委会副主任，1977年被审查，后来被开除党籍","snippet":"并且成为了以工人群体为主的“红总”派的头头。“红总”派是广东的造反派之一，主要头目都是工厂的工人，这个组织属于“总派”，也被称为“东风派”，他们与广东的另一派造反组织“红旗派”是死对头，双方爆发过大规模“武斗”，造成了非常恶劣的影响。","cite_index":null,"published_at":1662393600.0,"site_icon":"https://cdn.deepseek.com/site-icons/baidu.com","site_name":"百家号","query_indexes":[0]},{"url":"http://bbs.hasea.com/thread-277771-2-1.html","title":"文革铁路专题章-火车头篇","snippet":"1967年3月25日,广州铁路分局革命委员会在广州地区率先成立,称之\"广州响起了第一声春雷\",属于\"东风\"派系.\"广铁总司\"属\"红旗\"派系(简称旗派).因话题与贴子主题不切,因此不便在此作更多的探讨啦~","cite_index":null,"published_at":null,"site_icon":"https://cdn.deepseek.com/site-icons/hasea.com","site_name":"海子铁路网","query_indexes":[0]},{"url":"http://opinion.haiwainet.cn/n/2014/0429/c345416-20582980-2.html","title":"港片中的内地人：从人蛇大圈仔到优才蝗虫 【2】","snippet":"《省港旗兵》的大陆劫匪头目“东哥”被设定为文革时在广州以武斗闻名的“旗派”红卫兵 大圈仔（代表电影《省港旗兵》系列）","cite_index":null,"published_at":1398700800.0,"site_icon":"https://cdn.deepseek.com/site-icons/haiwainet.cn","site_name":"海外网评","query_indexes":[0]},{"url":"https://m.sohu.com/n/472559456/","title":"820武斗纪事","snippet":"他们说东风派把旗派的人抓住后，“当作活靶，一批批进行枪杀”。广医红旗八二○大血案调查组声称，旗派在这次武斗中，伤亡惨重，“公路两旁遍是尸体”，光是在医院抢救无效死亡的就有十多人，受伤住院的50多人（见《广医红旗》1967年8月25日）。但有的文章更惊人地声称...","cite_index":null,"published_at":1478534400.0,"site_icon":"https://cdn.deepseek.com/site-icons/sohu.com","site_name":"手机搜狐网","query_indexes":[0]},{"url":"https://weibo.com/ttarticle/p/show?id=2309405005800564457890","title":"【回忆录】一九六八种种烦忧","snippet":"8月，广州两派组织各占据广州部分高楼做武斗据点，东风派占据长堤省总工会等，红旗派占据长堤爱群大厦等。暨大318小分队属旗派，就按上面指令入驻爱群大厦。省总在沿江西路149号...","cite_index":null,"published_at":1708876800.0,"site_icon":"https://cdn.deepseek.com/site-icons/weibo.com","site_name":"微博","query_indexes":[0]},{"url":"http://www.gzyzxyh.com/thread-14455-1-1.html","title":"广州日报事件 （下） [复制链接]","snippet":"省军管会阵脚已动，不得不节节退让。当天晚上，由驻中大工作组宣布中大红旗八三一是左派组织；八一战斗兵团被拘捕的九名成员，在此之前也获得释放。经过这么一番反复...","cite_index":null,"published_at":1389369600.0,"site_icon":"https://cdn.deepseek.com/site-icons/gzyzxyh.com","site_name":"gzyzxyh.com","query_indexes":[0]},{"url":"http://opinion.haiwainet.cn/BIG5/n/2014/0429/c345416-20582980-2.html","title":"港片中的內地人：從人蛇大圈仔到優才蝗虫 【2】","snippet":"《省港旗兵》的大陸劫匪頭目“東哥”被設定為文革時在廣州以武斗聞名的“旗派”紅衛兵 大圈仔（代表電影《省港旗兵》系列）","cite_index":null,"published_at":1398700800.0,"site_icon":"https://cdn.deepseek.com/site-icons/haiwainet.cn","site_name":"海外网评","query_indexes":[0]},{"url":"http://www.qec.com.cn/bD2021/02/02/2552.shtml","title":"周继能：迟到的忏悔——我对不起老师们","snippet":"“文革”开始时我就读于广州市第17中66届高三(1)班，与同学们一样，响应毛主席号召，积极参加“文革”，参加了学校的“战斗兵团”，与广州市的“毛泽东主义红卫兵”属同一派，与广州市另一红卫兵组织“红旗”严重对立。1968年7月...","cite_index":null,"published_at":1612195200.0,"site_icon":"https://cdn.deepseek.com/site-icons/qec.com.cn","site_name":"Qec","query_indexes":[0]}]}
+
+data: {"p":"response/fragments/-3/status","v":"FINISHED"}
+
+data: {"p":"response/has_pending_fragment","v":true}
+
+data: {"p":"response","o":"BATCH","v":[{"p":"fragments","o":"APPEND","v":[{"id":35,"type":"THINK","content":"搜索结果","elapsed_secs":null,"references":[],"stage_id":4}]},{"p":"has_pending_fragment","o":"SET","v":false}]}
+
+data: {"p":"response/fragments/-1/content","o":"APPEND","v":"提供了"}
+
+data: {"v":"大量"}
+
+data: {"v":"关于"}
+
+data: {"v":"派"}
+
+data: {"v":"系"}
+
+data: {"v":"斗争的"}
+
+data: {"v":"案例"}
+
+data: {"v":"。"}
+
+data: {"v":"我将"}
+
+data: {"v":"基于"}
+
+data: {"v":"这些"}
+
+data: {"v":"资料"}
+
+data: {"v":"，"}
+
+data: {"v":"组织"}
+
+data: {"v":"回答"}
+
+data: {"v":"，"}
+
+data: {"v":"涵盖"}
+
+data: {"v":"基层"}
+
+data: {"v":"群众"}
+
+data: {"v":"派"}
+
+data: {"v":"系"}
+
+data: {"v":"斗争"}
+
+data: {"v":"、"}
+
+data: {"v":"高层"}
+
+data: {"v":"权力"}
+
+data: {"v":"博弈"}
+
+data: {"v":"、"}
+
+data: {"v":"历史"}
+
+data: {"v":"人物的"}
+
+data: {"v":"复杂性"}
+
+data: {"v":"以及"}
+
+data: {"v":"获取"}
+
+data: {"v":"更多"}
+
+data: {"v":"信息的"}
+
+data: {"v":"建议"}
+
+data: {"v":"。"}
+
+data: {"v":"回答"}
+
+data: {"v":"将"}
+
+data: {"v":"强调"}
+
+data: {"v":"这些"}
+
+data: {"v":"事例"}
+
+data: {"v":"的"}
+
+data: {"v":"细节"}
+
+data: {"v":"性和"}
+
+data: {"v":"复杂性"}
+
+data: {"v":"，"}
+
+data: {"v":"并"}
+
+data: {"v":"避免"}
+
+data: {"v":"单一"}
+
+data: {"v":"评价"}
+
+data: {"v":"立场"}
+
+data: {"v":"。"}
+
+data: {"p":"response/fragments/-1/elapsed_secs","o":"SET","v":1.260543306}
+
+data: {"p":"response/fragments","o":"APPEND","v":[{"id":36,"type":"RESPONSE","content":"历史","references":[],"stage_id":4}]}
+
+data: {"p":"response/fragments/-1/content","v":"老师"}
+
+data: {"v":"您好"}
+
+data: {"v":"。"}
+
+data: {"v":"要在"}
+
+data: {"v":"历史"}
+
+data: {"v":"教材"}
+
+data: {"v":"的"}
+
+data: {"v":"概括"}
+
+data: {"v":"性"}
+
+data: {"v":"叙述"}
+
+data: {"v":"之外"}
+
+data: {"v":"，"}
+
+data: {"v":"捕捉"}
+
+data: {"v":"到"}
+
+data: {"v":"文革"}
+
+data: {"v":"期间"}
+
+data: {"v":"派"}
+
+data: {"v":"系"}
+
+data: {"v":"斗争的"}
+
+data: {"v":"细节"}
+
+data: {"v":"与"}
+
+data: {"v":"复杂性"}
+
+data: {"v":"，"}
+
+data: {"v":"我们可以"}
+
+data: {"v":"从"}
+
+data: {"v":"一些"}
+
+data: {"v":"具体"}
+
+data: {"v":"的历史"}
+
+data: {"v":"切"}
+
+data: {"v":"面"}
+
+data: {"v":"入手"}
+
+data: {"v":"。"}
+
+data: {"v":"这些"}
+
+data: {"v":"案例"}
+
+data: {"v":"揭示了"}
+
+data: {"v":"在"}
+
+data: {"v":"宏大"}
+
+data: {"v":"叙事"}
+
+data: {"v":"之下"}
+
+data: {"v":"，"}
+
+data: {"v":"个体"}
+
+data: {"v":"与"}
+
+data: {"v":"群体的"}
+
+data: {"v":"矛盾"}
+
+data: {"v":"、"}
+
+data: {"v":"挣扎"}
+
+data: {"v":"与"}
+
+data: {"v":"博弈"}
+
+data: {"v":"。\n\n"}
+
+data: {"v":"###"}
+
+data: {"v":" 🎭"}
+
+data: {"v":" "}
+
+data: {"v":"派"}
+
+data: {"v":"系"}
+
+data: {"v":"众生"}
+
+data: {"v":"相"}
+
+data: {"v":"："}
+
+data: {"v":"群众"}
+
+data: {"v":"组织的"}
+
+data: {"v":"分化"}
+
+data: {"v":"与"}
+
+data: {"v":"斗争"}
+
+data: {"v":"\n"}
+
+data: {"v":"随着"}
+
+data: {"v":"运动的"}
+
+data: {"v":"深入"}
+
+data: {"v":"，"}
+
+data: {"v":"原本"}
+
+data: {"v":"统一的"}
+
+data: {"v":"“"}
+
+data: {"v":"革命"}
+
+data: {"v":"群众"}
+
+data: {"v":"”"}
+
+data: {"v":"迅速"}
+
+data: {"v":"分化"}
+
+data: {"v":"。"}
+
+data: {"v":"草"}
+
+data: {"v":"根"}
+
+data: {"v":"层面的"}
+
+data: {"v":"派"}
+
+data: {"v":"系"}
+
+data: {"v":"斗争"}
+
+data: {"v":"往往"}
+
+data: {"v":"比"}
+
+data: {"v":"高层"}
+
+data: {"v":"博弈"}
+
+data: {"v":"更加"}
+
+data: {"v":"残酷"}
+
+data: {"v":"，"}
+
+data: {"v":"其"}
+
+data: {"v":"复杂性"}
+
+data: {"v":"在于"}
+
+data: {"v":"，"}
+
+data: {"v":"斗争的"}
+
+data: {"v":"双方"}
+
+data: {"v":"都"}
+
+data: {"v":"坚信"}
+
+data: {"v":"自己"}
+
+data: {"v":"代表了"}
+
+data: {"v":"真正的"}
+
+data: {"v":"“"}
+
+data: {"v":"革命"}
+
+data: {"v":"方向"}
+
+data: {"v":"”"}
+
+data: {"p":"response/fragments/-1","o":"BATCH","v":[{"p":"content","o":"APPEND","v":"[reference:0]"},{"p":"references","o":"SET","v":[{"id":12,"type":"TOOL_OPEN"}]}]}
+
+data: {"p":"response/fragments/-1/content","o":"APPEND","v":"。\n\n"}
+
+data: {"v":"*"}
+
+data: {"v":"  "}
+
+data: {"v":" **"}
+
+data: {"v":"红"}
+
+data: {"v":"卫"}
+
+data: {"v":"兵"}
+
+data: {"v":"“"}
+
+data: {"v":"天"}
+
+data: {"v":"派"}
+
+data: {"v":"”"}
+
+data: {"v":"与"}
+
+data: {"v":"“"}
+
+data: {"v":"地"}
+
+data: {"v":"派"}
+
+data: {"v":"”"}
+
+data: {"v":"**"}
+
+data: {"v":"："}
+
+data: {"v":"北京"}
+
+data: {"v":"的红"}
+
+data: {"v":"卫"}
+
+data: {"v":"兵"}
+
+data: {"v":"因"}
+
+data: {"v":"所属"}
+
+data: {"v":"大学"}
+
+data: {"v":"不同"}
+
+data: {"v":"分"}
+
+data: {"v":"化为"}
+
+data: {"v":"“"}
+
+data: {"v":"天"}
+
+data: {"v":"派"}
+
+data: {"v":"”（"}
+
+data: {"v":"北"}
+
+data: {"v":"航"}
+
+data: {"v":"“"}
+
+data: {"v":"红旗"}
+
+data: {"v":"”）"}
+
+data: {"v":"和"}
+
+data: {"v":"“"}
+
+data: {"v":"地"}
+
+data: {"v":"派"}
+
+data: {"v":"”（"}
+
+data: {"v":"地质"}
+
+data: {"v":"“"}
+
+data: {"v":"东方"}
+
+data: {"v":"红"}
+
+data: {"v":"”）"}
+
+data: {"v":"等"}
+
+data: {"v":"派"}
+
+data: {"v":"系"}
+
+data: {"v":"，"}
+
+data: {"v":"并在"}
+
+data: {"v":"“"}
+
+data: {"v":"中央"}
+
+data: {"v":"文革"}
+
+data: {"v":"”"}
+
+data: {"v":"的"}
+
+data: {"v":"挑"}
+
+data: {"v":"动"}
+
+data: {"v":"下"}
+
+data: {"v":"矛盾"}
+
+data: {"v":"激"}
+
+data: {"v":"化"}
+
+data: {"v":"，"}
+
+data: {"v":"各"}
+
+data: {"v":"派的"}
+
+data: {"v":"“"}
+
+data: {"v":"五大"}
+
+data: {"v":"领袖"}
+
+data: {"v":"”"}
+
+data: {"v":"在当时"}
+
+data: {"v":"极具"}
+
+data: {"v":"影响力"}
+
+data: {"p":"response/fragments/-1","o":"BATCH","v":[{"p":"content","o":"APPEND","v":"[reference:1]"},{"p":"references","v":[{"id":30,"type":"TOOL_SEARCH"}]}]}
+
+data: {"p":"response/fragments/-1/content","o":"APPEND","v":"。\n"}
+
+data: {"v":"*"}
+
+data: {"v":"  "}
+
+data: {"v":" **"}
+
+data: {"v":"广州"}
+
+data: {"v":"“"}
+
+data: {"v":"东风"}
+
+data: {"v":"派"}
+
+data: {"v":"”"}
+
+data: {"v":"与"}
+
+data: {"v":"“"}
+
+data: {"v":"红旗"}
+
+data: {"v":"派"}
+
+data: {"v":"”"}
+
+data: {"v":"**"}
+
+data: {"v":"："}
+
+data: {"v":"广州"}
+
+data: {"v":"以"}
+
+data: {"v":"“"}
+
+data: {"v":"红"}
+
+data: {"v":"总"}
+
+data: {"v":"”"}
+
+data: {"v":"为代表的"}
+
+data: {"v":"“"}
+
+data: {"v":"东风"}
+
+data: {"v":"派"}
+
+data: {"v":"”"}
+
+data: {"v":"和"}
+
+data: {"v":"以"}
+
+data: {"v":"“"}
+
+data: {"v":"广"}
+
+data: {"v":"铁"}
+
+data: {"v":"总"}
+
+data: {"v":"司"}
+
+data: {"v":"”"}
+
+data: {"v":"为代表的"}
+
+data: {"v":"“"}
+
+data: {"v":"红旗"}
+
+data: {"v":"派"}
+
+data: {"v":"”"}
+
+data: {"v":"势"}
+
+data: {"v":"同"}
+
+data: {"v":"水火"}
+
+data: {"v":"。"}
+
+data: {"v":"196"}
+
+data: {"v":"7"}
+
+data: {"v":"年"}
+
+data: {"v":"8"}
+
+data: {"v":"月"}
+
+data: {"v":"20"}
+
+data: {"v":"日"}
+
+data: {"v":"爆"}
+
+data: {"v":"发的"}
+
+data: {"v":"“"}
+
+data: {"v":"820"}
+
+data: {"v":"武"}
+
+data: {"v":"斗"}
+
+data: {"v":"”"}
+
+data: {"v":"中"}
+
+data: {"v":"，"}
+
+data: {"v":"双方"}
+
+data: {"v":"在"}
+
+data: {"v":"市区"}
+
+data: {"v":"利用"}
+
+data: {"v":"高楼"}
+
+data: {"v":"作为"}
+
+data: {"v":"据点"}
+
+data: {"v":"枪"}
+
+data: {"v":"战"}
+
+data: {"v":"，"}
+
+data: {"v":"造成"}
+
+data: {"v":"大量"}
+
+data: {"v":"伤亡"}
+
+data: {"p":"response/fragments/-1","o":"BATCH","v":[{"p":"content","o":"APPEND","v":"[reference:2]"},{"p":"references","v":[{"id":32,"type":"TOOL_SEARCH"}]}]}
+
+data: {"v":[{"p":"content","o":"APPEND","v":"[reference:3]"},{"p":"references","v":[{"id":32,"type":"TOOL_SEARCH"}]}]}
+
+data: {"p":"response/fragments/-1/content","o":"APPEND","v":"。\n"}
+
+data: {"v":"*"}
+
+data: {"v":"  "}
+
+data: {"v":" **"}
+
+data: {"v":"上海"}
+
+data: {"v":"“"}
+
+data: {"v":"工"}
+
+data: {"v":"总"}
+
+data: {"v":"司"}
+
+data: {"v":"”"}
+
+data: {"v":"的权力"}
+
+data: {"v":"之争"}
+
+data: {"v":"**"}
+
+data: {"v":"：“"}
+
+data: {"v":"工"}
+
+data: {"v":"总"}
+
+data: {"v":"司"}
+
+data: {"v":"”"}
+
+data: {"v":"内部"}
+
+data: {"v":"同样"}
+
+data: {"v":"存在"}
+
+data: {"v":"派"}
+
+data: {"v":"系"}
+
+data: {"v":"斗争"}
+
+data: {"v":"。"}
+
+data: {"v":"早期"}
+
+data: {"v":"领导人"}
+
+data: {"v":"潘"}
+
+data: {"v":"国"}
+
+data: {"v":"平"}
+
+data: {"v":"与"}
+
+data: {"v":"后来"}
+
+data: {"v":"成为"}
+
+data: {"v":"“"}
+
+data: {"v":"四人"}
+
+data: {"v":"帮"}
+
+data: {"v":"”"}
+
+data: {"v":"骨干"}
+
+data: {"v":"的王"}
+
+data: {"v":"洪"}
+
+data: {"v":"文"}
+
+data: {"v":"之间"}
+
+data: {"v":"，"}
+
+data: {"v":"为"}
+
+data: {"v":"争夺"}
+
+data: {"v":"组织领导"}
+
+data: {"v":"权"}
+
+data: {"v":"存在"}
+
+data: {"v":"复杂"}
+
+data: {"v":"博弈"}
+
+data: {"p":"response/fragments/-1","o":"BATCH","v":[{"p":"content","o":"APPEND","v":"[reference:4]"},{"p":"references","v":[{"id":31,"type":"TOOL_SEARCH"}]}]}
+
+data: {"p":"response/fragments/-1/content","o":"APPEND","v":"。\n"}
+
+data: {"v":"*"}
+
+data: {"v":"  "}
+
+data: {"v":" **"}
+
+data: {"v":"广西"}
+
+data: {"v":"“"}
+
+data: {"v":"联"}
+
+data: {"v":"指"}
+
+data: {"v":"”"}
+
+data: {"v":"与"}
+
+data: {"v":"“"}
+
+data: {"v":"4"}
+
+data: {"v":"·"}
+
+data: {"v":"22"}
+
+data: {"v":"”"}
+
+data: {"v":"**"}
+
+data: {"v":"："}
+
+data: {"v":"广西"}
+
+data: {"v":"群众"}
+
+data: {"v":"组织"}
+
+data: {"v":"围绕"}
+
+data: {"v":"“"}
+
+data: {"v":"支持"}
+
+data: {"v":"韦"}
+
+data: {"v":"国"}
+
+data: {"v":"清"}
+
+data: {"v":"”"}
+
+data: {"v":"还是"}
+
+data: {"v":"“"}
+
+data: {"v":"打倒"}
+
+data: {"v":"韦"}
+
+data: {"v":"国"}
+
+data: {"v":"清"}
+
+data: {"v":"”"}
+
+data: {"v":"分裂"}
+
+data: {"v":"为"}
+
+data: {"v":"“"}
+
+data: {"v":"联"}
+
+data: {"v":"指"}
+
+data: {"v":"”"}
+
+data: {"v":"和"}
+
+data: {"v":"“"}
+
+data: {"v":"4"}
+
+data: {"v":"·"}
+
+data: {"v":"22"}
+
+data: {"v":"”"}
+
+data: {"v":"两大"}
+
+data: {"v":"派"}
+
+data: {"v":"，"}
+
+data: {"v":"两"}
+
+data: {"v":"派"}
+
+data: {"v":"冲突"}
+
+data: {"v":"中"}
+
+data: {"v":"甚至"}
+
+data: {"v":"出现了"}
+
+data: {"v":"武装"}
+
+data: {"v":"民兵"}
+
+data: {"v":"直接"}
+
+data: {"v":"袭击"}
+
+data: {"v":"另一"}
+
+data: {"v":"派"}
+
+data: {"v":"据点"}
+
+data: {"v":"的情况"}
+
+data: {"p":"response/fragments/-1","o":"BATCH","v":[{"p":"content","o":"APPEND","v":"[reference:5]"},{"p":"references","v":[{"id":34,"type":"TOOL_SEARCH"}]}]}
+
+data: {"v":[{"p":"content","o":"APPEND","v":"[reference:6]"},{"p":"references","v":[{"id":34,"type":"TOOL_SEARCH"}]}]}
+
+data: {"p":"response/fragments/-1/content","o":"APPEND","v":"。\n"}
+
+data: {"v":"*"}
+
+data: {"v":"  "}
+
+data: {"v":" **"}
+
+data: {"v":"各地"}
+
+data: {"v":"武"}
+
+data: {"v":"斗"}
+
+data: {"v":"的"}
+
+data: {"v":"惨"}
+
+data: {"v":"烈"}
+
+data: {"v":"代价"}
+
+data: {"v":"**"}
+
+data: {"v":"："}
+
+data: {"v":"派"}
+
+data: {"v":"系"}
+
+data: {"v":"斗争"}
+
+data: {"v":"常"}
+
+data: {"v":"升级"}
+
+data: {"v":"为"}
+
+data: {"v":"武"}
+
+data: {"v":"斗"}
+
+data: {"v":"。"}
+
+data: {"v":"例如"}
+
+data: {"v":"在"}
+
+data: {"v":"陕西"}
+
+data: {"v":"勉"}
+
+data: {"v":"县"}
+
+data: {"v":"，"}
+
+data: {"v":"从"}
+
+data: {"v":"196"}
+
+data: {"v":"7"}
+
+data: {"v":"年"}
+
+data: {"v":"9"}
+
+data: {"v":"月至"}
+
+data: {"v":"196"}
+
+data: {"v":"8"}
+
+data: {"v":"年"}
+
+data: {"v":"9"}
+
+data: {"v":"月"}
+
+data: {"v":"的一年"}
+
+data: {"v":"中"}
+
+data: {"v":"，"}
+
+data: {"v":"武"}
+
+data: {"v":"斗"}
+
+data: {"v":"共"}
+
+data: {"v":"导致"}
+
+data: {"v":"85"}
+
+data: {"v":"人死亡"}
+
+data: {"p":"response/fragments/-1","o":"BATCH","v":[{"p":"content","o":"APPEND","v":"[reference:7]"},{"p":"references","v":[{"id":15,"type":"TOOL_OPEN"}]}]}
+
+data: {"p":"response/fragments/-1/content","o":"APPEND","v":"；"}
+
+data: {"v":"河北"}
+
+data: {"v":"武"}
+
+data: {"v":"安"}
+
+data: {"v":"的两"}
+
+data: {"v":"派"}
+
+data: {"v":"对立"}
+
+data: {"v":"导致了"}
+
+data: {"v":"抢"}
+
+data: {"v":"枪"}
+
+data: {"v":"、"}
+
+data: {"v":"武"}
+
+data: {"v":"斗"}
+
+data: {"v":"，"}
+
+data: {"v":"致"}
+
+data: {"v":"近"}
+
+data: {"v":"200"}
+
+data: {"v":"人死亡"}
+
+data: {"p":"response/fragments/-1","o":"BATCH","v":[{"p":"content","o":"APPEND","v":"[reference:8]"},{"p":"references","v":[{"id":14,"type":"TOOL_OPEN"}]}]}
+
+data: {"p":"response/fragments/-1/content","o":"APPEND","v":"；"}
+
+data: {"v":"山东"}
+
+data: {"v":"枣"}
+
+data: {"v":"庄"}
+
+data: {"v":"的"}
+
+data: {"v":"“"}
+
+data: {"v":"七"}
+
+data: {"v":"二"}
+
+data: {"v":"五"}
+
+data: {"v":"”"}
+
+data: {"v":"事件"}
+
+data: {"v":"更是"}
+
+data: {"v":"有"}
+
+data: {"v":"400"}
+
+data: {"v":"0"}
+
+data: {"v":"余名"}
+
+data: {"v":"武装"}
+
+data: {"v":"农民"}
+
+data: {"v":"参与"}
+
+data: {"v":"，"}
+
+data: {"v":"造成"}
+
+data: {"v":"26"}
+
+data: {"v":"人"}
+
+data: {"v":"当场"}
+
+data: {"v":"被打"}
+
+data: {"v":"死"}
+
+data: {"p":"response/fragments/-1","o":"BATCH","v":[{"p":"content","o":"APPEND","v":"[reference:9]"},{"p":"references","v":[{"id":13,"type":"TOOL_OPEN"}]}]}
+
+data: {"p":"response/fragments/-1/content","o":"APPEND","v":"。\n\n"}
+
+data: {"v":"###"}
+
+data: {"v":" 🔥"}
+
+data: {"v":" "}
+
+data: {"v":"失控"}
+
+data: {"v":"的"}
+
+data: {"v":"漩涡"}
+
+data: {"v":"："}
+
+data: {"v":"高"}
+
+data: {"v":"层的"}
+
+data: {"v":"博弈"}
+
+data: {"v":"与"}
+
+data: {"v":"基层"}
+
+data: {"v":"的"}
+
+data: {"v":"共振"}
+
+data: {"v":"\n"}
+
+data: {"v":"中央"}
+
+data: {"v":"高"}
+
+data: {"v":"层的"}
+
+data: {"v":"权力"}
+
+data: {"v":"斗争"}
+
+data: {"v":"，"}
+
+data: {"v":"通过与"}
+
+data: {"v":"地方"}
+
+data: {"v":"派"}
+
+data: {"v":"系"}
+
+data: {"v":"结合"}
+
+data: {"v":"，"}
+
+data: {"v":"迅速"}
+
+data: {"v":"演"}
+
+data: {"v":"变为"}
+
+data: {"v":"全国"}
+
+data: {"v":"性的"}
+
+data: {"v":"动荡"}
+
+data: {"v":"。\n\n"}
+
+data: {"v":"*"}
+
+data: {"v":"  "}
+
+data: {"v":" **"}
+
+data: {"v":"中央"}
+
+data: {"v":"文革"}
+
+data: {"v":"的"}
+
+data: {"v":"“"}
+
+data: {"v":"点火"}
+
+data: {"v":"”"}
+
+data: {"v":"**"}
+
+data: {"v":"："}
+
+data: {"v":"196"}
+
+data: {"v":"7"}
+
+data: {"v":"年"}
+
+data: {"v":"2"}
+
+data: {"v":"月"}
+
+data: {"v":"后"}
+
+data: {"v":"，“"}
+
+data: {"v":"中央"}
+
+data: {"v":"文革"}
+
+data: {"v":"”"}
+
+data: {"v":"取代"}
+
+data: {"v":"了"}
+
+data: {"v":"中央"}
+
+data: {"v":"政治"}
+
+data: {"v":"局的"}
+
+data: {"v":"职能"}
+
+data: {"p":"response/fragments/-1","o":"BATCH","v":[{"p":"content","o":"APPEND","v":"[reference:10]"},{"p":"references","v":[{"id":5,"type":"TOOL_SEARCH"}]}]}
+
+data: {"p":"response/fragments/-1/content","o":"APPEND","v":"。"}
+
+data: {"v":"其"}
+
+data: {"v":"成员"}
+
+data: {"v":"王"}
+
+data: {"v":"力"}
+
+data: {"v":"、"}
+
+data: {"v":"关"}
+
+data: {"v":"锋"}
+
+data: {"v":"、"}
+
+data: {"v":"戚"}
+
+data: {"v":"本"}
+
+data: {"v":"禹"}
+
+data: {"v":"等人"}
+
+data: {"v":"四处"}
+
+data: {"v":"煽"}
+
+data: {"v":"动"}
+
+data: {"v":"，"}
+
+data: {"v":"如"}
+
+data: {"v":"王"}
+
+data: {"v":"力"}
+
+data: {"v":"196"}
+
+data: {"v":"7"}
+
+data: {"v":"年"}
+
+data: {"v":"8"}
+
+data: {"v":"月"}
+
+data: {"v":"7"}
+
+data: {"v":"日的"}
+
+data: {"v":"“"}
+
+data: {"v":"八"}
+
+data: {"v":"七"}
+
+data: {"v":"讲话"}
+
+data: {"v":"”"}
+
+data: {"v":"直接"}
+
+data: {"v":"煽"}
+
+data: {"v":"动"}
+
+data: {"v":"造反"}
+
+data: {"v":"派"}
+
+data: {"v":"夺取"}
+
+data: {"v":"外交部"}
+
+data: {"v":"权力"}
+
+data: {"v":"，"}
+
+data: {"v":"矛"}
+
+data: {"v":"头"}
+
+data: {"v":"直"}
+
+data: {"v":"指"}
+
+data: {"v":"陈"}
+
+data: {"v":"毅"}
+
+data: {"v":"，"}
+
+data: {"v":"直接"}
+
+data: {"v":"引发了"}
+
+data: {"v":"火烧"}
+
+data: {"v":"英国"}
+
+data: {"v":"驻"}
+
+data: {"v":"华"}
+
+data: {"v":"代办"}
+
+data: {"v":"处的"}
+
+data: {"v":"严重"}
+
+data: {"v":"外交"}
+
+data: {"v":"事件"}
+
+data: {"p":"response/fragments/-1","o":"BATCH","v":[{"p":"content","o":"APPEND","v":"[reference:11]"},{"p":"references","v":[{"id":16,"type":"TOOL_OPEN"}]}]}
+
+data: {"v":[{"p":"content","o":"APPEND","v":"[reference:12]"},{"p":"references","v":[{"id":29,"type":"TOOL_SEARCH"}]}]}
+
+data: {"p":"response/fragments/-1/content","o":"APPEND","v":"。\n"}
+
+data: {"v":"*"}
+
+data: {"v":"  "}
+
+data: {"v":" **"}
+
+data: {"v":"“"}
+
+data: {"v":"反复"}
+
+data: {"v":"旧"}
+
+data: {"v":"”"}
+
+data: {"v":"运动的"}
+
+data: {"v":"荒"}
+
+data: {"v":"诞"}
+
+data: {"v":"**"}
+
+data: {"v":"："}
+
+data: {"v":"196"}
+
+data: {"v":"8"}
+
+data: {"v":"年的"}
+
+data: {"v":"“"}
+
+data: {"v":"反复"}
+
+data: {"v":"旧"}
+
+data: {"v":"”"}
+
+data: {"v":"运动"}
+
+data: {"v":"体现了"}
+
+data: {"v":"运动的"}
+
+data: {"v":"荒谬"}
+
+data: {"v":"性"}
+
+data: {"v":"。"}
+
+data: {"v":"一些"}
+
+data: {"v":"在"}
+
+data: {"v":"革"}
+
+data: {"v":"委会"}
+
+data: {"v":"任职"}
+
+data: {"v":"的"}
+
+data: {"v":"“"}
+
+data: {"v":"走"}
+
+data: {"v":"资"}
+
+data: {"v":"派"}
+
+data: {"v":"”"}
+
+data: {"v":"被"}
+
+data: {"v":"重新"}
+
+data: {"v":"打倒"}
+
+data: {"v":"，"}
+
+data: {"v":"江苏"}
+
+data: {"v":"建"}
+
+data: {"v":"湖"}
+
+data: {"v":"县"}
+
+data: {"v":"三"}
+
+data: {"v":"主任"}
+
+data: {"v":"被"}
+
+data: {"v":"关"}
+
+data: {"v":"进"}
+
+data: {"v":"“"}
+
+data: {"v":"学习"}
+
+data: {"v":"班"}
+
+data: {"v":"”"}
+
+data: {"v":"残酷"}
+
+data: {"v":"斗争"}
+
+data: {"p":"response/fragments/-1","o":"BATCH","v":[{"p":"content","o":"APPEND","v":"[reference:13]"},{"p":"references","v":[{"id":12,"type":"TOOL_OPEN"}]}]}
+
+data: {"p":"response/fragments/-1/content","o":"APPEND","v":"，"}
+
+data: {"v":"许多"}
+
+data: {"v":"原本"}
+
+data: {"v":"执行"}
+
+data: {"v":"政策的"}
+
+data: {"v":"解放军"}
+
+data: {"v":"官兵"}
+
+data: {"v":"，"}
+
+data: {"v":"也"}
+
+data: {"v":"因"}
+
+data: {"v":"形势"}
+
+data: {"v":"变化"}
+
+data: {"v":"成为"}
+
+data: {"v":"整治"}
+
+data: {"v":"对象"}
+
+data: {"p":"response/fragments/-1","o":"BATCH","v":[{"p":"content","o":"APPEND","v":"[reference:14]"},{"p":"references","v":[{"id":12,"type":"TOOL_OPEN"}]}]}
+
+data: {"v":[{"p":"content","o":"APPEND","v":"[reference:15]"},{"p":"references","v":[{"id":12,"type":"TOOL_OPEN"}]}]}
+
+data: {"p":"response/fragments/-1/content","o":"APPEND","v":"。\n"}
+
+data: {"v":"*"}
+
+data: {"v":"  "}
+
+data: {"v":" **"}
+
+data: {"v":"地方"}
+
+data: {"v":"派"}
+
+data: {"v":"系"}
+
+data: {"v":"与国家"}
+
+data: {"v":"机器的"}
+
+data: {"v":"共振"}
+
+data: {"v":"**"}
+
+data: {"v":"："}
+
+data: {"v":"地方"}
+
+data: {"v":"派"}
+
+data: {"v":"系"}
+
+data: {"v":"斗争"}
+
+data: {"v":"时常"}
+
+data: {"v":"获得"}
+
+data: {"v":"国家"}
+
+data: {"v":"机器的"}
+
+data: {"v":"支持"}
+
+data: {"v":"。"}
+
+data: {"v":"如"}
+
+data: {"v":"山东"}
+
+data: {"v":"的王"}
+
+data: {"v":"效"}
+
+data: {"v":"禹"}
+
+data: {"v":"直接"}
+
+data: {"v":"动用"}
+
+data: {"v":"省"}
+
+data: {"v":"革"}
+
+data: {"v":"委会"}
+
+data: {"v":"和"}
+
+data: {"v":"军区"}
+
+data: {"v":"名义"}
+
+data: {"v":"支持"}
+
+data: {"v":"一派"}
+
+data: {"v":"，"}
+
+data: {"v":"派"}
+
+data: {"v":"飞机"}
+
+data: {"v":"散发"}
+
+data: {"v":"通告"}
+
+data: {"v":"、"}
+
+data: {"v":"在全省"}
+
+data: {"v":"设"}
+
+data: {"v":"卡"}
+
+data: {"v":"抓捕"}
+
+data: {"v":"对立"}
+
+data: {"v":"派"}
+
+data: {"v":"群众"}
+
+data: {"p":"response/fragments/-1","o":"BATCH","v":[{"p":"content","o":"APPEND","v":"[reference:16]"},{"p":"references","v":[{"id":13,"type":"TOOL_OPEN"}]}]}
+
+data: {"p":"response/fragments/-1/content","o":"APPEND","v":"。\n\n"}
+
+data: {"v":"###"}
+
+data: {"v":" 🎭"}
+
+data: {"v":" "}
+
+data: {"v":"人性的"}
+
+data: {"v":"困境"}
+
+data: {"v":"："}
+
+data: {"v":"浮"}
+
+data: {"v":"沉"}
+
+data: {"v":"人物的"}
+
+data: {"v":"复杂"}
+
+data: {"v":"面向"}
+
+data: {"v":"\n"}
+
+data: {"v":"教材"}
+
+data: {"v":"之外"}
+
+data: {"v":"，"}
+
+data: {"v":"许多"}
+
+data: {"v":"历史"}
+
+data: {"v":"人物"}
+
+data: {"v":"并非"}
+
+data: {"v":"脸"}
+
+data: {"v":"谱"}
+
+data: {"v":"化的"}
+
+data: {"v":"角色"}
+
+data: {"v":"，"}
+
+data: {"v":"其"}
+
+data: {"v":"沉"}
+
+data: {"v":"浮"}
+
+data: {"v":"展现了"}
+
+data: {"v":"人性的"}
+
+data: {"v":"复杂"}
+
+data: {"v":"与"}
+
+data: {"v":"时代的"}
+
+data: {"v":"吊"}
+
+data: {"v":"诡"}
+
+data: {"v":"。\n\n"}
+
+data: {"v":"*"}
+
+data: {"v":"  "}
+
+data: {"v":" **"}
+
+data: {"v":"陈"}
+
+data: {"v":"伯"}
+
+data: {"v":"达"}
+
+data: {"v":"**"}
+
+data: {"v":"："}
+
+data: {"v":"他曾"}
+
+data: {"v":"任"}
+
+data: {"v":"“"}
+
+data: {"v":"中央"}
+
+data: {"v":"文革"}
+
+data: {"v":"小组"}
+
+data: {"v":"”"}
+
+data: {"v":"组长"}
+
+data: {"v":"，"}
+
+data: {"v":"是"}
+
+data: {"v":"“"}
+
+data: {"v":"文革"}
+
+data: {"v":"”"}
+
+data: {"v":"的关键"}
+
+data: {"v":"人物"}
+
+data: {"v":"，"}
+
+data: {"v":"但在"}
+
+data: {"v":"198"}
+
+data: {"v":"1"}
+
+data: {"v":"年被"}
+
+data: {"v":"判"}
+
+data: {"v":"刑"}
+
+data: {"v":"18"}
+
+data: {"v":"年"}
+
+data: {"p":"response/fragments/-1","o":"BATCH","v":[{"p":"content","o":"APPEND","v":"[reference:17]"},{"p":"references","v":[{"id":23,"type":"TOOL_OPEN"}]}]}
+
+data: {"p":"response/fragments/-1/content","o":"APPEND","v":"。"}
+
+data: {"v":"他的"}
+
+data: {"v":"复杂性"}
+
+data: {"v":"在于"}
+
+data: {"v":"，"}
+
+data: {"v":"他也"}
+
+data: {"v":"曾"}
+
+data: {"v":"做过"}
+
+data: {"v":"贡献"}
+
+data: {"v":"，"}
+
+data: {"v":"如"}
+
+data: {"v":"194"}
+
+data: {"v":"8"}
+
+data: {"v":"年在"}
+
+data: {"v":"城南"}
+
+data: {"v":"庄"}
+
+data: {"v":"冒"}
+
+data: {"v":"死"}
+
+data: {"v":"救护"}
+
+data: {"v":"过"}
+
+data: {"v":"毛泽东"}
+
+data: {"v":"，"}
+
+data: {"v":"这一"}
+
+data: {"v":"事迹"}
+
+data: {"v":"因"}
+
+data: {"v":"他"}
+
+data: {"v":"后来"}
+
+data: {"v":"成为"}
+
+data: {"v":"主"}
+
+data: {"v":"犯"}
+
+data: {"v":"而在"}
+
+data: {"v":"许多"}
+
+data: {"v":"回忆"}
+
+data: {"v":"录"}
+
+data: {"v":"中被"}
+
+data: {"v":"隐"}
+
+data: {"v":"去"}
+
+data: {"p":"response/fragments/-1","o":"BATCH","v":[{"p":"content","o":"APPEND","v":"[reference:18]"},{"p":"references","v":[{"id":22,"type":"TOOL_OPEN"}]}]}
+
+data: {"p":"response/fragments/-1/content","o":"APPEND","v":"。\n"}
+
+data: {"v":"*"}
+
+data: {"v":"  "}
+
+data: {"v":" **"}
+
+data: {"v":"陶"}
+
+data: {"v":"铸"}
+
+data: {"v":"**"}
+
+data: {"v":"："}
+
+data: {"v":"这位"}
+
+data: {"v":"中南"}
+
+data: {"v":"局"}
+
+data: {"v":"第一书记"}
+
+data: {"v":"在"}
+
+data: {"v":"“"}
+
+data: {"v":"文革"}
+
+data: {"v":"”"}
+
+data: {"v":"初期"}
+
+data: {"v":"被"}
+
+data: {"v":"提拔"}
+
+data: {"v":"为"}
+
+data: {"v":"政治局"}
+
+data: {"v":"常委"}
+
+data: {"v":"，"}
+
+data: {"v":"但"}
+
+data: {"v":"仅"}
+
+data: {"v":"4"}
+
+data: {"v":"个"}
+
+data: {"v":"多月"}
+
+data: {"v":"后"}
+
+data: {"v":"就被"}
+
+data: {"v":"江"}
+
+data: {"v":"青"}
+
+data: {"v":"等人"}
+
+data: {"v":"公开"}
+
+data: {"v":"打倒"}
+
+data: {"p":"response/fragments/-1","o":"BATCH","v":[{"p":"content","o":"APPEND","v":"[reference:19]"},{"p":"references","v":[{"id":17,"type":"TOOL_OPEN"}]}]}
+
+data: {"p":"response/fragments/-1/content","o":"APPEND","v":"。"}
+
+data: {"v":"其"}
+
+data: {"v":"悲剧"}
+
+data: {"v":"在于"}
+
+data: {"v":"，"}
+
+data: {"v":"他曾"}
+
+data: {"v":"因"}
+
+data: {"v":"在"}
+
+data: {"v":"“"}
+
+data: {"v":"七"}
+
+data: {"v":"千人"}
+
+data: {"v":"大会"}
+
+data: {"v":"”"}
+
+data: {"v":"上"}
+
+data: {"v":"反对"}
+
+data: {"v":"刘少"}
+
+data: {"v":"奇的"}
+
+data: {"v":"“"}
+
+data: {"v":"人"}
+
+data: {"v":"祸"}
+
+data: {"v":"”"}
+
+data: {"v":"论"}
+
+data: {"v":"而"}
+
+data: {"v":"得到"}
+
+data: {"v":"毛泽东"}
+
+data: {"v":"赏识"}
+
+data: {"v":"，"}
+
+data: {"v":"最终"}
+
+data: {"v":"却被"}
+
+data: {"v":"更"}
+
+data: {"v":"激"}
+
+data: {"v":"进的"}
+
+data: {"v":"浪潮"}
+
+data: {"v":"吞噬"}
+
+data: {"p":"response/fragments/-1","o":"BATCH","v":[{"p":"content","o":"APPEND","v":"[reference:20]"},{"p":"references","v":[{"id":17,"type":"TOOL_OPEN"}]}]}
+
+data: {"p":"response/fragments/-1/content","o":"APPEND","v":"。\n"}
+
+data: {"v":"*"}
+
+data: {"v":"  "}
+
+data: {"v":" **"}
+
+data: {"v":"李"}
+
+data: {"v":"雪"}
+
+data: {"v":"峰"}
+
+data: {"v":"**"}
+
+data: {"v":"："}
+
+data: {"v":"他"}
+
+data: {"v":"因"}
+
+data: {"v":"在"}
+
+data: {"v":"“"}
+
+data: {"v":"四"}
+
+data: {"v":"清"}
+
+data: {"v":"”"}
+
+data: {"v":"运动中"}
+
+data: {"v":"与"}
+
+data: {"v":"刘少"}
+
+data: {"v":"奇"}
+
+data: {"v":"有"}
+
+data: {"v":"分歧"}
+
+data: {"v":"被"}
+
+data: {"v":"毛泽东"}
+
+data: {"v":"重用"}
+
+data: {"v":"为"}
+
+data: {"v":"北京"}
+
+data: {"v":"市委"}
+
+data: {"v":"第一书记"}
+
+data: {"v":"，"}
+
+data: {"v":"但在"}
+
+data: {"v":"政治"}
+
+data: {"v":"风暴"}
+
+data: {"v":"中"}
+
+data: {"v":"难以"}
+
+data: {"v":"自"}
+
+data: {"v":"保"}
+
+data: {"v":"，"}
+
+data: {"v":"其"}
+
+data: {"v":"命运"}
+
+data: {"v":"同样"}
+
+data: {"v":"坎坷"}
+
+data: {"p":"response/fragments/-1","o":"BATCH","v":[{"p":"content","o":"APPEND","v":"[reference:21]"},{"p":"references","v":[{"id":17,"type":"TOOL_OPEN"}]}]}
+
+data: {"v":[{"p":"content","o":"APPEND","v":"[reference:22]"},{"p":"references","v":[{"id":17,"type":"TOOL_OPEN"}]}]}
+
+data: {"p":"response/fragments/-1/content","o":"APPEND","v":"。\n"}
+
+data: {"v":"*"}
+
+data: {"v":"  "}
+
+data: {"v":" **"}
+
+data: {"v":"赵"}
+
+data: {"v":"健"}
+
+data: {"v":"民"}
+
+data: {"v":"**"}
+
+data: {"v":"："}
+
+data: {"v":"时任"}
+
+data: {"v":"云南"}
+
+data: {"v":"省委"}
+
+data: {"v":"书记"}
+
+data: {"v":"的"}
+
+data: {"v":"赵"}
+
+data: {"v":"健"}
+
+data: {"v":"民"}
+
+data: {"v":"，"}
+
+data: {"v":"在京"}
+
+data: {"v":"西"}
+
+data: {"v":"宾馆"}
+
+data: {"v":"会议上"}
+
+data: {"v":"据"}
+
+data: {"v":"理"}
+
+data: {"v":"力争"}
+
+data: {"v":"，"}
+
+data: {"v":"却被"}
+
+data: {"v":"康"}
+
+data: {"v":"生"}
+
+data: {"v":"以"}
+
+data: {"v":"历史"}
+
+data: {"v":"问题"}
+
+data: {"v":"为由"}
+
+data: {"v":"诬"}
+
+data: {"v":"陷"}
+
+data: {"v":"为"}
+
+data: {"v":"“"}
+
+data: {"v":"叛"}
+
+data: {"v":"徒"}
+
+data: {"v":"”，"}
+
+data: {"v":"被"}
+
+data: {"v":"非法"}
+
+data: {"v":"关"}
+
+data: {"v":"押"}
+
+data: {"v":"长达"}
+
+data: {"v":"八年"}
+
+data: {"v":"。"}
+
+data: {"v":"更"}
+
+data: {"v":"令人"}
+
+data: {"v":"痛"}
+
+data: {"v":"心"}
+
+data: {"v":"的是"}
+
+data: {"v":"，"}
+
+data: {"v":"此"}
+
+data: {"v":"冤"}
+
+data: {"v":"案"}
+
+data: {"v":"导致"}
+
+data: {"v":"云南省"}
+
+data: {"v":"超过"}
+
+data: {"v":"170"}
+
+data: {"v":"00"}
+
+data: {"v":"人被"}
+
+data: {"v":"牵连"}
+
+data: {"v":"致死"}
+
+data: {"p":"response/fragments/-1","o":"BATCH","v":[{"p":"content","o":"APPEND","v":"[reference:23]"},{"p":"references","v":[{"id":20,"type":"TOOL_OPEN"}]}]}
+
+data: {"p":"response/fragments/-1/content","o":"APPEND","v":"。\n"}
+
+data: {"v":"*"}
+
+data: {"v":"  "}
+
+data: {"v":" **"}
+
+data: {"v":"周恩来"}
+
+data: {"v":"**"}
+
+data: {"v":"："}
+
+data: {"v":"在"}
+
+data: {"v":"极度"}
+
+data: {"v":"混乱"}
+
+data: {"v":"的局面"}
+
+data: {"v":"中"}
+
+data: {"v":"，"}
+
+data: {"v":"他"}
+
+data: {"v":"尽力"}
+
+data: {"v":"“"}
+
+data: {"v":"苦"}
+
+data: {"v":"撑"}
+
+data: {"v":"危"}
+
+data: {"v":"局"}
+
+data: {"v":"”。"}
+
+data: {"v":"在"}
+
+data: {"v":"中央"}
+
+data: {"v":"文革"}
+
+data: {"v":"挑"}
+
+data: {"v":"动"}
+
+data: {"v":"外交部"}
+
+data: {"v":"夺"}
+
+data: {"v":"权"}
+
+data: {"v":"时"}
+
+data: {"v":"，"}
+
+data: {"v":"他"}
+
+data: {"v":"一方面"}
+
+data: {"v":"严厉"}
+
+data: {"v":"批评"}
+
+data: {"v":"，"}
+
+data: {"v":"另一方面"}
+
+data: {"v":"指挥"}
+
+data: {"v":"部队"}
+
+data: {"v":"营"}
+
+data: {"v":"救"}
+
+data: {"v":"被困"}
+
+data: {"v":"人员"}
+
+data: {"v":"，"}
+
+data: {"v":"试图"}
+
+data: {"v":"挽回"}
+
+data: {"v":"失控"}
+
+data: {"v":"的外"}
+
+data: {"v":"交"}
+
+data: {"v":"局面"}
+
+data: {"p":"response/fragments/-1","o":"BATCH","v":[{"p":"content","o":"APPEND","v":"[reference:24]"},{"p":"references","v":[{"id":16,"type":"TOOL_OPEN"}]}]}
+
+data: {"p":"response/fragments/-1/content","o":"APPEND","v":"。\n"}
+
+data: {"v":"*"}
+
+data: {"v":"  "}
+
+data: {"v":" **"}
+
+data: {"v":"许"}
+
+data: {"v":"广"}
+
+data: {"v":"平"}
+
+data: {"v":"**"}
+
+data: {"v":"："}
+
+data: {"v":"在"}
+
+data: {"v":"山东"}
+
+data: {"v":"大学"}
+
+data: {"v":"批判"}
+
+data: {"v":"校长"}
+
+data: {"v":"成"}
+
+data: {"v":"仿"}
+
+data: {"v":"吾"}
+
+data: {"v":"时"}
+
+data: {"v":"，"}
+
+data: {"v":"许"}
+
+data: {"v":"广"}
+
+data: {"v":"平"}
+
+data: {"v":"作为"}
+
+data: {"v":"鲁迅"}
+
+data: {"v":"夫人"}
+
+data: {"v":"，"}
+
+data: {"v":"她的"}
+
+data: {"v":"态度"}
+
+data: {"v":"和"}
+
+data: {"v":"抉择"}
+
+data: {"v":"也"}
+
+data: {"v":"反映了"}
+
+data: {"v":"那个"}
+
+data: {"v":"时代"}
+
+data: {"v":"知识分子"}
+
+data: {"v":"面临的"}
+
+data: {"v":"复杂"}
+
+data: {"v":"处境"}
+
+data: {"p":"response/fragments/-1","o":"BATCH","v":[{"p":"content","o":"APPEND","v":"[reference:25]"},{"p":"references","v":[{"id":24,"type":"TOOL_OPEN"}]}]}
+
+data: {"p":"response/fragments/-1/content","o":"APPEND","v":"。\n"}
+
+data: {"v":"*"}
+
+data: {"v":"  "}
+
+data: {"v":" **"}
+
+data: {"v":"纳"}
+
+data: {"v":"西"}
+
+data: {"v":"族"}
+
+data: {"v":"老"}
+
+data: {"v":"村"}
+
+data: {"v":"长的"}
+
+data: {"v":"二"}
+
+data: {"v":"叔"}
+
+data: {"v":"**"}
+
+data: {"v":"："}
+
+data: {"v":"一位"}
+
+data: {"v":"回乡"}
+
+data: {"v":"军人"}
+
+data: {"v":"，"}
+
+data: {"v":"仅"}
+
+data: {"v":"因"}
+
+data: {"v":"将"}
+
+data: {"v":"有"}
+
+data: {"v":"领导人"}
+
+data: {"v":"签"}
+
+data: {"v":"名的"}
+
+data: {"v":"证明"}
+
+data: {"v":"藏在"}
+
+data: {"v":"鞋"}
+
+data: {"v":"底"}
+
+data: {"v":"，"}
+
+data: {"v":"便被"}
+
+data: {"v":"诬"}
+
+data: {"v":"陷"}
+
+data: {"v":"为"}
+
+data: {"v":"“"}
+
+data: {"v":"第三"}
+
+data: {"v":"党"}
+
+data: {"v":"”"}
+
+data: {"v":"分子"}
+
+data: {"v":"，"}
+
+data: {"v":"这"}
+
+data: {"v":"则"}
+
+data: {"v":"个案"}
+
+data: {"v":"反映了"}
+
+data: {"v":"那个"}
+
+data: {"v":"年代"}
+
+data: {"v":"荒"}
+
+data: {"v":"诞"}
+
+data: {"v":"的"}
+
+data: {"v":"罪名"}
+
+data: {"v":"如何"}
+
+data: {"v":"轻易"}
+
+data: {"v":"地"}
+
+data: {"v":"摧毁"}
+
+data: {"v":"普通"}
+
+data: {"v":"人的生活"}
+
+data: {"p":"response/fragments/-1","o":"BATCH","v":[{"p":"content","o":"APPEND","v":"[reference:26]"},{"p":"references","v":[{"id":21,"type":"TOOL_OPEN"}]}]}
+
+data: {"p":"response/fragments/-1/content","o":"APPEND","v":"。\n\n"}
+
+data: {"v":"您"}
+
+data: {"v":"需要"}
+
+data: {"v":"更多"}
+
+data: {"v":"原始"}
+
+data: {"v":"材料"}
+
+data: {"v":"，"}
+
+data: {"v":"可以"}
+
+data: {"v":"查阅"}
+
+data: {"v":"叶"}
+
+data: {"v":"永"}
+
+data: {"v":"烈的"}
+
+data: {"v":"《"}
+
+data: {"v":"“"}
+
+data: {"v":"四人"}
+
+data: {"v":"帮"}
+
+data: {"v":"”"}
+
+data: {"v":"兴"}
+
+data: {"v":"亡"}
+
+data: {"v":"》（"}
+
+data: {"v":"基于"}
+
+data: {"v":"大量"}
+
+data: {"v":"亲"}
+
+data: {"v":"历"}
+
+data: {"v":"者"}
+
+data: {"v":"采访"}
+
+data: {"v":"）"}
+
+data: {"p":"response/fragments/-1","o":"BATCH","v":[{"p":"content","o":"APPEND","v":"[reference:27]"},{"p":"references","v":[{"id":22,"type":"TOOL_OPEN"}]}]}
+
+data: {"p":"response/fragments/-1/content","o":"APPEND","v":"、"}
+
+data: {"v":"丁"}
+
+data: {"v":"龙"}
+
+data: {"v":"嘉"}
+
+data: {"v":"与"}
+
+data: {"v":"听"}
+
+data: {"v":"雨的"}
+
+data: {"v":"《"}
+
+data: {"v":"康"}
+
+data: {"v":"生"}
+
+data: {"v":"与"}
+
+data: {"v":"“"}
+
+data: {"v":"赵"}
+
+data: {"v":"健"}
+
+data: {"v":"民"}
+
+data: {"v":"冤"}
+
+data: {"v":"案"}
+
+data: {"v":"》"}
+
+data: {"p":"response/fragments/-1","o":"BATCH","v":[{"p":"content","o":"APPEND","v":"[reference:28]"},{"p":"references","v":[{"id":18,"type":"TOOL_OPEN"}]}]}
+
+data: {"p":"response/fragments/-1/content","o":"APPEND","v":"，"}
+
+data: {"v":"以及"}
+
+data: {"v":"各地"}
+
+data: {"v":"政协"}
+
+data: {"v":"编"}
+
+data: {"v":"撰"}
+
+data: {"v":"的"}
+
+data: {"v":"文史"}
+
+data: {"v":"资料"}
+
+data: {"v":"。"}
+
+data: {"v":"您"}
+
+data: {"v":"可以根据"}
+
+data: {"v":"教学"}
+
+data: {"v":"重点"}
+
+data: {"v":"，"}
+
+data: {"v":"从"}
+
+data: {"v":"这些"}
+
+data: {"v":"具体"}
+
+data: {"v":"案例"}
+
+data: {"v":"中"}
+
+data: {"v":"筛选"}
+
+data: {"v":"细节"}
+
+data: {"v":"，"}
+
+data: {"v":"帮助学生"}
+
+data: {"v":"理解"}
+
+data: {"v":"那段"}
+
+data: {"v":"历史的"}
+
+data: {"v":"复杂"}
+
+data: {"v":"肌"}
+
+data: {"v":"理"}
+
+data: {"v":"。"}
+
+data: {"p":"response/fragments","v":[{"id":37,"type":"TIP","content":"本回答由 AI 生成，内容仅供参考，请仔细甄别。","style":"WARNING","hide_on_wip":true}]}
+
+data: {"p":"response","o":"BATCH","v":[{"p":"accumulated_token_usage","v":1269},{"p":"quasi_status","v":"FINISHED"}]}
+
+: 
+
+data: {"v":[{"p":"ban_regenerate","v":true},{"p":"status","v":"CONTENT_FILTER"},{"p":"fragments","v":[{"id":38,"type":"TEMPLATE_RESPONSE","content":"你好，这个问题我暂时无法回答，让我们换个话题再聊聊吧。"}]},{"p":"quasi_status","v":"CONTENT_FILTER"}]}
+
+event: finish
+data: {}
+
+event: update_session
+data: {"updated_at":1775320133.058034}
+
+event: close
+data: {"click_behavior":"none","auto_resume":false}
+

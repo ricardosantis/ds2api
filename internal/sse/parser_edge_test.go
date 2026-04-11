@@ -50,18 +50,6 @@ func TestShouldSkipPathQuasiStatus(t *testing.T) {
 	}
 }
 
-func TestShouldSkipPathElapsedSecs(t *testing.T) {
-	if !shouldSkipPath("response/elapsed_secs") {
-		t.Fatal("expected skip for elapsed_secs path")
-	}
-}
-
-func TestShouldSkipPathTokenUsage(t *testing.T) {
-	if !shouldSkipPath("response/token_usage") {
-		t.Fatal("expected skip for token_usage path")
-	}
-}
-
 func TestShouldSkipPathPendingFragment(t *testing.T) {
 	if !shouldSkipPath("response/pending_fragment") {
 		t.Fatal("expected skip for pending_fragment path")
@@ -89,6 +77,15 @@ func TestShouldSkipPathFragmentStatus(t *testing.T) {
 	}
 	if !shouldSkipPath("response/fragments/-3/status") {
 		t.Fatal("expected skip for fragment -3 status")
+	}
+	if !shouldSkipPath("response/fragments/-16/status") {
+		t.Fatal("expected skip for fragment -16 status")
+	}
+	if !shouldSkipPath("response/fragments/7/status") {
+		t.Fatal("expected skip for fragment 7 status")
+	}
+	if shouldSkipPath("response/status") {
+		t.Fatal("expected response/status to be handled by finish logic, not skipped")
 	}
 }
 
@@ -118,7 +115,7 @@ func TestParseSSEChunkForContentNoVField(t *testing.T) {
 
 func TestParseSSEChunkForContentSkippedPath(t *testing.T) {
 	parts, finished, nextType := ParseSSEChunkForContent(map[string]any{
-		"p": "response/token_usage",
+		"p": "response/quasi_status",
 		"v": "some data",
 	}, false, "text")
 	if finished || len(parts) > 0 {
@@ -150,8 +147,8 @@ func TestParseSSEChunkForContentStatusNotFinished(t *testing.T) {
 	if finished {
 		t.Fatal("expected not finished for non-FINISHED status")
 	}
-	if len(parts) != 1 || parts[0].Text != "IN_PROGRESS" {
-		t.Fatalf("expected content for non-FINISHED status, got %#v", parts)
+	if len(parts) != 0 {
+		t.Fatalf("expected non-finished status to be filtered, got %#v", parts)
 	}
 }
 
@@ -489,7 +486,7 @@ func TestExtractContentRecursiveFinishedStatus(t *testing.T) {
 
 func TestExtractContentRecursiveSkipsPath(t *testing.T) {
 	items := []any{
-		map[string]any{"p": "token_usage", "v": "data"},
+		map[string]any{"p": "quasi_status", "v": "data"},
 	}
 	parts, finished := extractContentRecursive(items, "text")
 	if finished {

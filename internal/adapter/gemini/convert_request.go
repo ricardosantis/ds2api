@@ -9,6 +9,7 @@ import (
 	"ds2api/internal/util"
 )
 
+//nolint:unused // kept for native Gemini adapter route compatibility.
 func normalizeGeminiRequest(store ConfigReader, routeModel string, req map[string]any, stream bool) (util.StandardRequest, error) {
 	requestedModel := strings.TrimSpace(routeModel)
 	if requestedModel == "" {
@@ -17,13 +18,13 @@ func normalizeGeminiRequest(store ConfigReader, routeModel string, req map[strin
 
 	resolvedModel, ok := config.ResolveModel(store, requestedModel)
 	if !ok {
-		return util.StandardRequest{}, fmt.Errorf("Model '%s' is not available.", requestedModel)
+		return util.StandardRequest{}, fmt.Errorf("model %q is not available", requestedModel)
 	}
 	thinkingEnabled, searchEnabled, _ := config.GetModelConfig(resolvedModel)
 
 	messagesRaw := geminiMessagesFromRequest(req)
 	if len(messagesRaw) == 0 {
-		return util.StandardRequest{}, fmt.Errorf("Request must include non-empty contents.")
+		return util.StandardRequest{}, fmt.Errorf("request must include non-empty contents")
 	}
 
 	toolsRaw := convertGeminiTools(req["tools"])

@@ -30,8 +30,8 @@ func main() {
 	opts.Timeout = time.Duration(timeoutSeconds) * time.Second
 
 	if err := testsuite.Run(context.Background(), opts); err != nil {
-		fmt.Fprintln(os.Stderr, err.Error())
+		_, _ = fmt.Fprintln(os.Stderr, err.Error())
 		os.Exit(1)
 	}
-	fmt.Fprintln(os.Stdout, "testsuite completed successfully")
+	_, _ = fmt.Fprintln(os.Stdout, "testsuite completed successfully")
 }

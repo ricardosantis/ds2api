@@ -49,6 +49,51 @@ func TestGetModelConfigDeepSeekReasonerSearch(t *testing.T) {
 	}
 }
 
+func TestGetModelConfigDeepSeekExpertChat(t *testing.T) {
+	thinking, search, ok := GetModelConfig("deepseek-expert-chat")
+	if !ok {
+		t.Fatal("expected ok for deepseek-expert-chat")
+	}
+	if thinking || search {
+		t.Fatalf("expected no thinking/search for deepseek-expert-chat, got thinking=%v search=%v", thinking, search)
+	}
+}
+
+func TestGetModelConfigDeepSeekExpertReasonerSearch(t *testing.T) {
+	thinking, search, ok := GetModelConfig("deepseek-expert-reasoner-search")
+	if !ok {
+		t.Fatal("expected ok for deepseek-expert-reasoner-search")
+	}
+	if !thinking || !search {
+		t.Fatalf("expected both true, got thinking=%v search=%v", thinking, search)
+	}
+}
+
+func TestGetModelConfigDeepSeekVisionReasonerSearch(t *testing.T) {
+	thinking, search, ok := GetModelConfig("deepseek-vision-reasoner-search")
+	if !ok {
+		t.Fatal("expected ok for deepseek-vision-reasoner-search")
+	}
+	if !thinking || !search {
+		t.Fatalf("expected both true, got thinking=%v search=%v", thinking, search)
+	}
+}
+
+func TestGetModelTypeDefaultExpertAndVision(t *testing.T) {
+	defaultType, ok := GetModelType("deepseek-chat")
+	if !ok || defaultType != "default" {
+		t.Fatalf("expected default model_type, got ok=%v model_type=%q", ok, defaultType)
+	}
+	expertType, ok := GetModelType("deepseek-expert-chat")
+	if !ok || expertType != "expert" {
+		t.Fatalf("expected expert model_type, got ok=%v model_type=%q", ok, expertType)
+	}
+	visionType, ok := GetModelType("deepseek-vision-chat")
+	if !ok || visionType != "vision" {
+		t.Fatalf("expected vision model_type, got ok=%v model_type=%q", ok, visionType)
+	}
+}
+
 func TestGetModelConfigCaseInsensitive(t *testing.T) {
 	thinking, search, ok := GetModelConfig("DeepSeek-Chat")
 	if !ok {
@@ -97,12 +142,24 @@ func TestLowerFunction(t *testing.T) {
 // ─── Config.MarshalJSON / UnmarshalJSON roundtrip ────────────────────
 
 func TestConfigJSONRoundtrip(t *testing.T) {
+	trueVal := true
+	falseVal := false
 	cfg := Config{
 		Keys:     []string{"key1", "key2"},
 		Accounts: []Account{{Email: "user@example.com", Password: "pass", Token: "tok"}},
 		ClaudeMapping: map[string]string{
 			"fast": "deepseek-chat",
 			"slow": "deepseek-reasoner",
+		},
+		AutoDelete: AutoDeleteConfig{
+			Mode: "single",
+		},
+		Runtime: RuntimeConfig{
+			TokenRefreshIntervalHours: 12,
+		},
+		Compat: CompatConfig{
+			WideInputStrictOutput: &trueVal,
+			StripReferenceMarkers: &falseVal,
 		},
 		VercelSyncHash: "hash123",
 		VercelSyncTime: 1234567890,
@@ -130,11 +187,46 @@ func TestConfigJSONRoundtrip(t *testing.T) {
 	if decoded.ClaudeMapping["fast"] != "deepseek-chat" {
 		t.Fatalf("unexpected claude mapping: %#v", decoded.ClaudeMapping)
 	}
+	if decoded.Runtime.TokenRefreshIntervalHours != 12 {
+		t.Fatalf("unexpected runtime refresh interval: %#v", decoded.Runtime.TokenRefreshIntervalHours)
+	}
+	if decoded.AutoDelete.Mode != "single" {
+		t.Fatalf("unexpected auto delete mode: %#v", decoded.AutoDelete.Mode)
+	}
+	if decoded.Compat.WideInputStrictOutput == nil || !*decoded.Compat.WideInputStrictOutput {
+		t.Fatalf("unexpected compat wide_input_strict_output: %#v", decoded.Compat.WideInputStrictOutput)
+	}
+	if decoded.Compat.StripReferenceMarkers == nil || *decoded.Compat.StripReferenceMarkers {
+		t.Fatalf("unexpected compat strip_reference_markers: %#v", decoded.Compat.StripReferenceMarkers)
+	}
 	if decoded.VercelSyncHash != "hash123" {
 		t.Fatalf("unexpected vercel sync hash: %q", decoded.VercelSyncHash)
 	}
 	if decoded.AdditionalFields["custom_field"] != "custom_value" {
 		t.Fatalf("unexpected additional fields: %#v", decoded.AdditionalFields)
+	}
+}
+
+func TestAutoDeleteModeResolution(t *testing.T) {
+	tests := []struct {
+		name string
+		cfg  AutoDeleteConfig
+		want string
+	}{
+		{name: "default", cfg: AutoDeleteConfig{}, want: "none"},
+		{name: "legacy all", cfg: AutoDeleteConfig{Sessions: true}, want: "all"},
+		{name: "single", cfg: AutoDeleteConfig{Mode: "single"}, want: "single"},
+		{name: "all", cfg: AutoDeleteConfig{Mode: "all"}, want: "all"},
+		{name: "none", cfg: AutoDeleteConfig{Mode: "none"}, want: "none"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			store := &Store{cfg: Config{AutoDelete: tc.cfg}}
+			if got := store.AutoDeleteMode(); got != tc.want {
+				t.Fatalf("AutoDeleteMode()=%q want=%q", got, tc.want)
+			}
+		})
 	}
 }
 
@@ -156,11 +248,15 @@ func TestConfigUnmarshalJSONPreservesUnknownFields(t *testing.T) {
 // ─── Config.Clone ────────────────────────────────────────────────────
 
 func TestConfigCloneIsDeepCopy(t *testing.T) {
+	falseVal := false
 	cfg := Config{
 		Keys:     []string{"key1"},
 		Accounts: []Account{{Email: "user@test.com", Token: "token"}},
 		ClaudeMapping: map[string]string{
 			"fast": "deepseek-chat",
+		},
+		Compat: CompatConfig{
+			StripReferenceMarkers: &falseVal,
 		},
 		AdditionalFields: map[string]any{"custom": "value"},
 	}
@@ -171,6 +267,9 @@ func TestConfigCloneIsDeepCopy(t *testing.T) {
 	cfg.Keys[0] = "modified"
 	cfg.Accounts[0].Email = "modified@test.com"
 	cfg.ClaudeMapping["fast"] = "modified-model"
+	if cfg.Compat.StripReferenceMarkers != nil {
+		*cfg.Compat.StripReferenceMarkers = true
+	}
 
 	// Cloned should not be affected
 	if cloned.Keys[0] != "key1" {
@@ -181,6 +280,9 @@ func TestConfigCloneIsDeepCopy(t *testing.T) {
 	}
 	if cloned.ClaudeMapping["fast"] != "deepseek-chat" {
 		t.Fatalf("clone claude mapping was affected: %#v", cloned.ClaudeMapping)
+	}
+	if cloned.Compat.StripReferenceMarkers == nil || *cloned.Compat.StripReferenceMarkers {
+		t.Fatalf("clone compat was affected: %#v", cloned.Compat.StripReferenceMarkers)
 	}
 }
 
@@ -353,6 +455,39 @@ func TestStoreCompatWideInputStrictOutputCanDisable(t *testing.T) {
 	}
 }
 
+func TestStoreCompatStripReferenceMarkersDefaultTrue(t *testing.T) {
+	t.Setenv("DS2API_CONFIG_JSON", `{"keys":["k1"],"accounts":[]}`)
+	store := LoadStore()
+	if !store.CompatStripReferenceMarkers() {
+		t.Fatal("expected default strip_reference_markers=true when unset")
+	}
+}
+
+func TestStoreCompatStripReferenceMarkersCanDisable(t *testing.T) {
+	t.Setenv("DS2API_CONFIG_JSON", `{"keys":["k1"],"accounts":[],"compat":{"strip_reference_markers":false}}`)
+	store := LoadStore()
+	if store.CompatStripReferenceMarkers() {
+		t.Fatal("expected strip_reference_markers=false when explicitly configured")
+	}
+
+	snap := store.Snapshot()
+	data, err := snap.MarshalJSON()
+	if err != nil {
+		t.Fatalf("marshal failed: %v", err)
+	}
+	var out map[string]any
+	if err := json.Unmarshal(data, &out); err != nil {
+		t.Fatalf("decode failed: %v", err)
+	}
+	rawCompat, ok := out["compat"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected compat in marshaled output, got %#v", out)
+	}
+	if rawCompat["strip_reference_markers"] != false {
+		t.Fatalf("expected explicit false in compat, got %#v", rawCompat)
+	}
+}
+
 func TestStoreIsEnvBacked(t *testing.T) {
 	t.Setenv("DS2API_CONFIG_JSON", `{"keys":["k1"],"accounts":[]}`)
 	store := LoadStore()
@@ -460,6 +595,30 @@ func TestOpenAIModelsResponse(t *testing.T) {
 	}
 	if len(data) == 0 {
 		t.Fatal("expected non-empty models list")
+	}
+	expected := map[string]bool{
+		"deepseek-chat":                   false,
+		"deepseek-reasoner":               false,
+		"deepseek-chat-search":            false,
+		"deepseek-reasoner-search":        false,
+		"deepseek-expert-chat":            false,
+		"deepseek-expert-reasoner":        false,
+		"deepseek-expert-chat-search":     false,
+		"deepseek-expert-reasoner-search": false,
+		"deepseek-vision-chat":            false,
+		"deepseek-vision-reasoner":        false,
+		"deepseek-vision-chat-search":     false,
+		"deepseek-vision-reasoner-search": false,
+	}
+	for _, model := range data {
+		if _, ok := expected[model.ID]; ok {
+			expected[model.ID] = true
+		}
+	}
+	for id, seen := range expected {
+		if !seen {
+			t.Fatalf("expected OpenAI model list to include %s", id)
+		}
 	}
 }
 

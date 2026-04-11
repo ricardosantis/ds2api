@@ -35,7 +35,12 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		writeOpenAIError(w, status, detail)
 		return
 	}
-	defer h.Auth.Release(a)
+	var sessionID string
+	defer func() {
+		h.autoDeleteRemoteSession(r.Context(), a, sessionID)
+		h.Auth.Release(a)
+	}()
+
 	r = r.WithContext(auth.WithAuth(r.Context(), a))
 
 	var req map[string]any
@@ -49,7 +54,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sessionID, err := h.DS.CreateSession(r.Context(), a, 3)
+	sessionID, err = h.DS.CreateSession(r.Context(), a, 3)
 	if err != nil {
 		if a.UseConfigToken {
 			writeOpenAIError(w, http.StatusUnauthorized, "Account token is invalid. Please re-login the account in admin.")
@@ -76,9 +81,42 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	h.handleNonStream(w, r.Context(), resp, sessionID, stdReq.ResponseModel, stdReq.FinalPrompt, stdReq.Thinking, stdReq.ToolNames)
 }
 
+func (h *Handler) autoDeleteRemoteSession(ctx context.Context, a *auth.RequestAuth, sessionID string) {
+	mode := h.Store.AutoDeleteMode()
+	if mode == "none" || a.DeepSeekToken == "" {
+		return
+	}
+
+	deleteBaseCtx := context.WithoutCancel(ctx)
+	deleteCtx, cancel := context.WithTimeout(deleteBaseCtx, 10*time.Second)
+	defer cancel()
+
+	switch mode {
+	case "single":
+		if sessionID == "" {
+			config.Logger.Warn("[auto_delete_sessions] skipped single-session delete because session_id is empty", "account", a.AccountID)
+			return
+		}
+		_, err := h.DS.DeleteSessionForToken(deleteCtx, a.DeepSeekToken, sessionID)
+		if err != nil {
+			config.Logger.Warn("[auto_delete_sessions] failed", "account", a.AccountID, "mode", mode, "session_id", sessionID, "error", err)
+			return
+		}
+		config.Logger.Debug("[auto_delete_sessions] success", "account", a.AccountID, "mode", mode, "session_id", sessionID)
+	case "all":
+		if err := h.DS.DeleteAllSessionsForToken(deleteCtx, a.DeepSeekToken); err != nil {
+			config.Logger.Warn("[auto_delete_sessions] failed", "account", a.AccountID, "mode", mode, "error", err)
+			return
+		}
+		config.Logger.Debug("[auto_delete_sessions] success", "account", a.AccountID, "mode", mode)
+	default:
+		config.Logger.Warn("[auto_delete_sessions] unknown mode", "account", a.AccountID, "mode", mode)
+	}
+}
+
 func (h *Handler) handleNonStream(w http.ResponseWriter, ctx context.Context, resp *http.Response, completionID, model, finalPrompt string, thinkingEnabled bool, toolNames []string) {
 	if resp.StatusCode != http.StatusOK {
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		body, _ := io.ReadAll(resp.Body)
 		writeOpenAIError(w, resp.StatusCode, string(body))
 		return
@@ -86,14 +124,18 @@ func (h *Handler) handleNonStream(w http.ResponseWriter, ctx context.Context, re
 	_ = ctx
 	result := sse.CollectStream(resp, thinkingEnabled, true)
 
-	finalThinking := result.Thinking
-	finalText := result.Text
+	stripReferenceMarkers := h.compatStripReferenceMarkers()
+	finalThinking := cleanVisibleOutput(result.Thinking, stripReferenceMarkers)
+	finalText := cleanVisibleOutput(result.Text, stripReferenceMarkers)
+	if writeUpstreamEmptyOutputError(w, finalThinking, finalText, result.ContentFilter) {
+		return
+	}
 	respBody := openaifmt.BuildChatCompletion(completionID, model, finalPrompt, finalThinking, finalText, toolNames)
 	writeJSON(w, http.StatusOK, respBody)
 }
 
 func (h *Handler) handleStream(w http.ResponseWriter, r *http.Request, resp *http.Response, completionID, model, finalPrompt string, thinkingEnabled, searchEnabled bool, toolNames []string) {
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		writeOpenAIError(w, resp.StatusCode, string(body))
@@ -110,8 +152,9 @@ func (h *Handler) handleStream(w http.ResponseWriter, r *http.Request, resp *htt
 	}
 
 	created := time.Now().Unix()
-	bufferToolContent := len(toolNames) > 0 && h.toolcallFeatureMatchEnabled()
-	emitEarlyToolDeltas := h.toolcallEarlyEmitHighConfidence()
+	bufferToolContent := len(toolNames) > 0
+	emitEarlyToolDeltas := h.toolcallFeatureMatchEnabled() && h.toolcallEarlyEmitHighConfidence()
+	stripReferenceMarkers := h.compatStripReferenceMarkers()
 	initialType := "text"
 	if thinkingEnabled {
 		initialType = "thinking"
@@ -127,6 +170,7 @@ func (h *Handler) handleStream(w http.ResponseWriter, r *http.Request, resp *htt
 		finalPrompt,
 		thinkingEnabled,
 		searchEnabled,
+		stripReferenceMarkers,
 		toolNames,
 		bufferToolContent,
 		emitEarlyToolDeltas,

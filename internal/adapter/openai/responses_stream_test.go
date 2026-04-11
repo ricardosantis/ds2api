@@ -297,7 +297,7 @@ func TestHandleResponsesStreamOutputTextDeltaCarriesItemIndexes(t *testing.T) {
 	}
 }
 
-func TestHandleResponsesStreamThinkingAndMixedToolExampleRemainMessageOnly(t *testing.T) {
+func TestHandleResponsesStreamThinkingAndMixedToolExampleEmitsFunctionCall(t *testing.T) {
 	h := &Handler{}
 	req := httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
 	rec := httptest.NewRecorder()
@@ -333,6 +333,7 @@ func TestHandleResponsesStreamThinkingAndMixedToolExampleRemainMessageOnly(t *te
 	responseObj, _ := completedPayload["response"].(map[string]any)
 	output, _ := responseObj["output"].([]any)
 	hasMessage := false
+	hasFunctionCall := false
 	for _, item := range output {
 		m, _ := item.(map[string]any)
 		if m == nil {
@@ -342,15 +343,18 @@ func TestHandleResponsesStreamThinkingAndMixedToolExampleRemainMessageOnly(t *te
 			hasMessage = true
 		}
 		if asString(m["type"]) == "function_call" {
-			t.Fatalf("did not expect function_call output for mixed prose tool example, output=%#v", output)
+			hasFunctionCall = true
 		}
 	}
 	if !hasMessage {
 		t.Fatalf("expected message output for mixed prose tool example, output=%#v", output)
 	}
+	if !hasFunctionCall {
+		t.Fatalf("expected function_call output for mixed prose tool example, output=%#v", output)
+	}
 }
 
-func TestHandleResponsesStreamToolChoiceNoneRejectsFunctionCall(t *testing.T) {
+func TestHandleResponsesStreamToolChoiceNoneStillAllowsFunctionCall(t *testing.T) {
 	h := &Handler{}
 	req := httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
 	rec := httptest.NewRecorder()
@@ -372,8 +376,8 @@ func TestHandleResponsesStreamToolChoiceNoneRejectsFunctionCall(t *testing.T) {
 
 	h.handleResponsesStream(rec, req, resp, "owner-a", "resp_test", "deepseek-chat", "prompt", false, false, nil, policy, "")
 	body := rec.Body.String()
-	if strings.Contains(body, "event: response.function_call_arguments.done") {
-		t.Fatalf("did not expect function_call events for tool_choice=none, body=%s", body)
+	if !strings.Contains(body, "event: response.function_call_arguments.done") {
+		t.Fatalf("expected function_call events for tool_choice=none, body=%s", body)
 	}
 }
 
@@ -514,7 +518,7 @@ func TestHandleResponsesStreamRequiredMalformedToolPayloadFails(t *testing.T) {
 	}
 }
 
-func TestHandleResponsesStreamRejectsUnknownToolName(t *testing.T) {
+func TestHandleResponsesStreamAllowsUnknownToolName(t *testing.T) {
 	h := &Handler{}
 	req := httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
 	rec := httptest.NewRecorder()
@@ -535,8 +539,8 @@ func TestHandleResponsesStreamRejectsUnknownToolName(t *testing.T) {
 
 	h.handleResponsesStream(rec, req, resp, "owner-a", "resp_test", "deepseek-chat", "prompt", false, false, []string{"read_file"}, util.DefaultToolChoicePolicy(), "")
 	body := rec.Body.String()
-	if strings.Contains(body, "event: response.function_call_arguments.done") {
-		t.Fatalf("did not expect function_call events for unknown tool, body=%s", body)
+	if !strings.Contains(body, "event: response.function_call_arguments.done") {
+		t.Fatalf("expected function_call events for unknown tool, body=%s", body)
 	}
 }
 
@@ -593,7 +597,7 @@ func TestHandleResponsesNonStreamRequiredToolChoiceIgnoresThinkingToolPayload(t 
 	}
 }
 
-func TestHandleResponsesNonStreamToolChoiceNoneRejectsFunctionCall(t *testing.T) {
+func TestHandleResponsesNonStreamToolChoiceNoneStillAllowsFunctionCall(t *testing.T) {
 	h := &Handler{}
 	rec := httptest.NewRecorder()
 	resp := &http.Response{
@@ -607,15 +611,63 @@ func TestHandleResponsesNonStreamToolChoiceNoneRejectsFunctionCall(t *testing.T)
 
 	h.handleResponsesNonStream(rec, resp, "owner-a", "resp_test", "deepseek-chat", "prompt", false, nil, policy, "")
 	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200 for tool_choice=none passthrough text, got %d body=%s", rec.Code, rec.Body.String())
+		t.Fatalf("expected 200 for tool_choice=none handling, got %d body=%s", rec.Code, rec.Body.String())
 	}
 	out := decodeJSONBody(t, rec.Body.String())
 	output, _ := out["output"].([]any)
+	foundFunctionCall := false
 	for _, item := range output {
 		m, _ := item.(map[string]any)
 		if m != nil && m["type"] == "function_call" {
-			t.Fatalf("did not expect function_call output item for tool_choice=none, got %#v", output)
+			foundFunctionCall = true
 		}
+	}
+	if !foundFunctionCall {
+		t.Fatalf("expected function_call output item for tool_choice=none, got %#v", output)
+	}
+}
+
+func TestHandleResponsesNonStreamReturns429WhenUpstreamOutputEmpty(t *testing.T) {
+	h := &Handler{}
+	rec := httptest.NewRecorder()
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body: io.NopCloser(strings.NewReader(
+			`data: {"p":"response/content","v":""}` + "\n" +
+				`data: [DONE]` + "\n",
+		)),
+	}
+
+	h.handleResponsesNonStream(rec, resp, "owner-a", "resp_test", "deepseek-chat", "prompt", false, nil, util.DefaultToolChoicePolicy(), "")
+	if rec.Code != http.StatusTooManyRequests {
+		t.Fatalf("expected 429 for empty upstream output, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	out := decodeJSONBody(t, rec.Body.String())
+	errObj, _ := out["error"].(map[string]any)
+	if asString(errObj["code"]) != "upstream_empty_output" {
+		t.Fatalf("expected code=upstream_empty_output, got %#v", out)
+	}
+}
+
+func TestHandleResponsesNonStreamReturnsContentFilterErrorWhenUpstreamFilteredWithoutOutput(t *testing.T) {
+	h := &Handler{}
+	rec := httptest.NewRecorder()
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body: io.NopCloser(strings.NewReader(
+			`data: {"code":"content_filter"}` + "\n" +
+				`data: [DONE]` + "\n",
+		)),
+	}
+
+	h.handleResponsesNonStream(rec, resp, "owner-a", "resp_test", "deepseek-chat", "prompt", false, nil, util.DefaultToolChoicePolicy(), "")
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for filtered empty upstream output, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	out := decodeJSONBody(t, rec.Body.String())
+	errObj, _ := out["error"].(map[string]any)
+	if asString(errObj["code"]) != "content_filter" {
+		t.Fatalf("expected code=content_filter, got %#v", out)
 	}
 }
 
@@ -670,19 +722,4 @@ func extractAllSSEEventPayloads(body, targetEvent string) []map[string]any {
 		out = append(out, payload)
 	}
 	return out
-}
-
-func asFloat(v any) float64 {
-	switch x := v.(type) {
-	case float64:
-		return x
-	case float32:
-		return float64(x)
-	case int:
-		return float64(x)
-	case int64:
-		return float64(x)
-	default:
-		return 0
-	}
 }

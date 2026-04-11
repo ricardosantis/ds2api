@@ -33,8 +33,8 @@ func ConfigPath() string {
 	return ResolvePath("DS2API_CONFIG_PATH", "config.json")
 }
 
-func WASMPath() string {
-	return ResolvePath("DS2API_WASM_PATH", "sha3_wasm_bg.7b9ca65ddd.wasm")
+func RawStreamSampleRoot() string {
+	return ResolvePath("DS2API_RAW_STREAM_SAMPLE_ROOT", "tests/raw_stream_samples")
 }
 
 func StaticAdminDir() string {

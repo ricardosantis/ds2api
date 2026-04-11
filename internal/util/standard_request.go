@@ -1,5 +1,7 @@
 package util
 
+import "ds2api/internal/config"
+
 type StandardRequest struct {
 	Surface        string
 	RequestedModel string
@@ -51,8 +53,17 @@ func (p ToolChoicePolicy) Allows(name string) bool {
 }
 
 func (r StandardRequest) CompletionPayload(sessionID string) map[string]any {
+	modelID := r.ResolvedModel
+	if modelID == "" {
+		modelID = r.RequestedModel
+	}
+	modelType := "default"
+	if resolvedType, ok := config.GetModelType(modelID); ok {
+		modelType = resolvedType
+	}
 	payload := map[string]any{
 		"chat_session_id":   sessionID,
+		"model_type":        modelType,
 		"parent_message_id": nil,
 		"prompt":            r.FinalPrompt,
 		"ref_file_ids":      []any{},

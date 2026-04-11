@@ -6,20 +6,24 @@ import (
 )
 
 const (
-	DeepSeekHost             = "chat.deepseek.com"
-	DeepSeekLoginURL         = "https://chat.deepseek.com/api/v0/users/login"
-	DeepSeekCreateSessionURL = "https://chat.deepseek.com/api/v0/chat_session/create"
-	DeepSeekCreatePowURL     = "https://chat.deepseek.com/api/v0/chat/create_pow_challenge"
-	DeepSeekCompletionURL    = "https://chat.deepseek.com/api/v0/chat/completion"
+	DeepSeekHost                 = "chat.deepseek.com"
+	DeepSeekLoginURL             = "https://chat.deepseek.com/api/v0/users/login"
+	DeepSeekCreateSessionURL     = "https://chat.deepseek.com/api/v0/chat_session/create"
+	DeepSeekCreatePowURL         = "https://chat.deepseek.com/api/v0/chat/create_pow_challenge"
+	DeepSeekCompletionURL        = "https://chat.deepseek.com/api/v0/chat/completion"
+	DeepSeekContinueURL          = "https://chat.deepseek.com/api/v0/chat/continue"
+	DeepSeekFetchSessionURL      = "https://chat.deepseek.com/api/v0/chat_session/fetch_page"
+	DeepSeekDeleteSessionURL     = "https://chat.deepseek.com/api/v0/chat_session/delete"
+	DeepSeekDeleteAllSessionsURL = "https://chat.deepseek.com/api/v0/chat_session/delete_all"
 )
 
 var defaultBaseHeaders = map[string]string{
 	"Host":              "chat.deepseek.com",
-	"User-Agent":        "DeepSeek/1.6.11 Android/35",
+	"User-Agent":        "DeepSeek/1.8.0 Android/35",
 	"Accept":            "application/json",
 	"Content-Type":      "application/json",
 	"x-client-platform": "android",
-	"x-client-version":  "1.6.11",
+	"x-client-version":  "1.8.0",
 	"x-client-locale":   "zh_CN",
 	"accept-charset":    "UTF-8",
 }

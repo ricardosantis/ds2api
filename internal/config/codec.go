@@ -20,6 +20,9 @@ func (c Config) MarshalJSON() ([]byte, error) {
 	if len(c.Accounts) > 0 {
 		m["accounts"] = c.Accounts
 	}
+	if len(c.Proxies) > 0 {
+		m["proxies"] = c.Proxies
+	}
 	if len(c.ClaudeMapping) > 0 {
 		m["claude_mapping"] = c.ClaudeMapping
 	}
@@ -32,14 +35,11 @@ func (c Config) MarshalJSON() ([]byte, error) {
 	if strings.TrimSpace(c.Admin.PasswordHash) != "" || c.Admin.JWTExpireHours > 0 || c.Admin.JWTValidAfterUnix > 0 {
 		m["admin"] = c.Admin
 	}
-	if c.Runtime.AccountMaxInflight > 0 || c.Runtime.AccountMaxQueue > 0 || c.Runtime.GlobalMaxInflight > 0 {
+	if c.Runtime.AccountMaxInflight > 0 || c.Runtime.AccountMaxQueue > 0 || c.Runtime.GlobalMaxInflight > 0 || c.Runtime.TokenRefreshIntervalHours > 0 {
 		m["runtime"] = c.Runtime
 	}
-	if c.Compat.WideInputStrictOutput != nil {
+	if c.Compat.WideInputStrictOutput != nil || c.Compat.StripReferenceMarkers != nil {
 		m["compat"] = c.Compat
-	}
-	if strings.TrimSpace(c.Toolcall.Mode) != "" || strings.TrimSpace(c.Toolcall.EarlyEmitConfidence) != "" {
-		m["toolcall"] = c.Toolcall
 	}
 	if c.Responses.StoreTTLSeconds > 0 {
 		m["responses"] = c.Responses
@@ -47,6 +47,7 @@ func (c Config) MarshalJSON() ([]byte, error) {
 	if strings.TrimSpace(c.Embeddings.Provider) != "" {
 		m["embeddings"] = c.Embeddings
 	}
+	m["auto_delete"] = c.AutoDelete
 	if c.VercelSyncHash != "" {
 		m["_vercel_sync_hash"] = c.VercelSyncHash
 	}
@@ -70,6 +71,10 @@ func (c *Config) UnmarshalJSON(b []byte) error {
 			}
 		case "accounts":
 			if err := json.Unmarshal(v, &c.Accounts); err != nil {
+				return fmt.Errorf("invalid field %q: %w", k, err)
+			}
+		case "proxies":
+			if err := json.Unmarshal(v, &c.Proxies); err != nil {
 				return fmt.Errorf("invalid field %q: %w", k, err)
 			}
 		case "claude_mapping":
@@ -97,15 +102,17 @@ func (c *Config) UnmarshalJSON(b []byte) error {
 				return fmt.Errorf("invalid field %q: %w", k, err)
 			}
 		case "toolcall":
-			if err := json.Unmarshal(v, &c.Toolcall); err != nil {
-				return fmt.Errorf("invalid field %q: %w", k, err)
-			}
+			// Legacy field ignored. Toolcall policy is fixed and no longer configurable.
 		case "responses":
 			if err := json.Unmarshal(v, &c.Responses); err != nil {
 				return fmt.Errorf("invalid field %q: %w", k, err)
 			}
 		case "embeddings":
 			if err := json.Unmarshal(v, &c.Embeddings); err != nil {
+				return fmt.Errorf("invalid field %q: %w", k, err)
+			}
+		case "auto_delete":
+			if err := json.Unmarshal(v, &c.AutoDelete); err != nil {
 				return fmt.Errorf("invalid field %q: %w", k, err)
 			}
 		case "_vercel_sync_hash":
@@ -130,6 +137,7 @@ func (c Config) Clone() Config {
 	clone := Config{
 		Keys:           slices.Clone(c.Keys),
 		Accounts:       slices.Clone(c.Accounts),
+		Proxies:        slices.Clone(c.Proxies),
 		ClaudeMapping:  cloneStringMap(c.ClaudeMapping),
 		ClaudeModelMap: cloneStringMap(c.ClaudeModelMap),
 		ModelAliases:   cloneStringMap(c.ModelAliases),
@@ -137,10 +145,11 @@ func (c Config) Clone() Config {
 		Runtime:        c.Runtime,
 		Compat: CompatConfig{
 			WideInputStrictOutput: cloneBoolPtr(c.Compat.WideInputStrictOutput),
+			StripReferenceMarkers: cloneBoolPtr(c.Compat.StripReferenceMarkers),
 		},
-		Toolcall:         c.Toolcall,
 		Responses:        c.Responses,
 		Embeddings:       c.Embeddings,
+		AutoDelete:       c.AutoDelete,
 		VercelSyncHash:   c.VercelSyncHash,
 		VercelSyncTime:   c.VercelSyncTime,
 		AdditionalFields: map[string]any{},

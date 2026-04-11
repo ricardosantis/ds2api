@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "default_samples": [
+    "guangzhou-weather-reasoner-search-20260404",
+    "content-filter-trigger-20260405-jwt3"
+  ],
+  "notes": "Canonical raw stream samples used by the default replay simulator."
+}

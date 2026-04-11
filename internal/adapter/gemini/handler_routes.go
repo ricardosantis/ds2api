@@ -11,9 +11,18 @@ import (
 var writeJSON = util.WriteJSON
 
 type Handler struct {
-	Store ConfigReader
-	Auth  AuthResolver
-	DS    DeepSeekCaller
+	Store  ConfigReader
+	Auth   AuthResolver
+	DS     DeepSeekCaller
+	OpenAI OpenAIChatRunner
+}
+
+//nolint:unused // used by native Gemini stream/non-stream runtime helpers.
+func (h *Handler) compatStripReferenceMarkers() bool {
+	if h == nil || h.Store == nil {
+		return true
+	}
+	return h.Store.CompatStripReferenceMarkers()
 }
 
 func RegisterRoutes(r chi.Router, h *Handler) {

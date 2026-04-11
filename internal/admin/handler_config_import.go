@@ -43,6 +43,7 @@ func (h *Handler) configImport(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"detail": err.Error()})
 		return
 	}
+	incoming.ClearAccountTokens()
 
 	importedKeys, importedAccounts := 0, 0
 	err = h.Store.Update(func(c *config.Config) error {
@@ -119,12 +120,6 @@ func (h *Handler) configImport(w http.ResponseWriter, r *http.Request) {
 					next.ModelAliases[k] = v
 				}
 			}
-			if strings.TrimSpace(incoming.Toolcall.Mode) != "" {
-				next.Toolcall.Mode = incoming.Toolcall.Mode
-			}
-			if strings.TrimSpace(incoming.Toolcall.EarlyEmitConfidence) != "" {
-				next.Toolcall.EarlyEmitConfidence = incoming.Toolcall.EarlyEmitConfidence
-			}
 			if incoming.Responses.StoreTTLSeconds > 0 {
 				next.Responses.StoreTTLSeconds = incoming.Responses.StoreTTLSeconds
 			}
@@ -148,6 +143,9 @@ func (h *Handler) configImport(w http.ResponseWriter, r *http.Request) {
 			}
 			if incoming.Runtime.GlobalMaxInflight > 0 {
 				next.Runtime.GlobalMaxInflight = incoming.Runtime.GlobalMaxInflight
+			}
+			if incoming.Runtime.TokenRefreshIntervalHours > 0 {
+				next.Runtime.TokenRefreshIntervalHours = incoming.Runtime.TokenRefreshIntervalHours
 			}
 		}
 
@@ -180,6 +178,7 @@ func (h *Handler) configImport(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) computeSyncHash() string {
 	snap := h.Store.Snapshot().Clone()
+	snap.ClearAccountTokens()
 	snap.VercelSyncHash = ""
 	snap.VercelSyncTime = 0
 	b, _ := json.Marshal(snap)

@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -29,8 +30,11 @@ type App struct {
 	Router   http.Handler
 }
 
-func NewApp() *App {
-	store := config.LoadStore()
+func NewApp() (*App, error) {
+	store, err := config.LoadStoreWithError()
+	if err != nil {
+		return nil, fmt.Errorf("load config: %w", err)
+	}
 	pool := account.NewPool(store)
 	var dsClient *deepseek.Client
 	resolver := auth.NewResolver(store, pool, func(ctx context.Context, acc config.Account) (string, error) {
@@ -38,15 +42,15 @@ func NewApp() *App {
 	})
 	dsClient = deepseek.NewClient(store, resolver)
 	if err := dsClient.PreloadPow(context.Background()); err != nil {
-		config.Logger.Warn("[WASM] preload failed", "error", err)
+		config.Logger.Warn("[PoW] init failed", "error", err)
 	} else {
-		config.Logger.Info("[WASM] module preloaded", "path", config.WASMPath())
+		config.Logger.Info("[PoW] pure Go solver ready")
 	}
 
 	openaiHandler := &openai.Handler{Store: store, Auth: resolver, DS: dsClient}
-	claudeHandler := &claude.Handler{Store: store, Auth: resolver, DS: dsClient}
-	geminiHandler := &gemini.Handler{Store: store, Auth: resolver, DS: dsClient}
-	adminHandler := &admin.Handler{Store: store, Pool: pool, DS: dsClient}
+	claudeHandler := &claude.Handler{Store: store, Auth: resolver, DS: dsClient, OpenAI: openaiHandler}
+	geminiHandler := &gemini.Handler{Store: store, Auth: resolver, DS: dsClient, OpenAI: openaiHandler}
+	adminHandler := &admin.Handler{Store: store, Pool: pool, DS: dsClient, OpenAI: openaiHandler}
 	webuiHandler := webui.NewHandler()
 
 	r := chi.NewRouter()
@@ -85,7 +89,7 @@ func NewApp() *App {
 		http.NotFound(w, req)
 	})
 
-	return &App{Store: store, Pool: pool, Resolver: resolver, DS: dsClient, Router: r}
+	return &App{Store: store, Pool: pool, Resolver: resolver, DS: dsClient, Router: r}, nil
 }
 
 func timeout(d time.Duration) func(http.Handler) http.Handler {

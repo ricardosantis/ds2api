@@ -52,6 +52,14 @@ export default function ApiTesterContainer({ config, onMessage, authFetch }) {
         { id: 'deepseek-reasoner', name: 'deepseek-reasoner', icon: 'Cpu', desc: t('apiTester.models.reasoner'), color: 'text-amber-600' },
         { id: 'deepseek-chat-search', name: 'deepseek-chat-search', icon: 'SearchIcon', desc: t('apiTester.models.chatSearch'), color: 'text-cyan-500' },
         { id: 'deepseek-reasoner-search', name: 'deepseek-reasoner-search', icon: 'SearchIcon', desc: t('apiTester.models.reasonerSearch'), color: 'text-cyan-600' },
+        { id: 'deepseek-expert-chat', name: 'deepseek-expert-chat', icon: 'MessageSquare', desc: t('apiTester.models.expertChat'), color: 'text-emerald-500' },
+        { id: 'deepseek-expert-reasoner', name: 'deepseek-expert-reasoner', icon: 'Cpu', desc: t('apiTester.models.expertReasoner'), color: 'text-emerald-600' },
+        { id: 'deepseek-expert-chat-search', name: 'deepseek-expert-chat-search', icon: 'SearchIcon', desc: t('apiTester.models.expertChatSearch'), color: 'text-teal-500' },
+        { id: 'deepseek-expert-reasoner-search', name: 'deepseek-expert-reasoner-search', icon: 'SearchIcon', desc: t('apiTester.models.expertReasonerSearch'), color: 'text-teal-600' },
+        { id: 'deepseek-vision-chat', name: 'deepseek-vision-chat', icon: 'MessageSquare', desc: t('apiTester.models.visionChat'), color: 'text-violet-500' },
+        { id: 'deepseek-vision-reasoner', name: 'deepseek-vision-reasoner', icon: 'Cpu', desc: t('apiTester.models.visionReasoner'), color: 'text-violet-600' },
+        { id: 'deepseek-vision-chat-search', name: 'deepseek-vision-chat-search', icon: 'SearchIcon', desc: t('apiTester.models.visionChatSearch'), color: 'text-fuchsia-500' },
+        { id: 'deepseek-vision-reasoner-search', name: 'deepseek-vision-reasoner-search', icon: 'SearchIcon', desc: t('apiTester.models.visionReasonerSearch'), color: 'text-fuchsia-600' },
     ]
 
     const { runTest, stopGeneration } = useChatStreamClient({

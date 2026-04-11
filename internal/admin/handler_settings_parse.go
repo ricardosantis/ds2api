@@ -7,23 +7,38 @@ import (
 	"ds2api/internal/config"
 )
 
-func parseSettingsUpdateRequest(req map[string]any) (*config.AdminConfig, *config.RuntimeConfig, *config.ToolcallConfig, *config.ResponsesConfig, *config.EmbeddingsConfig, map[string]string, map[string]string, error) {
+func boolFrom(v any) bool {
+	if v == nil {
+		return false
+	}
+	switch x := v.(type) {
+	case bool:
+		return x
+	case string:
+		return strings.ToLower(strings.TrimSpace(x)) == "true"
+	default:
+		return false
+	}
+}
+
+func parseSettingsUpdateRequest(req map[string]any) (*config.AdminConfig, *config.RuntimeConfig, *config.CompatConfig, *config.ResponsesConfig, *config.EmbeddingsConfig, *config.AutoDeleteConfig, map[string]string, map[string]string, error) {
 	var (
-		adminCfg    *config.AdminConfig
-		runtimeCfg  *config.RuntimeConfig
-		toolcallCfg *config.ToolcallConfig
-		respCfg     *config.ResponsesConfig
-		embCfg      *config.EmbeddingsConfig
-		claudeMap   map[string]string
-		aliasMap    map[string]string
+		adminCfg      *config.AdminConfig
+		runtimeCfg    *config.RuntimeConfig
+		compatCfg     *config.CompatConfig
+		respCfg       *config.ResponsesConfig
+		embCfg        *config.EmbeddingsConfig
+		autoDeleteCfg *config.AutoDeleteConfig
+		claudeMap     map[string]string
+		aliasMap      map[string]string
 	)
 
 	if raw, ok := req["admin"].(map[string]any); ok {
 		cfg := &config.AdminConfig{}
 		if v, exists := raw["jwt_expire_hours"]; exists {
 			n := intFrom(v)
-			if n < 1 || n > 720 {
-				return nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("admin.jwt_expire_hours must be between 1 and 720")
+			if err := config.ValidateIntRange("admin.jwt_expire_hours", n, 1, 720, true); err != nil {
+				return nil, nil, nil, nil, nil, nil, nil, nil, err
 			}
 			cfg.JWTExpireHours = n
 		}
@@ -34,60 +49,57 @@ func parseSettingsUpdateRequest(req map[string]any) (*config.AdminConfig, *confi
 		cfg := &config.RuntimeConfig{}
 		if v, exists := raw["account_max_inflight"]; exists {
 			n := intFrom(v)
-			if n < 1 || n > 256 {
-				return nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("runtime.account_max_inflight must be between 1 and 256")
+			if err := config.ValidateIntRange("runtime.account_max_inflight", n, 1, 256, true); err != nil {
+				return nil, nil, nil, nil, nil, nil, nil, nil, err
 			}
 			cfg.AccountMaxInflight = n
 		}
 		if v, exists := raw["account_max_queue"]; exists {
 			n := intFrom(v)
-			if n < 1 || n > 200000 {
-				return nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("runtime.account_max_queue must be between 1 and 200000")
+			if err := config.ValidateIntRange("runtime.account_max_queue", n, 1, 200000, true); err != nil {
+				return nil, nil, nil, nil, nil, nil, nil, nil, err
 			}
 			cfg.AccountMaxQueue = n
 		}
 		if v, exists := raw["global_max_inflight"]; exists {
 			n := intFrom(v)
-			if n < 1 || n > 200000 {
-				return nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("runtime.global_max_inflight must be between 1 and 200000")
+			if err := config.ValidateIntRange("runtime.global_max_inflight", n, 1, 200000, true); err != nil {
+				return nil, nil, nil, nil, nil, nil, nil, nil, err
 			}
 			cfg.GlobalMaxInflight = n
 		}
+		if v, exists := raw["token_refresh_interval_hours"]; exists {
+			n := intFrom(v)
+			if err := config.ValidateIntRange("runtime.token_refresh_interval_hours", n, 1, 720, true); err != nil {
+				return nil, nil, nil, nil, nil, nil, nil, nil, err
+			}
+			cfg.TokenRefreshIntervalHours = n
+		}
 		if cfg.AccountMaxInflight > 0 && cfg.GlobalMaxInflight > 0 && cfg.GlobalMaxInflight < cfg.AccountMaxInflight {
-			return nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("runtime.global_max_inflight must be >= runtime.account_max_inflight")
+			return nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("runtime.global_max_inflight must be >= runtime.account_max_inflight")
 		}
 		runtimeCfg = cfg
 	}
 
-	if raw, ok := req["toolcall"].(map[string]any); ok {
-		cfg := &config.ToolcallConfig{}
-		if v, exists := raw["mode"]; exists {
-			mode := strings.ToLower(strings.TrimSpace(fmt.Sprintf("%v", v)))
-			switch mode {
-			case "feature_match", "off":
-				cfg.Mode = mode
-			default:
-				return nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("toolcall.mode must be feature_match or off")
-			}
+	if raw, ok := req["compat"].(map[string]any); ok {
+		cfg := &config.CompatConfig{}
+		if v, exists := raw["wide_input_strict_output"]; exists {
+			b := boolFrom(v)
+			cfg.WideInputStrictOutput = &b
 		}
-		if v, exists := raw["early_emit_confidence"]; exists {
-			level := strings.ToLower(strings.TrimSpace(fmt.Sprintf("%v", v)))
-			switch level {
-			case "high", "low", "off":
-				cfg.EarlyEmitConfidence = level
-			default:
-				return nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("toolcall.early_emit_confidence must be high, low or off")
-			}
+		if v, exists := raw["strip_reference_markers"]; exists {
+			b := boolFrom(v)
+			cfg.StripReferenceMarkers = &b
 		}
-		toolcallCfg = cfg
+		compatCfg = cfg
 	}
 
 	if raw, ok := req["responses"].(map[string]any); ok {
 		cfg := &config.ResponsesConfig{}
 		if v, exists := raw["store_ttl_seconds"]; exists {
 			n := intFrom(v)
-			if n < 30 || n > 86400 {
-				return nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("responses.store_ttl_seconds must be between 30 and 86400")
+			if err := config.ValidateIntRange("responses.store_ttl_seconds", n, 30, 86400, true); err != nil {
+				return nil, nil, nil, nil, nil, nil, nil, nil, err
 			}
 			cfg.StoreTTLSeconds = n
 		}
@@ -98,8 +110,8 @@ func parseSettingsUpdateRequest(req map[string]any) (*config.AdminConfig, *confi
 		cfg := &config.EmbeddingsConfig{}
 		if v, exists := raw["provider"]; exists {
 			p := strings.TrimSpace(fmt.Sprintf("%v", v))
-			if p == "" {
-				return nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("embeddings.provider cannot be empty")
+			if err := config.ValidateTrimmedString("embeddings.provider", p, false); err != nil {
+				return nil, nil, nil, nil, nil, nil, nil, nil, err
 			}
 			cfg.Provider = p
 		}
@@ -130,5 +142,23 @@ func parseSettingsUpdateRequest(req map[string]any) (*config.AdminConfig, *confi
 		}
 	}
 
-	return adminCfg, runtimeCfg, toolcallCfg, respCfg, embCfg, claudeMap, aliasMap, nil
+	if raw, ok := req["auto_delete"].(map[string]any); ok {
+		cfg := &config.AutoDeleteConfig{}
+		if v, exists := raw["mode"]; exists {
+			mode := strings.ToLower(strings.TrimSpace(fmt.Sprintf("%v", v)))
+			if err := config.ValidateAutoDeleteMode(mode); err != nil {
+				return nil, nil, nil, nil, nil, nil, nil, nil, err
+			}
+			if mode == "" {
+				mode = "none"
+			}
+			cfg.Mode = mode
+		}
+		if v, exists := raw["sessions"]; exists {
+			cfg.Sessions = boolFrom(v)
+		}
+		autoDeleteCfg = cfg
+	}
+
+	return adminCfg, runtimeCfg, compatCfg, respCfg, embCfg, autoDeleteCfg, claudeMap, aliasMap, nil
 }

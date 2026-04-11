@@ -1,6 +1,7 @@
 package openai
 
 import (
+	"ds2api/internal/toolcall"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -53,13 +54,13 @@ func injectToolPrompt(messages []map[string]any, tools []any, policy util.ToolCh
 	if len(toolSchemas) == 0 {
 		return messages, names
 	}
-	toolPrompt := "You have access to these tools:\n\n" + strings.Join(toolSchemas, "\n\n") + "\n\nWhen you need to use tools, output ONLY this JSON format (no other text):\n{\"tool_calls\": [{\"name\": \"tool_name\", \"input\": {\"param\": \"value\"}}]}\n\nHistory markers in conversation:\n- [TOOL_CALL_HISTORY]...[/TOOL_CALL_HISTORY] means a tool call you already made earlier.\n- [TOOL_RESULT_HISTORY]...[/TOOL_RESULT_HISTORY] means the runtime returned a tool result (not user input).\n\nIMPORTANT:\n1) If calling tools, output ONLY the JSON. The response must start with { and end with }.\n2) After receiving a tool result, you MUST use it to produce the final answer.\n3) Only call another tool when the previous result is missing required data or returned an error.\n4) Do not repeat a tool call that is already satisfied by an existing [TOOL_RESULT_HISTORY] block."
+	toolPrompt := "You have access to these tools:\n\n" + strings.Join(toolSchemas, "\n\n") + "\n\n" + buildToolCallInstructions(names)
 	if policy.Mode == util.ToolChoiceRequired {
-		toolPrompt += "\n5) For this response, you MUST call at least one tool from the allowed list."
+		toolPrompt += "\n7) For this response, you MUST call at least one tool from the allowed list."
 	}
 	if policy.Mode == util.ToolChoiceForced && strings.TrimSpace(policy.ForcedName) != "" {
-		toolPrompt += "\n5) For this response, you MUST call exactly this tool name: " + strings.TrimSpace(policy.ForcedName)
-		toolPrompt += "\n6) Do not call any other tool."
+		toolPrompt += "\n7) For this response, you MUST call exactly this tool name: " + strings.TrimSpace(policy.ForcedName)
+		toolPrompt += "\n8) Do not call any other tool."
 	}
 
 	for i := range messages {
@@ -71,6 +72,11 @@ func injectToolPrompt(messages []map[string]any, tools []any, policy util.ToolCh
 	}
 	messages = append([]map[string]any{{"role": "system", "content": toolPrompt}}, messages...)
 	return messages, names
+}
+
+// buildToolCallInstructions delegates to the shared util implementation.
+func buildToolCallInstructions(toolNames []string) string {
+	return toolcall.BuildToolCallInstructions(toolNames)
 }
 
 func formatIncrementalStreamToolCallDeltas(deltas []toolCallDelta, ids map[int]string) []map[string]any {
@@ -107,32 +113,25 @@ func formatIncrementalStreamToolCallDeltas(deltas []toolCallDelta, ids map[int]s
 	return out
 }
 
-func filterIncrementalToolCallDeltasByAllowed(deltas []toolCallDelta, allowedNames []string, seenNames map[int]string) []toolCallDelta {
+func filterIncrementalToolCallDeltasByAllowed(deltas []toolCallDelta, seenNames map[int]string) []toolCallDelta {
 	if len(deltas) == 0 {
-		return nil
-	}
-	allowed := namesToSet(allowedNames)
-	if len(allowed) == 0 {
-		for _, d := range deltas {
-			if d.Name != "" {
-				seenNames[d.Index] = "__blocked__"
-			}
-		}
 		return nil
 	}
 	out := make([]toolCallDelta, 0, len(deltas))
 	for _, d := range deltas {
 		if d.Name != "" {
-			if _, ok := allowed[d.Name]; !ok {
-				seenNames[d.Index] = "__blocked__"
-				continue
+			if seenNames != nil {
+				seenNames[d.Index] = d.Name
 			}
-			seenNames[d.Index] = d.Name
+			out = append(out, d)
+			continue
+		}
+		if seenNames == nil {
 			out = append(out, d)
 			continue
 		}
 		name := strings.TrimSpace(seenNames[d.Index])
-		if name == "" || name == "__blocked__" {
+		if name == "" {
 			continue
 		}
 		out = append(out, d)
@@ -140,7 +139,7 @@ func filterIncrementalToolCallDeltasByAllowed(deltas []toolCallDelta, allowedNam
 	return out
 }
 
-func formatFinalStreamToolCallsWithStableIDs(calls []util.ParsedToolCall, ids map[int]string) []map[string]any {
+func formatFinalStreamToolCallsWithStableIDs(calls []toolcall.ParsedToolCall, ids map[int]string) []map[string]any {
 	if len(calls) == 0 {
 		return nil
 	}

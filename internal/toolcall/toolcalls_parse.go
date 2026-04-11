@@ -1,0 +1,233 @@
+package toolcall
+
+import (
+	"encoding/json"
+	"strings"
+)
+
+type ParsedToolCall struct {
+	Name  string         `json:"name"`
+	Input map[string]any `json:"input"`
+}
+
+type ToolCallParseResult struct {
+	Calls             []ParsedToolCall
+	SawToolCallSyntax bool
+	RejectedByPolicy  bool
+	RejectedToolNames []string
+}
+
+func ParseToolCalls(text string, availableToolNames []string) []ParsedToolCall {
+	return ParseToolCallsDetailed(text, availableToolNames).Calls
+}
+
+func ParseToolCallsDetailed(text string, availableToolNames []string) ToolCallParseResult {
+	result := ToolCallParseResult{}
+	if strings.TrimSpace(text) == "" {
+		return result
+	}
+	result.SawToolCallSyntax = looksLikeToolCallSyntax(text)
+	if shouldSkipToolCallParsingForCodeFenceExample(text) {
+		return result
+	}
+
+	candidates := buildToolCallCandidates(text)
+	for _, candidate := range candidates {
+		if !isLikelyJSONToolPayloadCandidate(candidate) {
+			continue
+		}
+		tc := parseToolCallsPayload(candidate)
+		if len(tc) == 0 {
+			continue
+		}
+		parsed := tc
+		calls, rejectedNames := filterToolCallsDetailed(parsed)
+		result.Calls = calls
+		result.RejectedToolNames = rejectedNames
+		result.RejectedByPolicy = len(rejectedNames) > 0 && len(calls) == 0
+		result.SawToolCallSyntax = true
+		return result
+	}
+	var parsed []ParsedToolCall
+	for _, candidate := range candidates {
+		tc := parseXMLToolCalls(candidate)
+		if len(tc) == 0 {
+			tc = parseMarkupToolCalls(candidate)
+		}
+		if len(tc) == 0 {
+			tc = parseToolCallsPayload(candidate)
+		}
+		if len(tc) == 0 {
+			tc = parseTextKVToolCalls(candidate)
+		}
+		if len(tc) > 0 {
+			parsed = tc
+			result.SawToolCallSyntax = true
+			break
+		}
+	}
+	if len(parsed) == 0 {
+		parsed = parseXMLToolCalls(text)
+		if len(parsed) == 0 {
+			parsed = parseTextKVToolCalls(text)
+			if len(parsed) == 0 {
+				return result
+			}
+		}
+		result.SawToolCallSyntax = true
+	}
+
+	calls, rejectedNames := filterToolCallsDetailed(parsed)
+	result.Calls = calls
+	result.RejectedToolNames = rejectedNames
+	result.RejectedByPolicy = len(rejectedNames) > 0 && len(calls) == 0
+	return result
+}
+func ParseStandaloneToolCalls(text string, availableToolNames []string) []ParsedToolCall {
+	return ParseStandaloneToolCallsDetailed(text, availableToolNames).Calls
+}
+
+func ParseStandaloneToolCallsDetailed(text string, availableToolNames []string) ToolCallParseResult {
+	result := ToolCallParseResult{}
+	trimmed := strings.TrimSpace(text)
+	if trimmed == "" {
+		return result
+	}
+	result.SawToolCallSyntax = looksLikeToolCallSyntax(trimmed)
+	if shouldSkipToolCallParsingForCodeFenceExample(trimmed) {
+		return result
+	}
+	candidates := buildToolCallCandidates(trimmed)
+	var parsed []ParsedToolCall
+	for _, candidate := range candidates {
+		if !isLikelyJSONToolPayloadCandidate(candidate) {
+			continue
+		}
+		parsed = parseToolCallsPayload(candidate)
+		if len(parsed) == 0 {
+			continue
+		}
+		result.SawToolCallSyntax = true
+		calls, rejectedNames := filterToolCallsDetailed(parsed)
+		result.Calls = calls
+		result.RejectedToolNames = rejectedNames
+		result.RejectedByPolicy = len(rejectedNames) > 0 && len(calls) == 0
+		return result
+	}
+	for _, candidate := range candidates {
+		candidate = strings.TrimSpace(candidate)
+		if candidate == "" {
+			continue
+		}
+		parsed = parseXMLToolCalls(candidate)
+		if len(parsed) == 0 {
+			parsed = parseMarkupToolCalls(candidate)
+		}
+		if len(parsed) == 0 {
+			parsed = parseToolCallsPayload(candidate)
+		}
+		if len(parsed) == 0 {
+			parsed = parseTextKVToolCalls(candidate)
+		}
+		if len(parsed) > 0 {
+			break
+		}
+	}
+	if len(parsed) == 0 {
+		parsed = parseXMLToolCalls(trimmed)
+		if len(parsed) == 0 {
+			parsed = parseTextKVToolCalls(trimmed)
+			if len(parsed) == 0 {
+				return result
+			}
+		}
+	}
+	result.SawToolCallSyntax = true
+	calls, rejectedNames := filterToolCallsDetailed(parsed)
+	result.Calls = calls
+	result.RejectedToolNames = rejectedNames
+	result.RejectedByPolicy = len(rejectedNames) > 0 && len(calls) == 0
+	return result
+}
+
+func filterToolCallsDetailed(parsed []ParsedToolCall) ([]ParsedToolCall, []string) {
+	out := make([]ParsedToolCall, 0, len(parsed))
+	for _, tc := range parsed {
+		if tc.Name == "" {
+			continue
+		}
+		if tc.Input == nil {
+			tc.Input = map[string]any{}
+		}
+		out = append(out, tc)
+	}
+	return out, nil
+}
+
+//nolint:unused // retained for policy-level tool-name matching compatibility.
+func resolveAllowedToolName(name string, allowed map[string]struct{}, allowedCanonical map[string]string) string {
+	return resolveAllowedToolNameWithLooseMatch(name, allowed, allowedCanonical)
+}
+
+func parseToolCallsPayload(payload string) []ParsedToolCall {
+	var decoded any
+	if err := json.Unmarshal([]byte(payload), &decoded); err != nil {
+		// Try to repair backslashes first! Because LLMs often mix these two problems.
+		repaired := repairInvalidJSONBackslashes(payload)
+		// Try loose repair on top of that
+		repaired = RepairLooseJSON(repaired)
+		if err := json.Unmarshal([]byte(repaired), &decoded); err != nil {
+			return nil
+		}
+	}
+	switch v := decoded.(type) {
+	case map[string]any:
+		if tc, ok := v["tool_calls"]; ok {
+			if isLikelyChatMessageEnvelope(v) {
+				return nil
+			}
+			return parseToolCallList(tc)
+		}
+		if parsed, ok := parseToolCallItem(v); ok {
+			return []ParsedToolCall{parsed}
+		}
+	case []any:
+		return parseToolCallList(v)
+	}
+	return nil
+}
+
+func isLikelyChatMessageEnvelope(v map[string]any) bool {
+	if v == nil {
+		return false
+	}
+	if _, ok := v["tool_calls"]; !ok {
+		return false
+	}
+	if role, ok := v["role"].(string); ok {
+		switch strings.ToLower(strings.TrimSpace(role)) {
+		case "assistant", "tool", "user", "system":
+			return true
+		}
+	}
+	if _, ok := v["tool_call_id"]; ok {
+		return true
+	}
+	if _, ok := v["content"]; ok {
+		return true
+	}
+	return false
+}
+
+func looksLikeToolCallSyntax(text string) bool {
+	lower := strings.ToLower(text)
+	return strings.Contains(lower, "tool_calls") ||
+		strings.Contains(lower, "\"function\"") ||
+		strings.Contains(lower, "functioncall") ||
+		strings.Contains(lower, "\"tool_use\"") ||
+		strings.Contains(lower, "<tool_call") ||
+		strings.Contains(lower, "<function_call") ||
+		strings.Contains(lower, "<function_name") ||
+		strings.Contains(lower, "<invoke") ||
+		strings.Contains(lower, "function.name:")
+}

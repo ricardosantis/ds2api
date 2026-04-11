@@ -138,3 +138,15 @@ func TestCollectStreamStatusFinished(t *testing.T) {
 		t.Fatalf("expected 'Hello', got %q", result.Text)
 	}
 }
+
+func TestCollectStreamStopsOnContentFilterStatus(t *testing.T) {
+	resp := makeHTTPResponse(
+		"data: {\"p\":\"response/content\",\"v\":\"safe\"}\n" +
+			"data: {\"p\":\"response/status\",\"v\":\"CONTENT_FILTER\"}\n" +
+			"data: {\"p\":\"response/content\",\"v\":\"blocked\"}\n",
+	)
+	result := CollectStream(resp, false, false)
+	if result.Text != "safe" {
+		t.Fatalf("expected stream to stop before blocked tail, got %q", result.Text)
+	}
+}

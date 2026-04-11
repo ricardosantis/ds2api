@@ -2,32 +2,36 @@
 
 const {
   toStringSafe,
-  looksLikeToolExampleContext,
 } = require('./state');
 const {
-  stripFencedCodeBlocks,
   buildToolCallCandidates,
   parseToolCallsPayload,
   parseMarkupToolCalls,
   parseTextKVToolCalls,
+  stripFencedCodeBlocks,
 } = require('./parse_payload');
+const { TOOL_SEGMENT_KEYWORDS } = require('./tool-keywords');
 
 const TOOL_NAME_LOOSE_PATTERN = /[^a-z0-9]+/g;
+const TOOL_MARKUP_PREFIXES = ['<tool_call', '<function_call', '<invoke'];
 
 function extractToolNames(tools) {
   if (!Array.isArray(tools) || tools.length === 0) {
     return [];
   }
   const out = [];
+  const seen = new Set();
   for (const t of tools) {
     if (!t || typeof t !== 'object') {
       continue;
     }
     const fn = t.function && typeof t.function === 'object' ? t.function : t;
     const name = toStringSafe(fn.name);
-    // Keep parity with Go injectToolPrompt: object tools without name still
-    // enter tool mode via fallback name "unknown".
-    out.push(name || 'unknown');
+    if (!name || seen.has(name)) {
+      continue;
+    }
+    seen.add(name);
+    out.push(name);
   }
   return out;
 }
@@ -38,21 +42,36 @@ function parseToolCalls(text, toolNames) {
 
 function parseToolCallsDetailed(text, toolNames) {
   const result = emptyParseResult();
-  if (!toStringSafe(text)) {
+  const normalized = toStringSafe(text);
+  if (!normalized) {
     return result;
   }
-  const sanitized = stripFencedCodeBlocks(text);
-  if (!toStringSafe(sanitized)) {
+  result.sawToolCallSyntax = looksLikeToolCallSyntax(normalized);
+  if (shouldSkipToolCallParsingForCodeFenceExample(normalized)) {
     return result;
   }
-  result.sawToolCallSyntax = looksLikeToolCallSyntax(sanitized);
 
-  const candidates = buildToolCallCandidates(sanitized);
+  const candidates = buildToolCallCandidates(normalized);
+  for (const c of candidates) {
+    if (!isLikelyJSONToolPayloadCandidate(c)) {
+      continue;
+    }
+    const jsonParsed = parseToolCallsPayload(c);
+    if (jsonParsed.length === 0) {
+      continue;
+    }
+    result.sawToolCallSyntax = true;
+    const filteredJSON = filterToolCallsDetailed(jsonParsed, toolNames);
+    result.calls = filteredJSON.calls;
+    result.rejectedToolNames = filteredJSON.rejectedToolNames;
+    result.rejectedByPolicy = filteredJSON.rejectedToolNames.length > 0 && filteredJSON.calls.length === 0;
+    return result;
+  }
   let parsed = [];
   for (const c of candidates) {
-    parsed = parseToolCallsPayload(c);
+    parsed = parseMarkupToolCalls(c);
     if (parsed.length === 0) {
-      parsed = parseMarkupToolCalls(c);
+      parsed = parseToolCallsPayload(c);
     }
     if (parsed.length === 0) {
       parsed = parseTextKVToolCalls(c);
@@ -63,9 +82,9 @@ function parseToolCallsDetailed(text, toolNames) {
     }
   }
   if (parsed.length === 0) {
-    parsed = parseMarkupToolCalls(sanitized);
+    parsed = parseMarkupToolCalls(normalized);
     if (parsed.length === 0) {
-      parsed = parseTextKVToolCalls(sanitized);
+      parsed = parseTextKVToolCalls(normalized);
       if (parsed.length === 0) {
         return result;
       }
@@ -90,22 +109,47 @@ function parseStandaloneToolCallsDetailed(text, toolNames) {
   if (!trimmed) {
     return result;
   }
-  if (trimmed.includes('```')) {
-    return result;
-  }
-  if (looksLikeToolExampleContext(trimmed)) {
-    return result;
-  }
   result.sawToolCallSyntax = looksLikeToolCallSyntax(trimmed);
-  let parsed = parseToolCallsPayload(trimmed);
+  if (shouldSkipToolCallParsingForCodeFenceExample(trimmed)) {
+    return result;
+  }
+  const candidates = buildToolCallCandidates(trimmed);
+  let parsed = [];
+  for (const c of candidates) {
+    if (!isLikelyJSONToolPayloadCandidate(c)) {
+      continue;
+    }
+    parsed = parseToolCallsPayload(c);
+    if (parsed.length === 0) {
+      continue;
+    }
+    result.sawToolCallSyntax = true;
+    const filteredJSON = filterToolCallsDetailed(parsed, toolNames);
+    result.calls = filteredJSON.calls;
+    result.rejectedToolNames = filteredJSON.rejectedToolNames;
+    result.rejectedByPolicy = filteredJSON.rejectedToolNames.length > 0 && filteredJSON.calls.length === 0;
+    return result;
+  }
+  for (const c of candidates) {
+    parsed = parseMarkupToolCalls(c);
+    if (parsed.length === 0) {
+      parsed = parseToolCallsPayload(c);
+    }
+    if (parsed.length === 0) {
+      parsed = parseTextKVToolCalls(c);
+    }
+    if (parsed.length > 0) {
+      break;
+    }
+  }
   if (parsed.length === 0) {
     parsed = parseMarkupToolCalls(trimmed);
-  }
-  if (parsed.length === 0) {
-    parsed = parseTextKVToolCalls(trimmed);
-  }
-  if (parsed.length === 0) {
-    return result;
+    if (parsed.length === 0) {
+      parsed = parseTextKVToolCalls(trimmed);
+      if (parsed.length === 0) {
+        return result;
+      }
+    }
   }
 
   result.sawToolCallSyntax = true;
@@ -126,63 +170,17 @@ function emptyParseResult() {
 }
 
 function filterToolCallsDetailed(parsed, toolNames) {
-  const sourceNames = Array.isArray(toolNames) ? toolNames : [];
-  const allowed = new Set();
-  const allowedCanonical = new Map();
-  for (const item of sourceNames) {
-    const name = toStringSafe(item);
-    if (!name) {
-      continue;
-    }
-    allowed.add(name);
-    const lower = name.toLowerCase();
-    if (!allowedCanonical.has(lower)) {
-      allowedCanonical.set(lower, name);
-    }
-  }
-
-  if (allowed.size === 0) {
-    const rejected = [];
-    const seen = new Set();
-    for (const tc of parsed) {
-      if (!tc || !tc.name) {
-        continue;
-      }
-      if (seen.has(tc.name)) {
-        continue;
-      }
-      seen.add(tc.name);
-      rejected.push(tc.name);
-    }
-    return { calls: [], rejectedToolNames: rejected };
-  }
-
   const calls = [];
-  const rejected = [];
-  const seenRejected = new Set();
   for (const tc of parsed) {
     if (!tc || !tc.name) {
       continue;
     }
-    let matchedName = '';
-    if (allowed.has(tc.name)) {
-      matchedName = tc.name;
-    } else {
-      matchedName = resolveAllowedToolName(tc.name, allowed, allowedCanonical);
-    }
-    if (!matchedName) {
-      if (!seenRejected.has(tc.name)) {
-        seenRejected.add(tc.name);
-        rejected.push(tc.name);
-      }
-      continue;
-    }
     calls.push({
-      name: matchedName,
+      name: tc.name,
       input: tc.input && typeof tc.input === 'object' && !Array.isArray(tc.input) ? tc.input : {},
     });
   }
-  return { calls, rejectedToolNames: rejected };
+  return { calls, rejectedToolNames: [] };
 }
 
 function resolveAllowedToolName(name, allowed, allowedCanonical) {
@@ -218,11 +216,31 @@ function resolveAllowedToolName(name, allowed, allowedCanonical) {
 
 function looksLikeToolCallSyntax(text) {
   const lower = toStringSafe(text).toLowerCase();
+  return TOOL_SEGMENT_KEYWORDS.some((kw) => lower.includes(kw))
+    || TOOL_MARKUP_PREFIXES.some((prefix) => lower.includes(prefix));
+}
+
+function shouldSkipToolCallParsingForCodeFenceExample(text) {
+  if (!looksLikeToolCallSyntax(text)) {
+    return false;
+  }
+  const stripped = stripFencedCodeBlocks(text);
+  return !looksLikeToolCallSyntax(stripped);
+}
+
+function isLikelyJSONToolPayloadCandidate(text) {
+  const trimmed = toStringSafe(text).trim();
+  if (!trimmed) {
+    return false;
+  }
+  if (!(trimmed.startsWith('{') || trimmed.startsWith('['))) {
+    return false;
+  }
+  const lower = trimmed.toLowerCase();
   return lower.includes('tool_calls')
-    || lower.includes('<tool_call')
-    || lower.includes('<function_call')
-    || lower.includes('<invoke')
-    || lower.includes('function.name:');
+    || lower.includes('"function"')
+    || lower.includes('functioncall')
+    || lower.includes('"tool_use"');
 }
 
 module.exports = {

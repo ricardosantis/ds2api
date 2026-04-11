@@ -9,6 +9,16 @@ import (
 
 var markdownImagePattern = regexp.MustCompile(`!\[(.*?)\]\((.*?)\)`)
 
+const (
+	systemMarker          = "<｜System｜>"
+	userMarker            = "<｜User｜>"
+	assistantMarker       = "<｜Assistant｜>"
+	toolMarker            = "<｜Tool｜>"
+	endSentenceMarker     = "<｜end▁of▁sentence｜>"
+	endToolResultsMarker  = "<｜end▁of▁toolresults｜>"
+	endInstructionsMarker = "<｜end▁of▁instructions｜>"
+)
+
 func MessagesPrepare(messages []map[string]any) string {
 	type block struct {
 		Role string
@@ -32,22 +42,37 @@ func MessagesPrepare(messages []map[string]any) string {
 		merged = append(merged, msg)
 	}
 	parts := make([]string, 0, len(merged))
-	for i, m := range merged {
+	for _, m := range merged {
 		switch m.Role {
 		case "assistant":
-			parts = append(parts, "<｜Assistant｜>"+m.Text+"<｜end▁of▁sentence｜>")
-		case "user", "system":
-			if i > 0 {
-				parts = append(parts, "<｜User｜>"+m.Text)
-			} else {
+			parts = append(parts, formatRoleBlock(assistantMarker, m.Text, endSentenceMarker))
+		case "tool":
+			if strings.TrimSpace(m.Text) != "" {
+				parts = append(parts, formatRoleBlock(toolMarker, m.Text, endToolResultsMarker))
+			}
+		case "system":
+			if text := strings.TrimSpace(m.Text); text != "" {
+				parts = append(parts, formatRoleBlock(systemMarker, text, endInstructionsMarker))
+			}
+		case "user":
+			parts = append(parts, formatRoleBlock(userMarker, m.Text, endSentenceMarker))
+		default:
+			if strings.TrimSpace(m.Text) != "" {
 				parts = append(parts, m.Text)
 			}
-		default:
-			parts = append(parts, m.Text)
 		}
 	}
-	out := strings.Join(parts, "")
+	out := strings.Join(parts, "\n\n")
 	return markdownImagePattern.ReplaceAllString(out, `[${1}](${2})`)
+}
+
+// DeepSeek-style turn suffixes stay attached to the same block as the role content.
+func formatRoleBlock(marker, text, endMarker string) string {
+	out := marker + "\n" + text
+	if strings.TrimSpace(endMarker) != "" {
+		out += endMarker
+	}
+	return out
 }
 
 func NormalizeContent(v any) string {

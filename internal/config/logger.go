@@ -23,3 +23,7 @@ func newLogger() *slog.Logger {
 	h := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: level})
 	return slog.New(h)
 }
+
+func RefreshLogger() {
+	Logger = newLogger()
+}

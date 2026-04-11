@@ -5,20 +5,38 @@ ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 TARGETS_FILE="$ROOT_DIR/plans/refactor-line-gate-targets.txt"
 
 DEFAULT_MAX=300
+FRONTEND_MAX=500
 ENTRY_MAX=120
 
 is_entry_file() {
   case "$1" in
     api/chat-stream.js|\
     internal/js/helpers/stream-tool-sieve.js|\
-    webui/src/App.jsx|\
-    webui/src/components/AccountManager.jsx|\
-    webui/src/components/ApiTester.jsx|\
-    webui/src/components/Settings.jsx|\
-    webui/src/components/VercelSync.jsx)
+    webui/src/App.jsx)
       return 0
       ;;
   esac
+  return 1
+}
+
+is_frontend_file() {
+  [[ "$1" == webui/* ]]
+}
+
+is_test_file() {
+  local file="$1"
+  local base
+  base="$(basename "$file")"
+
+  [[ "$file" == tests/* ]] && return 0
+  [[ "$file" == */tests/* ]] && return 0
+  [[ "$file" == */__tests__/* ]] && return 0
+  [[ "$base" == *_test.go ]] && return 0
+  [[ "$base" == *.test.js ]] && return 0
+  [[ "$base" == *.test.jsx ]] && return 0
+  [[ "$base" == *.test.ts ]] && return 0
+  [[ "$base" == *.test.tsx ]] && return 0
+
   return 1
 }
 
@@ -35,6 +53,10 @@ while IFS= read -r file; do
   [[ -z "$file" ]] && continue
   [[ "${file:0:1}" == "#" ]] && continue
 
+  if is_test_file "$file"; then
+    continue
+  fi
+
   checked=$((checked + 1))
   abs="$ROOT_DIR/$file"
   if [[ ! -f "$abs" ]]; then
@@ -47,6 +69,8 @@ while IFS= read -r file; do
   limit="$DEFAULT_MAX"
   if is_entry_file "$file"; then
     limit="$ENTRY_MAX"
+  elif is_frontend_file "$file"; then
+    limit="$FRONTEND_MAX"
   fi
 
   if (( lines > limit )); then

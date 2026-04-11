@@ -1,6 +1,7 @@
 package openai
 
 import (
+	"ds2api/internal/toolcall"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -8,7 +9,6 @@ import (
 	openaifmt "ds2api/internal/format/openai"
 	"ds2api/internal/sse"
 	streamengine "ds2api/internal/stream"
-	"ds2api/internal/util"
 )
 
 type chatStreamRuntime struct {
@@ -22,8 +22,9 @@ type chatStreamRuntime struct {
 	finalPrompt  string
 	toolNames    []string
 
-	thinkingEnabled bool
-	searchEnabled   bool
+	thinkingEnabled       bool
+	searchEnabled         bool
+	stripReferenceMarkers bool
 
 	firstChunkSent       bool
 	bufferToolContent    bool
@@ -48,25 +49,27 @@ func newChatStreamRuntime(
 	finalPrompt string,
 	thinkingEnabled bool,
 	searchEnabled bool,
+	stripReferenceMarkers bool,
 	toolNames []string,
 	bufferToolContent bool,
 	emitEarlyToolDeltas bool,
 ) *chatStreamRuntime {
 	return &chatStreamRuntime{
-		w:                   w,
-		rc:                  rc,
-		canFlush:            canFlush,
-		completionID:        completionID,
-		created:             created,
-		model:               model,
-		finalPrompt:         finalPrompt,
-		toolNames:           toolNames,
-		thinkingEnabled:     thinkingEnabled,
-		searchEnabled:       searchEnabled,
-		bufferToolContent:   bufferToolContent,
-		emitEarlyToolDeltas: emitEarlyToolDeltas,
-		streamToolCallIDs:   map[int]string{},
-		streamToolNames:     map[int]string{},
+		w:                     w,
+		rc:                    rc,
+		canFlush:              canFlush,
+		completionID:          completionID,
+		created:               created,
+		model:                 model,
+		finalPrompt:           finalPrompt,
+		toolNames:             toolNames,
+		thinkingEnabled:       thinkingEnabled,
+		searchEnabled:         searchEnabled,
+		stripReferenceMarkers: stripReferenceMarkers,
+		bufferToolContent:     bufferToolContent,
+		emitEarlyToolDeltas:   emitEarlyToolDeltas,
+		streamToolCallIDs:     map[int]string{},
+		streamToolNames:       map[int]string{},
 	}
 }
 
@@ -97,12 +100,12 @@ func (s *chatStreamRuntime) sendDone() {
 
 func (s *chatStreamRuntime) finalize(finishReason string) {
 	finalThinking := s.thinking.String()
-	finalText := s.text.String()
-	detected := util.ParseStandaloneToolCalls(finalText, s.toolNames)
-	if len(detected) > 0 && !s.toolCallsDoneEmitted {
+	finalText := cleanVisibleOutput(s.text.String(), s.stripReferenceMarkers)
+	detected := toolcall.ParseStandaloneToolCallsDetailed(finalText, s.toolNames)
+	if len(detected.Calls) > 0 && !s.toolCallsDoneEmitted {
 		finishReason = "tool_calls"
 		delta := map[string]any{
-			"tool_calls": formatFinalStreamToolCallsWithStableIDs(detected, s.streamToolCallIDs),
+			"tool_calls": formatFinalStreamToolCallsWithStableIDs(detected.Calls, s.streamToolCallIDs),
 		}
 		if !s.firstChunkSent {
 			delta["role"] = "assistant"
@@ -141,8 +144,12 @@ func (s *chatStreamRuntime) finalize(finishReason string) {
 			if evt.Content == "" {
 				continue
 			}
+			cleaned := cleanVisibleOutput(evt.Content, s.stripReferenceMarkers)
+			if cleaned == "" {
+				continue
+			}
 			delta := map[string]any{
-				"content": evt.Content,
+				"content": cleaned,
 			}
 			if !s.firstChunkSent {
 				delta["role"] = "assistant"
@@ -158,15 +165,16 @@ func (s *chatStreamRuntime) finalize(finishReason string) {
 		}
 	}
 
-	if len(detected) > 0 || s.toolCallsEmitted {
+	if len(detected.Calls) > 0 || s.toolCallsEmitted {
 		finishReason = "tool_calls"
 	}
+	usage := openaifmt.BuildChatUsage(s.finalPrompt, finalThinking, finalText)
 	s.sendChunk(openaifmt.BuildChatStreamChunk(
 		s.completionID,
 		s.created,
 		s.model,
 		[]map[string]any{openaifmt.BuildChatStreamFinishChoice(0, finishReason)},
-		openaifmt.BuildChatUsage(s.finalPrompt, finalThinking, finalText),
+		usage,
 	))
 	s.sendDone()
 }
@@ -175,7 +183,10 @@ func (s *chatStreamRuntime) onParsed(parsed sse.LineResult) streamengine.ParsedD
 	if !parsed.Parsed {
 		return streamengine.ParsedDecision{}
 	}
-	if parsed.ContentFilter || parsed.ErrorMessage != "" {
+	if parsed.ContentFilter {
+		return streamengine.ParsedDecision{Stop: true, StopReason: streamengine.StopReasonHandlerRequested}
+	}
+	if parsed.ErrorMessage != "" {
 		return streamengine.ParsedDecision{Stop: true, StopReason: streamengine.StopReason("content_filter")}
 	}
 	if parsed.Stop {
@@ -185,10 +196,11 @@ func (s *chatStreamRuntime) onParsed(parsed sse.LineResult) streamengine.ParsedD
 	newChoices := make([]map[string]any, 0, len(parsed.Parts))
 	contentSeen := false
 	for _, p := range parsed.Parts {
-		if s.searchEnabled && sse.IsCitation(p.Text) {
+		cleanedText := cleanVisibleOutput(p.Text, s.stripReferenceMarkers)
+		if s.searchEnabled && sse.IsCitation(cleanedText) {
 			continue
 		}
-		if p.Text == "" {
+		if cleanedText == "" {
 			continue
 		}
 		contentSeen = true
@@ -199,21 +211,29 @@ func (s *chatStreamRuntime) onParsed(parsed sse.LineResult) streamengine.ParsedD
 		}
 		if p.Type == "thinking" {
 			if s.thinkingEnabled {
-				s.thinking.WriteString(p.Text)
-				delta["reasoning_content"] = p.Text
+				trimmed := sse.TrimContinuationOverlap(s.thinking.String(), cleanedText)
+				if trimmed == "" {
+					continue
+				}
+				s.thinking.WriteString(trimmed)
+				delta["reasoning_content"] = trimmed
 			}
 		} else {
-			s.text.WriteString(p.Text)
+			trimmed := sse.TrimContinuationOverlap(s.text.String(), cleanedText)
+			if trimmed == "" {
+				continue
+			}
+			s.text.WriteString(trimmed)
 			if !s.bufferToolContent {
-				delta["content"] = p.Text
+				delta["content"] = trimmed
 			} else {
-				events := processToolSieveChunk(&s.toolSieve, p.Text, s.toolNames)
+				events := processToolSieveChunk(&s.toolSieve, trimmed, s.toolNames)
 				for _, evt := range events {
 					if len(evt.ToolCallDeltas) > 0 {
 						if !s.emitEarlyToolDeltas {
 							continue
 						}
-						filtered := filterIncrementalToolCallDeltasByAllowed(evt.ToolCallDeltas, s.toolNames, s.streamToolNames)
+						filtered := filterIncrementalToolCallDeltasByAllowed(evt.ToolCallDeltas, s.streamToolNames)
 						if len(filtered) == 0 {
 							continue
 						}
@@ -246,8 +266,12 @@ func (s *chatStreamRuntime) onParsed(parsed sse.LineResult) streamengine.ParsedD
 						continue
 					}
 					if evt.Content != "" {
+						cleaned := cleanVisibleOutput(evt.Content, s.stripReferenceMarkers)
+						if cleaned == "" {
+							continue
+						}
 						contentDelta := map[string]any{
-							"content": evt.Content,
+							"content": cleaned,
 						}
 						if !s.firstChunkSent {
 							contentDelta["role"] = "assistant"

@@ -2,6 +2,7 @@ package gemini
 
 import "strings"
 
+//nolint:unused // kept for native Gemini adapter route compatibility.
 func convertGeminiTools(raw any) []any {
 	tools, _ := raw.([]any)
 	if len(tools) == 0 {

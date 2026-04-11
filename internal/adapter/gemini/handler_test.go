@@ -17,7 +17,8 @@ import (
 
 type testGeminiConfig struct{}
 
-func (testGeminiConfig) ModelAliases() map[string]string { return nil }
+func (testGeminiConfig) ModelAliases() map[string]string   { return nil }
+func (testGeminiConfig) CompatStripReferenceMarkers() bool { return true }
 
 type testGeminiAuth struct {
 	a   *auth.RequestAuth
@@ -41,19 +42,23 @@ func (m testGeminiAuth) Determine(_ *http.Request) (*auth.RequestAuth, error) {
 
 func (testGeminiAuth) Release(_ *auth.RequestAuth) {}
 
+//nolint:unused // reserved test double for native Gemini DS-call path coverage.
 type testGeminiDS struct {
 	resp *http.Response
 	err  error
 }
 
+//nolint:unused // reserved test double for native Gemini DS-call path coverage.
 func (m testGeminiDS) CreateSession(_ context.Context, _ *auth.RequestAuth, _ int) (string, error) {
 	return "session-id", nil
 }
 
+//nolint:unused // reserved test double for native Gemini DS-call path coverage.
 func (m testGeminiDS) GetPow(_ context.Context, _ *auth.RequestAuth, _ int) (string, error) {
 	return "pow", nil
 }
 
+//nolint:unused // reserved test double for native Gemini DS-call path coverage.
 func (m testGeminiDS) CallCompletion(_ context.Context, _ *auth.RequestAuth, _ map[string]any, _ string, _ int) (*http.Response, error) {
 	if m.err != nil {
 		return nil, m.err
@@ -61,6 +66,45 @@ func (m testGeminiDS) CallCompletion(_ context.Context, _ *auth.RequestAuth, _ m
 	return m.resp, nil
 }
 
+type geminiOpenAIErrorStub struct {
+	status  int
+	body    string
+	headers map[string]string
+}
+
+func (s geminiOpenAIErrorStub) ChatCompletions(w http.ResponseWriter, _ *http.Request) {
+	for k, v := range s.headers {
+		w.Header().Set(k, v)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(s.status)
+	_, _ = w.Write([]byte(s.body))
+}
+
+type geminiOpenAISuccessStub struct {
+	stream bool
+	body   string
+}
+
+func (s geminiOpenAISuccessStub) ChatCompletions(w http.ResponseWriter, _ *http.Request) {
+	if s.stream {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("data: {\"id\":\"chatcmpl-1\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hello \"},\"finish_reason\":null}]}\n\n"))
+		_, _ = w.Write([]byte("data: {\"id\":\"chatcmpl-1\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"world\"},\"finish_reason\":\"stop\"}]}\n\n"))
+		_, _ = w.Write([]byte("data: [DONE]\n\n"))
+		return
+	}
+	out := s.body
+	if strings.TrimSpace(out) == "" {
+		out = `{"id":"chatcmpl-1","object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","tool_calls":[{"id":"call_1","type":"function","function":{"name":"eval_javascript","arguments":"{\"code\":\"1+1\"}"}}]},"finish_reason":"tool_calls"}]}`
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(out))
+}
+
+//nolint:unused // helper retained for native Gemini stream fixture tests.
 func makeGeminiUpstreamResponse(lines ...string) *http.Response {
 	body := strings.Join(lines, "\n")
 	if !strings.HasSuffix(body, "\n") {
@@ -98,14 +142,11 @@ func TestGeminiRoutesRegistered(t *testing.T) {
 }
 
 func TestGenerateContentReturnsFunctionCallParts(t *testing.T) {
-	upstream := makeGeminiUpstreamResponse(
-		`data: {"p":"response/content","v":"{\"tool_calls\":[{\"name\":\"eval_javascript\",\"input\":{\"code\":\"1+1\"}}]}"}`,
-		`data: [DONE]`,
-	)
 	h := &Handler{
 		Store: testGeminiConfig{},
-		Auth:  testGeminiAuth{},
-		DS:    testGeminiDS{resp: upstream},
+		OpenAI: geminiOpenAISuccessStub{
+			body: `{"id":"chatcmpl-1","object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","tool_calls":[{"id":"call_1","type":"function","function":{"name":"eval_javascript","arguments":"{\"code\":\"1+1\"}"}}]},"finish_reason":"tool_calls"}]}`,
+		},
 	}
 	r := chi.NewRouter()
 	RegisterRoutes(r, h)
@@ -115,7 +156,6 @@ func TestGenerateContentReturnsFunctionCallParts(t *testing.T) {
 		"tools":[{"functionDeclarations":[{"name":"eval_javascript","description":"eval","parameters":{"type":"object","properties":{"code":{"type":"string"}}}}]}]
 	}`
 	req := httptest.NewRequest(http.MethodPost, "/v1beta/models/gemini-2.5-pro:generateContent", strings.NewReader(body))
-	req.Header.Set("Authorization", "Bearer direct-token")
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
@@ -144,11 +184,7 @@ func TestGenerateContentReturnsFunctionCallParts(t *testing.T) {
 }
 
 func TestGenerateContentMixedToolSnippetAlsoTriggersFunctionCall(t *testing.T) {
-	upstream := makeGeminiUpstreamResponse(
-		`data: {"p":"response/content","v":"我来调用工具\n{\"tool_calls\":[{\"name\":\"eval_javascript\",\"input\":{\"code\":\"1+1\"}}]}"}`,
-		`data: [DONE]`,
-	)
-	h := &Handler{Store: testGeminiConfig{}, Auth: testGeminiAuth{}, DS: testGeminiDS{resp: upstream}}
+	h := &Handler{Store: testGeminiConfig{}, OpenAI: geminiOpenAISuccessStub{}}
 	r := chi.NewRouter()
 	RegisterRoutes(r, h)
 
@@ -157,7 +193,6 @@ func TestGenerateContentMixedToolSnippetAlsoTriggersFunctionCall(t *testing.T) {
 		"tools":[{"functionDeclarations":[{"name":"eval_javascript","description":"eval","parameters":{"type":"object","properties":{"code":{"type":"string"}}}}]}]
 	}`
 	req := httptest.NewRequest(http.MethodPost, "/v1beta/models/gemini-2.5-pro:generateContent", strings.NewReader(body))
-	req.Header.Set("Authorization", "Bearer direct-token")
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 
@@ -180,38 +215,25 @@ func TestGenerateContentMixedToolSnippetAlsoTriggersFunctionCall(t *testing.T) {
 }
 
 func TestStreamGenerateContentEmitsSSE(t *testing.T) {
-	upstream := makeGeminiUpstreamResponse(
-		`data: {"p":"response/content","v":"hello "}`,
-		`data: {"p":"response/content","v":"world"}`,
-		`data: [DONE]`,
-	)
 	h := &Handler{
-		Store: testGeminiConfig{},
-		Auth:  testGeminiAuth{},
-		DS:    testGeminiDS{resp: upstream},
+		Store:  testGeminiConfig{},
+		OpenAI: geminiOpenAISuccessStub{stream: true},
 	}
 	r := chi.NewRouter()
 	RegisterRoutes(r, h)
 
 	body := `{"contents":[{"role":"user","parts":[{"text":"hello"}]}]}`
 	req := httptest.NewRequest(http.MethodPost, "/v1/models/gemini-2.5-pro:streamGenerateContent?alt=sse", strings.NewReader(body))
-	req.Header.Set("Authorization", "Bearer direct-token")
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
 	}
-	if !strings.Contains(rec.Body.String(), "data: ") {
-		t.Fatalf("expected SSE data frames, got body=%s", rec.Body.String())
-	}
-	if !strings.Contains(rec.Body.String(), `"finishReason":"STOP"`) {
-		t.Fatalf("expected stream finish frame, got body=%s", rec.Body.String())
-	}
 
 	frames := extractGeminiSSEFrames(t, rec.Body.String())
 	if len(frames) == 0 {
-		t.Fatalf("expected non-empty sse frames, body=%s", rec.Body.String())
+		t.Fatalf("expected non-empty stream frames, body=%s", rec.Body.String())
 	}
 	last := frames[len(frames)-1]
 	candidates, _ := last["candidates"].([]any)
@@ -229,16 +251,61 @@ func TestStreamGenerateContentEmitsSSE(t *testing.T) {
 	}
 }
 
+func TestGenerateContentOpenAIProxyErrorUsesGeminiEnvelope(t *testing.T) {
+	h := &Handler{
+		Store: testGeminiConfig{},
+		OpenAI: geminiOpenAIErrorStub{
+			status: http.StatusUnauthorized,
+			body:   `{"error":{"message":"invalid api key"}}`,
+			headers: map[string]string{
+				"WWW-Authenticate":      `Bearer realm="example"`,
+				"Retry-After":           "30",
+				"X-RateLimit-Remaining": "0",
+			},
+		},
+	}
+	r := chi.NewRouter()
+	RegisterRoutes(r, h)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/models/gemini-2.5-pro:generateContent", strings.NewReader(`{"contents":[{"role":"user","parts":[{"text":"hi"}]}]}`))
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	var out map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("expected json body: %v", err)
+	}
+	errObj, _ := out["error"].(map[string]any)
+	if errObj["status"] != "UNAUTHENTICATED" {
+		t.Fatalf("expected Gemini status UNAUTHENTICATED, got=%v", errObj["status"])
+	}
+	if errObj["message"] != "invalid api key" {
+		t.Fatalf("expected parsed error message, got=%v", errObj["message"])
+	}
+	if got := rec.Header().Get("WWW-Authenticate"); got == "" {
+		t.Fatalf("expected WWW-Authenticate header to be preserved")
+	}
+	if got := rec.Header().Get("Retry-After"); got != "30" {
+		t.Fatalf("expected Retry-After header 30, got=%q", got)
+	}
+	if got := rec.Header().Get("X-RateLimit-Remaining"); got != "0" {
+		t.Fatalf("expected X-RateLimit-Remaining header 0, got=%q", got)
+	}
+}
+
 func extractGeminiSSEFrames(t *testing.T, body string) []map[string]any {
 	t.Helper()
 	scanner := bufio.NewScanner(strings.NewReader(body))
 	out := make([]map[string]any, 0, 4)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-		if !strings.HasPrefix(line, "data: ") {
-			continue
+		raw := line
+		if strings.HasPrefix(line, "data: ") {
+			raw = strings.TrimSpace(strings.TrimPrefix(line, "data: "))
 		}
-		raw := strings.TrimSpace(strings.TrimPrefix(line, "data: "))
 		if raw == "" {
 			continue
 		}

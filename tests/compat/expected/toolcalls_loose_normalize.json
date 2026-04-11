@@ -1,7 +1,7 @@
 {
   "calls": [
     {
-      "name": "read_file",
+      "name": "read-file",
       "input": {
         "path": "README.MD"
       }

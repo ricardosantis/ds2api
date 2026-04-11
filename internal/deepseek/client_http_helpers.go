@@ -19,7 +19,7 @@ func readResponseBody(resp *http.Response) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		defer gz.Close()
+		defer func() { _ = gz.Close() }()
 		reader = gz
 	case "br":
 		reader = brotli.NewReader(resp.Body)

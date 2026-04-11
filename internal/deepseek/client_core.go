@@ -3,6 +3,7 @@ package deepseek
 import (
 	"context"
 	"net/http"
+	"sync"
 	"time"
 
 	"ds2api/internal/auth"
@@ -23,24 +24,27 @@ type Client struct {
 	stream     trans.Doer
 	fallback   *http.Client
 	fallbackS  *http.Client
-	powSolver  *PowSolver
 	maxRetries int
+
+	proxyClientsMu sync.RWMutex
+	proxyClients   map[string]requestClients
 }
 
 func NewClient(store *config.Store, resolver *auth.Resolver) *Client {
 	return &Client{
-		Store:      store,
-		Auth:       resolver,
-		capture:    devcapture.Global(),
-		regular:    trans.New(60 * time.Second),
-		stream:     trans.New(0),
-		fallback:   &http.Client{Timeout: 60 * time.Second},
-		fallbackS:  &http.Client{Timeout: 0},
-		powSolver:  NewPowSolver(config.WASMPath()),
-		maxRetries: 3,
+		Store:        store,
+		Auth:         resolver,
+		capture:      devcapture.Global(),
+		regular:      trans.New(60 * time.Second),
+		stream:       trans.New(0),
+		fallback:     &http.Client{Timeout: 60 * time.Second},
+		fallbackS:    &http.Client{Timeout: 0},
+		maxRetries:   3,
+		proxyClients: map[string]requestClients{},
 	}
 }
 
-func (c *Client) PreloadPow(ctx context.Context) error {
-	return c.powSolver.init(ctx)
+// PreloadPow 保留兼容接口，纯 Go 实现无需预加载。
+func (c *Client) PreloadPow(_ context.Context) error {
+	return nil
 }

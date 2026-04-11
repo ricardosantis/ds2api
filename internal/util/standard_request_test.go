@@ -1,0 +1,49 @@
+package util
+
+import "testing"
+
+func TestStandardRequestCompletionPayloadSetsModelTypeFromResolvedModel(t *testing.T) {
+	tests := []struct {
+		name      string
+		model     string
+		thinking  bool
+		search    bool
+		modelType string
+	}{
+		{name: "default", model: "deepseek-chat", thinking: false, search: false, modelType: "default"},
+		{name: "expert", model: "deepseek-expert-reasoner", thinking: true, search: false, modelType: "expert"},
+		{name: "vision", model: "deepseek-vision-chat-search", thinking: false, search: true, modelType: "vision"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req := StandardRequest{
+				ResolvedModel: tc.model,
+				FinalPrompt:   "hello",
+				Thinking:      tc.thinking,
+				Search:        tc.search,
+				PassThrough: map[string]any{
+					"temperature": 0.3,
+				},
+			}
+
+			payload := req.CompletionPayload("session-123")
+
+			if got := payload["model_type"]; got != tc.modelType {
+				t.Fatalf("expected model_type %s, got %#v", tc.modelType, got)
+			}
+			if got := payload["chat_session_id"]; got != "session-123" {
+				t.Fatalf("unexpected chat_session_id: %#v", got)
+			}
+			if got := payload["thinking_enabled"]; got != tc.thinking {
+				t.Fatalf("unexpected thinking_enabled: %#v", got)
+			}
+			if got := payload["search_enabled"]; got != tc.search {
+				t.Fatalf("unexpected search_enabled: %#v", got)
+			}
+			if got := payload["temperature"]; got != 0.3 {
+				t.Fatalf("expected passthrough temperature, got %#v", got)
+			}
+		})
+	}
+}

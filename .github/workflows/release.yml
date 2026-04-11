@@ -124,5 +124,7 @@ jobs:
           labels: |
             org.opencontainers.image.version=${{ steps.next_version.outputs.new_version }}
             org.opencontainers.image.revision=${{ github.sha }}
+          build-args: |
+            BUILD_VERSION=${{ steps.next_version.outputs.new_tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

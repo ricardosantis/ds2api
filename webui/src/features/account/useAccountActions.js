@@ -10,6 +10,9 @@ export function useAccountActions({ apiFetch, t, onMessage, onRefresh, config, f
     const [testing, setTesting] = useState({})
     const [testingAll, setTestingAll] = useState(false)
     const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0, results: [] })
+    const [sessionCounts, setSessionCounts] = useState({})
+    const [deletingSessions, setDeletingSessions] = useState({})
+    const [updatingProxy, setUpdatingProxy] = useState({})
 
     const addKey = async () => {
         if (!newKey.trim()) return
@@ -115,6 +118,12 @@ export function useAccountActions({ apiFetch, t, onMessage, onRefresh, config, f
                 body: JSON.stringify({ identifier: accountID }),
             })
             const data = await res.json()
+            
+            // 更新会话数
+            if (data.session_count !== undefined) {
+                setSessionCounts(prev => ({ ...prev, [accountID]: data.session_count }))
+            }
+            
             const statusMessage = data.success
                 ? t('apiTester.testSuccess', { account: accountID, time: data.response_time })
                 : `${accountID}: ${data.message}`
@@ -170,6 +179,69 @@ export function useAccountActions({ apiFetch, t, onMessage, onRefresh, config, f
         setTestingAll(false)
     }
 
+    const deleteAllSessions = async (identifier) => {
+        const accountID = String(identifier || '').trim()
+        if (!accountID) {
+            onMessage('error', t('accountManager.invalidIdentifier'))
+            return
+        }
+        if (!confirm(t('accountManager.deleteAllSessionsConfirm'))) return
+        
+        setDeletingSessions(prev => ({ ...prev, [accountID]: true }))
+        try {
+            const res = await apiFetch('/admin/accounts/sessions/delete-all', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ identifier: accountID }),
+            })
+            const data = await res.json()
+            
+            if (data.success) {
+                onMessage('success', t('accountManager.deleteAllSessionsSuccess'))
+                // 清除会话数显示
+                setSessionCounts(prev => {
+                    const newCounts = { ...prev }
+                    delete newCounts[accountID]
+                    return newCounts
+                })
+            } else {
+                onMessage('error', data.message || t('messages.requestFailed'))
+            }
+        } catch (e) {
+            onMessage('error', t('messages.networkError'))
+        } finally {
+            setDeletingSessions(prev => ({ ...prev, [accountID]: false }))
+        }
+    }
+
+    const updateAccountProxy = async (identifier, proxyID) => {
+        const accountID = String(identifier || '').trim()
+        if (!accountID) {
+            onMessage('error', t('accountManager.invalidIdentifier'))
+            return
+        }
+        setUpdatingProxy(prev => ({ ...prev, [accountID]: true }))
+        try {
+            const res = await apiFetch(`/admin/accounts/${encodeURIComponent(accountID)}/proxy`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ proxy_id: proxyID || '' }),
+            })
+            const data = await res.json()
+            if (!res.ok) {
+                onMessage('error', data.detail || t('messages.requestFailed'))
+                return
+            }
+            onMessage('success', t('accountManager.proxyUpdateSuccess'))
+            fetchAccounts()
+            onRefresh()
+        } catch (_err) {
+            onMessage('error', t('messages.networkError'))
+        } finally {
+            setUpdatingProxy(prev => ({ ...prev, [accountID]: false }))
+        }
+    }
+
     return {
         showAddKey,
         setShowAddKey,
@@ -185,11 +257,16 @@ export function useAccountActions({ apiFetch, t, onMessage, onRefresh, config, f
         testing,
         testingAll,
         batchProgress,
+        sessionCounts,
+        deletingSessions,
+        updatingProxy,
         addKey,
         deleteKey,
         addAccount,
         deleteAccount,
         testAccount,
         testAllAccounts,
+        deleteAllSessions,
+        updateAccountProxy,
     }
 }

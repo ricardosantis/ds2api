@@ -16,6 +16,8 @@ internal/js/helpers/stream-tool-sieve.js
 internal/js/helpers/stream-tool-sieve/index.js
 internal/js/helpers/stream-tool-sieve/state.js
 internal/js/helpers/stream-tool-sieve/sieve.js
+internal/js/helpers/stream-tool-sieve/sieve-xml.js
 internal/js/helpers/stream-tool-sieve/jsonscan.js
 internal/js/helpers/stream-tool-sieve/parse.js
 internal/js/helpers/stream-tool-sieve/format.js
+internal/js/helpers/stream-tool-sieve/tool-keywords.js

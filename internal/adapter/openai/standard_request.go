@@ -12,11 +12,11 @@ func normalizeOpenAIChatRequest(store ConfigReader, req map[string]any, traceID 
 	model, _ := req["model"].(string)
 	messagesRaw, _ := req["messages"].([]any)
 	if strings.TrimSpace(model) == "" || len(messagesRaw) == 0 {
-		return util.StandardRequest{}, fmt.Errorf("Request must include 'model' and 'messages'.")
+		return util.StandardRequest{}, fmt.Errorf("request must include 'model' and 'messages'")
 	}
 	resolvedModel, ok := config.ResolveModel(store, model)
 	if !ok {
-		return util.StandardRequest{}, fmt.Errorf("Model '%s' is not available.", model)
+		return util.StandardRequest{}, fmt.Errorf("model %q is not available", model)
 	}
 	thinkingEnabled, searchEnabled, _ := config.GetModelConfig(resolvedModel)
 	responseModel := strings.TrimSpace(model)
@@ -25,6 +25,7 @@ func normalizeOpenAIChatRequest(store ConfigReader, req map[string]any, traceID 
 	}
 	toolPolicy := util.DefaultToolChoicePolicy()
 	finalPrompt, toolNames := buildOpenAIFinalPromptWithPolicy(messagesRaw, req["tools"], traceID, toolPolicy)
+	toolNames = ensureToolDetectionEnabled(toolNames, req["tools"])
 	passThrough := collectOpenAIChatPassThrough(req)
 
 	return util.StandardRequest{
@@ -47,11 +48,11 @@ func normalizeOpenAIResponsesRequest(store ConfigReader, req map[string]any, tra
 	model, _ := req["model"].(string)
 	model = strings.TrimSpace(model)
 	if model == "" {
-		return util.StandardRequest{}, fmt.Errorf("Request must include 'model'.")
+		return util.StandardRequest{}, fmt.Errorf("request must include 'model'")
 	}
 	resolvedModel, ok := config.ResolveModel(store, model)
 	if !ok {
-		return util.StandardRequest{}, fmt.Errorf("Model '%s' is not available.", model)
+		return util.StandardRequest{}, fmt.Errorf("model %q is not available", model)
 	}
 	thinkingEnabled, searchEnabled, _ := config.GetModelConfig(resolvedModel)
 
@@ -67,17 +68,15 @@ func normalizeOpenAIResponsesRequest(store ConfigReader, req map[string]any, tra
 		messagesRaw = msgs
 	}
 	if len(messagesRaw) == 0 {
-		return util.StandardRequest{}, fmt.Errorf("Request must include 'input' or 'messages'.")
+		return util.StandardRequest{}, fmt.Errorf("request must include 'input' or 'messages'")
 	}
 	toolPolicy, err := parseToolChoicePolicy(req["tool_choice"], req["tools"])
 	if err != nil {
 		return util.StandardRequest{}, err
 	}
 	finalPrompt, toolNames := buildOpenAIFinalPromptWithPolicy(messagesRaw, req["tools"], traceID, toolPolicy)
-	if toolPolicy.IsNone() {
-		toolNames = nil
-		toolPolicy.Allowed = nil
-	} else {
+	toolNames = ensureToolDetectionEnabled(toolNames, req["tools"])
+	if !toolPolicy.IsNone() {
 		toolPolicy.Allowed = namesToSet(toolNames)
 	}
 	passThrough := collectOpenAIChatPassThrough(req)
@@ -96,6 +95,20 @@ func normalizeOpenAIResponsesRequest(store ConfigReader, req map[string]any, tra
 		Search:         searchEnabled,
 		PassThrough:    passThrough,
 	}, nil
+}
+
+func ensureToolDetectionEnabled(toolNames []string, toolsRaw any) []string {
+	if len(toolNames) > 0 {
+		return toolNames
+	}
+	tools, _ := toolsRaw.([]any)
+	if len(tools) == 0 {
+		return toolNames
+	}
+	// Keep stream sieve/tool buffering enabled even when client tool schemas
+	// are malformed or lack explicit names; parsed tool payload names are no
+	// longer filtered by this list.
+	return []string{"__any_tool__"}
 }
 
 func collectOpenAIChatPassThrough(req map[string]any) map[string]any {
@@ -139,7 +152,7 @@ func parseToolChoicePolicy(toolChoiceRaw any, toolsRaw any) (util.ToolChoicePoli
 		case "required":
 			policy.Mode = util.ToolChoiceRequired
 		default:
-			return util.ToolChoicePolicy{}, fmt.Errorf("Unsupported tool_choice: %q", v)
+			return util.ToolChoicePolicy{}, fmt.Errorf("unsupported tool_choice: %q", v)
 		}
 	case map[string]any:
 		allowedOverride, hasAllowedOverride, err := parseAllowedToolNames(v["allowed_tools"])
@@ -185,7 +198,7 @@ func parseToolChoicePolicy(toolChoiceRaw any, toolsRaw any) (util.ToolChoicePoli
 			policy.ForcedName = name
 			policy.Allowed = namesToSet([]string{name})
 		default:
-			return util.ToolChoicePolicy{}, fmt.Errorf("Unsupported tool_choice.type: %q", typ)
+			return util.ToolChoicePolicy{}, fmt.Errorf("unsupported tool_choice.type: %q", typ)
 		}
 	default:
 		return util.ToolChoicePolicy{}, fmt.Errorf("tool_choice must be a string or object")
@@ -193,7 +206,7 @@ func parseToolChoicePolicy(toolChoiceRaw any, toolsRaw any) (util.ToolChoicePoli
 
 	if policy.Mode == util.ToolChoiceRequired || policy.Mode == util.ToolChoiceForced {
 		if len(declaredNames) == 0 {
-			return util.ToolChoicePolicy{}, fmt.Errorf("tool_choice=%s requires non-empty tools.", policy.Mode)
+			return util.ToolChoicePolicy{}, fmt.Errorf("tool_choice=%s requires non-empty tools", policy.Mode)
 		}
 	}
 	if policy.Mode == util.ToolChoiceForced {

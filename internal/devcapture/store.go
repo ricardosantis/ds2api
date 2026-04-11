@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	defaultLimit        = 5
-	defaultMaxBodyBytes = 2 * 1024 * 1024
+	defaultLimit        = 20
+	defaultMaxBodyBytes = 5 * 1024 * 1024
 	maxLimit            = 50
 )
 

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight, Check, Copy, Play, Plus, Trash2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Check, Copy, Play, Plus, Trash2, FolderX } from 'lucide-react'
 import clsx from 'clsx'
 
 export default function AccountsTable({
@@ -9,20 +9,27 @@ export default function AccountsTable({
     testing,
     testingAll,
     batchProgress,
+    sessionCounts,
+    deletingSessions,
+    updatingProxy,
     totalAccounts,
     page,
     pageSize,
     totalPages,
     resolveAccountIdentifier,
+    proxies,
     onTestAll,
     onShowAddAccount,
     onTestAccount,
     onDeleteAccount,
+    onDeleteAllSessions,
+    onUpdateAccountProxy,
     onPrevPage,
     onNextPage,
     onPageSizeChange,
     searchQuery,
     onSearchChange,
+    envBacked = false,
 }) {
     const [copiedId, setCopiedId] = useState(null)
 
@@ -98,14 +105,17 @@ export default function AccountsTable({
                 ) : accounts.length > 0 ? (
                     accounts.map((acc, i) => {
                         const id = resolveAccountIdentifier(acc)
+                        const assignedProxy = proxies.find(proxy => proxy.id === acc.proxy_id)
+                        const runtimeUnknown = envBacked && !acc.test_status
+                        const isActive = acc.test_status === 'ok' || acc.has_token
                         return (
                             <div key={i} className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-muted/50 transition-colors">
                                 <div className="flex items-center gap-3 min-w-0">
                                     <div className={clsx(
                                         "w-2 h-2 rounded-full shrink-0",
                                         acc.test_status === 'failed' ? "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]" :
-                                        (acc.test_status === 'ok' || acc.has_token) ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" :
-                                        "bg-amber-500"
+                                        isActive ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" :
+                                        runtimeUnknown ? "bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" : "bg-amber-500"
                                     )} />
                                     <div className="min-w-0">
                                         <div
@@ -119,16 +129,53 @@ export default function AccountsTable({
                                             }
                                         </div>
                                         <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                                            <span>{acc.test_status === 'failed' ? t('accountManager.testStatusFailed') : (acc.test_status === 'ok' || acc.has_token) ? t('accountManager.sessionActive') : t('accountManager.reauthRequired')}</span>
+                                            <span>{acc.test_status === 'failed' ? t('accountManager.testStatusFailed') : isActive ? t('accountManager.sessionActive') : runtimeUnknown ? t('accountManager.runtimeStatusUnknown') : t('accountManager.reauthRequired')}</span>
                                             {acc.token_preview && (
                                                 <span className="font-mono bg-muted px-1.5 py-0.5 rounded text-[10px]">
                                                     {acc.token_preview}
+                                                </span>
+                                            )}
+                                            {sessionCounts && sessionCounts[id] !== undefined && (
+                                                <span className="font-mono bg-blue-500/10 text-blue-500 px-1.5 py-0.5 rounded text-[10px]">
+                                                    {t('accountManager.sessionCount', { count: sessionCounts[id] })}
+                                                </span>
+                                            )}
+                                            {sessionCounts && sessionCounts[id] !== undefined && sessionCounts[id] > 0 && (
+                                                <button
+                                                    onClick={() => onDeleteAllSessions(id)}
+                                                    disabled={deletingSessions && deletingSessions[id]}
+                                                    className="flex items-center gap-1 font-mono bg-red-500/10 text-red-500 hover:bg-red-500/20 px-1.5 py-0.5 rounded text-[10px] transition-colors disabled:opacity-50"
+                                                    title={t('accountManager.deleteAllSessions')}
+                                                >
+                                                    {deletingSessions && deletingSessions[id] ? (
+                                                        <span className="animate-spin">⟳</span>
+                                                    ) : (
+                                                        <FolderX className="w-3 h-3" />
+                                                    )}
+                                                </button>
+                                            )}
+                                            {acc.proxy_id && (
+                                                <span className="font-mono bg-amber-500/10 text-amber-500 px-1.5 py-0.5 rounded text-[10px]">
+                                                    {t('accountManager.proxyBadge', { name: assignedProxy ? (assignedProxy.name || `${assignedProxy.host}:${assignedProxy.port}`) : acc.proxy_id })}
                                                 </span>
                                             )}
                                         </div>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2 self-start lg:self-auto ml-5 lg:ml-0">
+                                    <select
+                                        value={acc.proxy_id || ''}
+                                        onChange={e => onUpdateAccountProxy(id, e.target.value)}
+                                        disabled={updatingProxy?.[id]}
+                                        className="max-w-[180px] px-2.5 py-1.5 text-[10px] lg:text-xs bg-secondary border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
+                                    >
+                                        <option value="">{t('accountManager.proxyNone')}</option>
+                                        {proxies.map(proxy => (
+                                            <option key={proxy.id} value={proxy.id}>
+                                                {proxy.name || `${proxy.host}:${proxy.port}`}
+                                            </option>
+                                        ))}
+                                    </select>
                                     <button
                                         onClick={() => onTestAccount(id)}
                                         disabled={testing[id]}

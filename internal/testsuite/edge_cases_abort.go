@@ -58,7 +58,7 @@ func (cc *caseContext) abortStreamRequest(ctx context.Context, spec requestSpec)
 		})
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	buf := make([]byte, 512)
 	_, _ = resp.Body.Read(buf)
 	_ = resp.Body.Close()

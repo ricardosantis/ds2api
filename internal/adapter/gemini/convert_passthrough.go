@@ -5,6 +5,7 @@ import (
 	"strings"
 )
 
+//nolint:unused // compatibility hook for native Gemini request normalization path.
 func collectGeminiPassThrough(req map[string]any) map[string]any {
 	cfg, _ := req["generationConfig"].(map[string]any)
 	if len(cfg) == 0 {

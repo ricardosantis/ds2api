@@ -1,6 +1,7 @@
 package compat
 
 import (
+	"ds2api/internal/toolcall"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -32,23 +33,34 @@ func TestGoCompatSSEFixtures(t *testing.T) {
 		mustLoadJSON(t, fixturePath, &fixture)
 
 		var expected struct {
-			Parts    []map[string]any `json:"parts"`
-			Finished bool             `json:"finished"`
-			NewType  string           `json:"new_type"`
+			Parts         []map[string]any `json:"parts"`
+			Finished      bool             `json:"finished"`
+			NewType       string           `json:"new_type"`
+			ContentFilter bool             `json:"content_filter"`
+			ErrorMessage  string           `json:"error_message"`
 		}
 		mustLoadJSON(t, expectedPath, &expected)
 
-		parts, finished, newType := sse.ParseSSEChunkForContent(fixture.Chunk, fixture.ThinkingEnable, fixture.CurrentType)
-		gotParts := make([]map[string]any, 0, len(parts))
-		for _, p := range parts {
+		raw, err := json.Marshal(fixture.Chunk)
+		if err != nil {
+			t.Fatalf("marshal fixture %s failed: %v", name, err)
+		}
+		res := sse.ParseDeepSeekContentLine(append([]byte("data: "), raw...), fixture.ThinkingEnable, fixture.CurrentType)
+		gotParts := make([]map[string]any, 0, len(res.Parts))
+		for _, p := range res.Parts {
 			gotParts = append(gotParts, map[string]any{
 				"text": p.Text,
 				"type": p.Type,
 			})
 		}
-		if !reflect.DeepEqual(gotParts, expected.Parts) || finished != expected.Finished || newType != expected.NewType {
-			t.Fatalf("fixture %s mismatch:\n got parts=%#v finished=%v newType=%q\nwant parts=%#v finished=%v newType=%q",
-				name, gotParts, finished, newType, expected.Parts, expected.Finished, expected.NewType)
+		if !reflect.DeepEqual(gotParts, expected.Parts) ||
+			res.Stop != expected.Finished ||
+			res.NextType != expected.NewType ||
+			res.ContentFilter != expected.ContentFilter ||
+			res.ErrorMessage != expected.ErrorMessage {
+			t.Fatalf("fixture %s mismatch:\n got parts=%#v finished=%v newType=%q contentFilter=%v errorMessage=%q\nwant parts=%#v finished=%v newType=%q contentFilter=%v errorMessage=%q",
+				name, gotParts, res.Stop, res.NextType, res.ContentFilter, res.ErrorMessage,
+				expected.Parts, expected.Finished, expected.NewType, expected.ContentFilter, expected.ErrorMessage)
 		}
 	}
 }
@@ -73,22 +85,22 @@ func TestGoCompatToolcallFixtures(t *testing.T) {
 		mustLoadJSON(t, fixturePath, &fixture)
 
 		var expected struct {
-			Calls             []util.ParsedToolCall `json:"calls"`
-			SawToolCallSyntax bool                  `json:"sawToolCallSyntax"`
-			RejectedByPolicy  bool                  `json:"rejectedByPolicy"`
-			RejectedToolNames []string              `json:"rejectedToolNames"`
+			Calls             []toolcall.ParsedToolCall `json:"calls"`
+			SawToolCallSyntax bool                      `json:"sawToolCallSyntax"`
+			RejectedByPolicy  bool                      `json:"rejectedByPolicy"`
+			RejectedToolNames []string                  `json:"rejectedToolNames"`
 		}
 		mustLoadJSON(t, expectedPath, &expected)
 
-		var got util.ToolCallParseResult
+		var got toolcall.ToolCallParseResult
 		switch strings.ToLower(strings.TrimSpace(fixture.Mode)) {
 		case "standalone":
-			got = util.ParseStandaloneToolCallsDetailed(fixture.Text, fixture.ToolNames)
+			got = toolcall.ParseStandaloneToolCallsDetailed(fixture.Text, fixture.ToolNames)
 		default:
-			got = util.ParseToolCallsDetailed(fixture.Text, fixture.ToolNames)
+			got = toolcall.ParseToolCallsDetailed(fixture.Text, fixture.ToolNames)
 		}
 		if got.Calls == nil {
-			got.Calls = []util.ParsedToolCall{}
+			got.Calls = []toolcall.ParsedToolCall{}
 		}
 		if got.RejectedToolNames == nil {
 			got.RejectedToolNames = []string{}

@@ -1,6 +1,8 @@
 # Line gate targets for large-file decoupling refactor.
-# Default limit: 300 lines
+# Backend default limit: 300 lines
+# Frontend (webui/) default limit: 500 lines
 # Entry/facade limit: 120 lines (enforced in script)
+# Test files are ignored by the gate script.
 
 internal/config/config.go
 internal/config/logger.go
@@ -51,12 +53,12 @@ internal/adapter/openai/responses_stream_runtime_events.go
 internal/adapter/openai/responses_stream_runtime_toolcalls.go
 internal/adapter/openai/tool_sieve_state.go
 internal/adapter/openai/tool_sieve_core.go
-internal/adapter/openai/tool_sieve_incremental.go
+internal/adapter/openai/tool_sieve_xml.go
 internal/adapter/openai/tool_sieve_jsonscan.go
 
-internal/util/toolcalls_parse.go
-internal/util/toolcalls_candidates.go
-internal/util/toolcalls_format.go
+internal/toolcall/toolcalls_parse.go
+internal/toolcall/toolcalls_candidates.go
+internal/toolcall/toolcalls_format.go
 
 internal/adapter/claude/handler_routes.go
 internal/adapter/claude/handler_messages.go
@@ -105,6 +107,7 @@ internal/js/helpers/stream-tool-sieve.js
 internal/js/helpers/stream-tool-sieve/index.js
 internal/js/helpers/stream-tool-sieve/state.js
 internal/js/helpers/stream-tool-sieve/sieve.js
+internal/js/helpers/stream-tool-sieve/sieve-xml.js
 internal/js/helpers/stream-tool-sieve/jsonscan.js
 internal/js/helpers/stream-tool-sieve/parse.js
 internal/js/helpers/stream-tool-sieve/format.js
@@ -115,7 +118,6 @@ webui/src/app/useAdminAuth.js
 webui/src/app/useAdminConfig.js
 webui/src/layout/DashboardShell.jsx
 
-webui/src/components/AccountManager.jsx
 webui/src/features/account/AccountManagerContainer.jsx
 webui/src/features/account/useAccountsData.js
 webui/src/features/account/useAccountActions.js
@@ -125,14 +127,12 @@ webui/src/features/account/AccountsTable.jsx
 webui/src/features/account/AddKeyModal.jsx
 webui/src/features/account/AddAccountModal.jsx
 
-webui/src/components/ApiTester.jsx
 webui/src/features/apiTester/ApiTesterContainer.jsx
 webui/src/features/apiTester/useApiTesterState.js
 webui/src/features/apiTester/useChatStreamClient.js
 webui/src/features/apiTester/ConfigPanel.jsx
 webui/src/features/apiTester/ChatPanel.jsx
 
-webui/src/components/Settings.jsx
 webui/src/features/settings/SettingsContainer.jsx
 webui/src/features/settings/useSettingsForm.js
 webui/src/features/settings/settingsApi.js
@@ -142,7 +142,6 @@ webui/src/features/settings/BehaviorSection.jsx
 webui/src/features/settings/ModelSection.jsx
 webui/src/features/settings/BackupSection.jsx
 
-webui/src/components/VercelSync.jsx
 webui/src/features/vercel/VercelSyncContainer.jsx
 webui/src/features/vercel/useVercelSyncState.js
 webui/src/features/vercel/VercelSyncForm.jsx

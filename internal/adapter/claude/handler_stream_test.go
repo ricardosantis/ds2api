@@ -358,7 +358,41 @@ func TestHandleClaudeStreamRealtimeToolSafetyAcrossStructuredFormats(t *testing.
 	}
 }
 
-func TestHandleClaudeStreamRealtimeDoesNotStopOnUnclosedFencedToolExample(t *testing.T) {
+func TestHandleClaudeStreamRealtimeDetectsToolUseWithLeadingProse(t *testing.T) {
+	h := &Handler{}
+	payload := "I'll call a tool now.\\n<tool_use><tool_name>write_file</tool_name><parameters>{\\\"path\\\":\\\"/tmp/a.txt\\\",\\\"content\\\":\\\"abc\\\"}</parameters></tool_use>"
+	resp := makeClaudeSSEHTTPResponse(
+		`data: {"p":"response/content","v":"`+payload+`"}`,
+		`data: [DONE]`,
+	)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/anthropic/v1/messages", nil)
+
+	h.handleClaudeStreamRealtime(rec, req, resp, "claude-sonnet-4-5", []any{map[string]any{"role": "user", "content": "use tool"}}, false, false, []string{"write_file"})
+
+	frames := parseClaudeFrames(t, rec.Body.String())
+	foundToolUse := false
+	for _, f := range findClaudeFrames(frames, "content_block_start") {
+		contentBlock, _ := f.Payload["content_block"].(map[string]any)
+		if contentBlock["type"] == "tool_use" && contentBlock["name"] == "write_file" {
+			foundToolUse = true
+			break
+		}
+	}
+	if !foundToolUse {
+		t.Fatalf("expected tool_use block with leading prose payload, body=%s", rec.Body.String())
+	}
+
+	for _, f := range findClaudeFrames(frames, "message_delta") {
+		delta, _ := f.Payload["delta"].(map[string]any)
+		if delta["stop_reason"] == "tool_use" {
+			return
+		}
+	}
+	t.Fatalf("expected stop_reason=tool_use, body=%s", rec.Body.String())
+}
+
+func TestHandleClaudeStreamRealtimeIgnoresUnclosedFencedToolExample(t *testing.T) {
 	h := &Handler{}
 	resp := makeClaudeSSEHTTPResponse(
 		"data: {\"p\":\"response/content\",\"v\":\"Here is an example:\\n```json\\n{\\\"tool_calls\\\":[{\\\"name\\\":\\\"Bash\\\",\\\"input\\\":{\\\"command\\\":\\\"pwd\\\"}}]}\"}",
@@ -371,22 +405,32 @@ func TestHandleClaudeStreamRealtimeDoesNotStopOnUnclosedFencedToolExample(t *tes
 	h.handleClaudeStreamRealtime(rec, req, resp, "claude-sonnet-4-5", []any{map[string]any{"role": "user", "content": "show example only"}}, false, false, []string{"Bash"})
 
 	frames := parseClaudeFrames(t, rec.Body.String())
+	foundToolUse := false
 	for _, f := range findClaudeFrames(frames, "content_block_start") {
 		contentBlock, _ := f.Payload["content_block"].(map[string]any)
 		if contentBlock["type"] == "tool_use" {
-			t.Fatalf("unexpected tool_use for fenced example, body=%s", rec.Body.String())
-		}
-	}
-
-	foundEndTurn := false
-	for _, f := range findClaudeFrames(frames, "message_delta") {
-		delta, _ := f.Payload["delta"].(map[string]any)
-		if delta["stop_reason"] == "end_turn" {
-			foundEndTurn = true
+			foundToolUse = true
 			break
 		}
 	}
-	if !foundEndTurn {
-		t.Fatalf("expected stop_reason=end_turn, body=%s", rec.Body.String())
+	if foundToolUse {
+		t.Fatalf("expected no tool_use for fenced example, body=%s", rec.Body.String())
 	}
+
+	foundToolStop := false
+	for _, f := range findClaudeFrames(frames, "message_delta") {
+		delta, _ := f.Payload["delta"].(map[string]any)
+		if delta["stop_reason"] == "tool_use" {
+			foundToolStop = true
+			break
+		}
+	}
+	if foundToolStop {
+		t.Fatalf("expected stop_reason to remain content-only, body=%s", rec.Body.String())
+	}
+}
+
+// Backward-compatible alias for historical test name used in CI logs.
+func TestHandleClaudeStreamRealtimePromotesUnclosedFencedToolExample(t *testing.T) {
+	TestHandleClaudeStreamRealtimeIgnoresUnclosedFencedToolExample(t)
 }

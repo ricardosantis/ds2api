@@ -6,7 +6,9 @@ export default function BackupSection({
     setImportMode,
     importing,
     onLoadExportData,
+    onDownloadExportFile,
     onImport,
+    onImportFileChange,
     importText,
     setImportText,
     exportData,
@@ -23,6 +25,27 @@ export default function BackupSection({
                     <Download className="w-4 h-4" />
                     {t('settings.loadExport')}
                 </button>
+                <button
+                    type="button"
+                    onClick={onDownloadExportFile}
+                    className="px-3 py-2 rounded-lg bg-secondary border border-border hover:bg-secondary/80 text-sm flex items-center gap-2"
+                >
+                    <Download className="w-4 h-4" />
+                    {t('settings.downloadExport')}
+                </button>
+                <label className="px-3 py-2 rounded-lg bg-secondary border border-border hover:bg-secondary/80 text-sm flex items-center gap-2 cursor-pointer">
+                    <Upload className="w-4 h-4" />
+                    {t('settings.chooseImportFile')}
+                    <input
+                        type="file"
+                        accept=".json,application/json"
+                        className="hidden"
+                        onChange={(e) => {
+                            onImportFileChange(e.target.files?.[0] || null)
+                            e.target.value = ''
+                        }}
+                    />
+                </label>
                 <select
                     value={importMode}
                     onChange={(e) => setImportMode(e.target.value)}

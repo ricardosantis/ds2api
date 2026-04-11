@@ -71,7 +71,6 @@ func BuildResponsesTextDeltaPayload(responseID, itemID string, outputIndex, cont
 	}
 }
 
-
 func BuildResponsesTextDonePayload(responseID, itemID string, outputIndex, contentIndex int, text string) map[string]any {
 	return map[string]any{
 		"type":          "response.output_text.done",

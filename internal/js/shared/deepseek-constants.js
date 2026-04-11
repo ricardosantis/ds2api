@@ -5,11 +5,11 @@ const path = require('path');
 
 const DEFAULT_BASE_HEADERS = Object.freeze({
   Host: 'chat.deepseek.com',
-  'User-Agent': 'DeepSeek/1.6.11 Android/35',
+  'User-Agent': 'DeepSeek/1.8.0 Android/35',
   Accept: 'application/json',
   'Content-Type': 'application/json',
   'x-client-platform': 'android',
-  'x-client-version': '1.6.11',
+  'x-client-version': '1.8.0',
   'x-client-locale': 'zh_CN',
   'accept-charset': 'UTF-8',
 });

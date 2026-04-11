@@ -9,6 +9,7 @@ config.json
 *.swo
 *~
 .DS_Store
+opencode.json
 
 # Logs
 *.log
@@ -58,3 +59,6 @@ Thumbs.db
 # Claude Code
 .claude/
 CLAUDE.local.md
+
+# Local tool bootstrap cache
+.tmp/

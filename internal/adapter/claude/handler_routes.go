@@ -15,9 +15,17 @@ import (
 var writeJSON = util.WriteJSON
 
 type Handler struct {
-	Store ConfigReader
-	Auth  AuthResolver
-	DS    DeepSeekCaller
+	Store  ConfigReader
+	Auth   AuthResolver
+	DS     DeepSeekCaller
+	OpenAI OpenAIChatRunner
+}
+
+func (h *Handler) compatStripReferenceMarkers() bool {
+	if h == nil || h.Store == nil {
+		return true
+	}
+	return h.Store.CompatStripReferenceMarkers()
 }
 
 var (

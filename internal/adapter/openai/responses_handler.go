@@ -1,6 +1,7 @@
 package openai
 
 import (
+	"ds2api/internal/toolcall"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -106,14 +107,20 @@ func (h *Handler) Responses(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) handleResponsesNonStream(w http.ResponseWriter, resp *http.Response, owner, responseID, model, finalPrompt string, thinkingEnabled bool, toolNames []string, toolChoice util.ToolChoicePolicy, traceID string) {
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		writeOpenAIError(w, resp.StatusCode, strings.TrimSpace(string(body)))
 		return
 	}
 	result := sse.CollectStream(resp, thinkingEnabled, true)
-	textParsed := util.ParseStandaloneToolCallsDetailed(result.Text, toolNames)
+	stripReferenceMarkers := h.compatStripReferenceMarkers()
+	sanitizedThinking := cleanVisibleOutput(result.Thinking, stripReferenceMarkers)
+	sanitizedText := cleanVisibleOutput(result.Text, stripReferenceMarkers)
+	if writeUpstreamEmptyOutputError(w, sanitizedThinking, sanitizedText, result.ContentFilter) {
+		return
+	}
+	textParsed := toolcall.ParseStandaloneToolCallsDetailed(sanitizedText, toolNames)
 	logResponsesToolPolicyRejection(traceID, toolChoice, textParsed, "text")
 
 	callCount := len(textParsed.Calls)
@@ -122,13 +129,13 @@ func (h *Handler) handleResponsesNonStream(w http.ResponseWriter, resp *http.Res
 		return
 	}
 
-	responseObj := openaifmt.BuildResponseObject(responseID, model, finalPrompt, result.Thinking, result.Text, toolNames)
+	responseObj := openaifmt.BuildResponseObject(responseID, model, finalPrompt, sanitizedThinking, sanitizedText, toolNames)
 	h.getResponseStore().put(owner, responseID, responseObj)
 	writeJSON(w, http.StatusOK, responseObj)
 }
 
 func (h *Handler) handleResponsesStream(w http.ResponseWriter, r *http.Request, resp *http.Response, owner, responseID, model, finalPrompt string, thinkingEnabled, searchEnabled bool, toolNames []string, toolChoice util.ToolChoicePolicy, traceID string) {
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		writeOpenAIError(w, resp.StatusCode, strings.TrimSpace(string(body)))
@@ -145,8 +152,9 @@ func (h *Handler) handleResponsesStream(w http.ResponseWriter, r *http.Request, 
 	if thinkingEnabled {
 		initialType = "thinking"
 	}
-	bufferToolContent := len(toolNames) > 0 && h.toolcallFeatureMatchEnabled()
-	emitEarlyToolDeltas := h.toolcallEarlyEmitHighConfidence()
+	bufferToolContent := len(toolNames) > 0
+	emitEarlyToolDeltas := h.toolcallFeatureMatchEnabled() && h.toolcallEarlyEmitHighConfidence()
+	stripReferenceMarkers := h.compatStripReferenceMarkers()
 
 	streamRuntime := newResponsesStreamRuntime(
 		w,
@@ -157,6 +165,7 @@ func (h *Handler) handleResponsesStream(w http.ResponseWriter, r *http.Request, 
 		finalPrompt,
 		thinkingEnabled,
 		searchEnabled,
+		stripReferenceMarkers,
 		toolNames,
 		bufferToolContent,
 		emitEarlyToolDeltas,
@@ -184,7 +193,7 @@ func (h *Handler) handleResponsesStream(w http.ResponseWriter, r *http.Request, 
 	})
 }
 
-func logResponsesToolPolicyRejection(traceID string, policy util.ToolChoicePolicy, parsed util.ToolCallParseResult, channel string) {
+func logResponsesToolPolicyRejection(traceID string, policy util.ToolChoicePolicy, parsed toolcall.ToolCallParseResult, channel string) {
 	rejected := filteredRejectedToolNamesForLog(parsed.RejectedToolNames)
 	if !parsed.RejectedByPolicy || len(rejected) == 0 {
 		return

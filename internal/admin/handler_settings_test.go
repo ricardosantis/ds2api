@@ -28,6 +28,25 @@ func TestGetSettingsDefaultPasswordWarning(t *testing.T) {
 	}
 }
 
+func TestGetSettingsIncludesTokenRefreshInterval(t *testing.T) {
+	h := newAdminTestHandler(t, `{
+		"keys":["k1"],
+		"runtime":{"token_refresh_interval_hours":9}
+	}`)
+	req := httptest.NewRequest(http.MethodGet, "/admin/settings", nil)
+	rec := httptest.NewRecorder()
+	h.getSettings(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var body map[string]any
+	_ = json.Unmarshal(rec.Body.Bytes(), &body)
+	runtime, _ := body["runtime"].(map[string]any)
+	if got := intFrom(runtime["token_refresh_interval_hours"]); got != 9 {
+		t.Fatalf("expected token_refresh_interval_hours=9, got %d body=%v", got, body)
+	}
+}
+
 func TestUpdateSettingsValidation(t *testing.T) {
 	h := newAdminTestHandler(t, `{"keys":["k1"]}`)
 	payload := map[string]any{
@@ -41,6 +60,47 @@ func TestUpdateSettingsValidation(t *testing.T) {
 	h.updateSettings(rec, req)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestUpdateSettingsValidationRejectsTokenRefreshInterval(t *testing.T) {
+	h := newAdminTestHandler(t, `{"keys":["k1"]}`)
+	payload := map[string]any{
+		"runtime": map[string]any{
+			"token_refresh_interval_hours": 0,
+		},
+	}
+	b, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPut, "/admin/settings", bytes.NewReader(b))
+	rec := httptest.NewRecorder()
+	h.updateSettings(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	if !bytes.Contains(rec.Body.Bytes(), []byte("runtime.token_refresh_interval_hours")) {
+		t.Fatalf("expected token refresh validation detail, got %s", rec.Body.String())
+	}
+}
+
+func TestUpdateSettingsAllowsEmptyEmbeddingsProvider(t *testing.T) {
+	h := newAdminTestHandler(t, `{"keys":["k1"]}`)
+	payload := map[string]any{
+		"responses": map[string]any{
+			"store_ttl_seconds": 600,
+		},
+		"embeddings": map[string]any{
+			"provider": "",
+		},
+	}
+	b, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPut, "/admin/settings", bytes.NewReader(b))
+	rec := httptest.NewRecorder()
+	h.updateSettings(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	if got := h.Store.Snapshot().Responses.StoreTTLSeconds; got != 600 {
+		t.Fatalf("store_ttl_seconds=%d want=600", got)
 	}
 }
 
@@ -94,6 +154,31 @@ func TestUpdateSettingsWithoutRuntimeSkipsMergedRuntimeValidation(t *testing.T) 
 	}
 }
 
+func TestUpdateSettingsAutoDeleteMode(t *testing.T) {
+	h := newAdminTestHandler(t, `{"keys":["k1"],"auto_delete":{"sessions":true}}`)
+
+	payload := map[string]any{
+		"auto_delete": map[string]any{
+			"mode": "single",
+		},
+	}
+	b, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPut, "/admin/settings", bytes.NewReader(b))
+	rec := httptest.NewRecorder()
+	h.updateSettings(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+
+	snap := h.Store.Snapshot()
+	if got := snap.AutoDelete.Mode; got != "single" {
+		t.Fatalf("auto_delete.mode=%q want=single", got)
+	}
+	if got := h.Store.AutoDeleteMode(); got != "single" {
+		t.Fatalf("AutoDeleteMode()=%q want=single", got)
+	}
+}
+
 func TestUpdateSettingsHotReloadRuntime(t *testing.T) {
 	h := newAdminTestHandler(t, `{
 		"keys":["k1"],
@@ -123,6 +208,29 @@ func TestUpdateSettingsHotReloadRuntime(t *testing.T) {
 	}
 	if got := intFrom(status["global_max_inflight"]); got != 5 {
 		t.Fatalf("global_max_inflight=%d want=5", got)
+	}
+}
+
+func TestUpdateSettingsHotReloadTokenRefreshInterval(t *testing.T) {
+	h := newAdminTestHandler(t, `{
+		"keys":["k1"],
+		"runtime":{"token_refresh_interval_hours":6}
+	}`)
+
+	payload := map[string]any{
+		"runtime": map[string]any{
+			"token_refresh_interval_hours": 12,
+		},
+	}
+	b, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPut, "/admin/settings", bytes.NewReader(b))
+	rec := httptest.NewRecorder()
+	h.updateSettings(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	if got := h.Store.RuntimeTokenRefreshIntervalHours(); got != 12 {
+		t.Fatalf("token_refresh_interval_hours=%d want=12", got)
 	}
 }
 
@@ -204,6 +312,30 @@ func TestConfigImportMergeAndReplace(t *testing.T) {
 	}
 	if got := len(h.Store.Accounts()); got != 0 {
 		t.Fatalf("accounts after replace=%d want=0", got)
+	}
+}
+
+func TestConfigImportAppliesTokenRefreshInterval(t *testing.T) {
+	h := newAdminTestHandler(t, `{"keys":["k1"]}`)
+
+	replace := map[string]any{
+		"mode": "replace",
+		"config": map[string]any{
+			"keys": []any{"k9"},
+			"runtime": map[string]any{
+				"token_refresh_interval_hours": 11,
+			},
+		},
+	}
+	replaceBytes, _ := json.Marshal(replace)
+	replaceReq := httptest.NewRequest(http.MethodPost, "/admin/config/import?mode=replace", bytes.NewReader(replaceBytes))
+	replaceRec := httptest.NewRecorder()
+	h.configImport(replaceRec, replaceReq)
+	if replaceRec.Code != http.StatusOK {
+		t.Fatalf("replace status=%d body=%s", replaceRec.Code, replaceRec.Body.String())
+	}
+	if got := h.Store.RuntimeTokenRefreshIntervalHours(); got != 11 {
+		t.Fatalf("token_refresh_interval_hours=%d want=11", got)
 	}
 }
 

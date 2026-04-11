@@ -1,9 +1,8 @@
 package openai
 
 import (
+	"ds2api/internal/toolcall"
 	"strings"
-
-	"ds2api/internal/util"
 )
 
 type toolStreamSieveState struct {
@@ -12,7 +11,7 @@ type toolStreamSieveState struct {
 	capturing        bool
 	recentTextTail   string
 	pendingToolRaw   string
-	pendingToolCalls []util.ParsedToolCall
+	pendingToolCalls []toolcall.ParsedToolCall
 	disableDeltas    bool
 	toolNameSent     bool
 	toolName         string
@@ -24,7 +23,7 @@ type toolStreamSieveState struct {
 
 type toolStreamEvent struct {
 	Content        string
-	ToolCalls      []util.ParsedToolCall
+	ToolCalls      []toolcall.ParsedToolCall
 	ToolCallDeltas []toolCallDelta
 }
 
@@ -34,7 +33,8 @@ type toolCallDelta struct {
 	Arguments string
 }
 
-const toolSieveContextTailLimit = 256
+// Keep in sync with JS TOOL_SIEVE_CONTEXT_TAIL_LIMIT.
+const toolSieveContextTailLimit = 2048
 
 func (s *toolStreamSieveState) resetIncrementalToolState() {
 	s.disableDeltas = false
@@ -47,7 +47,7 @@ func (s *toolStreamSieveState) resetIncrementalToolState() {
 }
 
 func (s *toolStreamSieveState) noteText(content string) {
-	if strings.TrimSpace(content) == "" {
+	if content == "" {
 		return
 	}
 	s.recentTextTail = appendTail(s.recentTextTail, content, toolSieveContextTailLimit)
@@ -62,15 +62,4 @@ func appendTail(prev, next string, max int) string {
 		return combined
 	}
 	return combined[len(combined)-max:]
-}
-
-func looksLikeToolExampleContext(text string) bool {
-	return insideCodeFence(text)
-}
-
-func insideCodeFence(text string) bool {
-	if text == "" {
-		return false
-	}
-	return strings.Count(text, "```")%2 == 1
 }

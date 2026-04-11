@@ -170,7 +170,7 @@ func (r *Runner) caseToolcallStreamMixed(ctx context.Context, cc *caseContext) e
 	cc.assert("tool_calls_delta_present", hasTool, "tool_calls delta missing")
 	cc.assert("no_raw_tool_json_leak", !rawLeak, "raw tool_calls leaked")
 	cc.assert("done_terminated", done, "expected [DONE]")
-	if !(hasTool && hasText) {
+	if !hasTool || !hasText {
 		r.warnings = append(r.warnings, "toolcall mixed stream did not produce both text and tool_calls in this run (model-side behavior dependent)")
 	}
 	return nil

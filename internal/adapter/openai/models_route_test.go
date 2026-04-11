@@ -22,6 +22,24 @@ func TestGetModelRouteDirectAndAlias(t *testing.T) {
 		}
 	})
 
+	t.Run("direct_expert", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/v1/models/deepseek-expert-chat", nil)
+		rec := httptest.NewRecorder()
+		r.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
+		}
+	})
+
+	t.Run("direct_vision", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/v1/models/deepseek-vision-chat", nil)
+		rec := httptest.NewRecorder()
+		r.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
+		}
+	})
+
 	t.Run("alias", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/v1/models/gpt-4.1", nil)
 		rec := httptest.NewRecorder()

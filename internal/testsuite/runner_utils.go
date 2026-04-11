@@ -126,7 +126,7 @@ func findFreePort() (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 	addr, ok := ln.Addr().(*net.TCPAddr)
 	if !ok {
 		return 0, errors.New("failed to detect tcp port")

@@ -1,11 +1,11 @@
 package openai
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
 	"ds2api/internal/config"
+	"ds2api/internal/prompt"
 )
 
 func normalizeResponsesInputItem(m map[string]any) map[string]any {
@@ -19,6 +19,27 @@ func normalizeResponsesInputItemWithState(m map[string]any, callNameByID map[str
 
 	role := strings.ToLower(strings.TrimSpace(asString(m["role"])))
 	if role != "" {
+		if role == "assistant" {
+			out := map[string]any{
+				"role": "assistant",
+			}
+			if toolCalls, ok := m["tool_calls"].([]any); ok && len(toolCalls) > 0 {
+				out["tool_calls"] = toolCalls
+			}
+			content := m["content"]
+			if content == nil {
+				if txt, _ := m["text"].(string); strings.TrimSpace(txt) != "" {
+					content = txt
+				}
+			}
+			if content != nil {
+				out["content"] = content
+			}
+			if _, hasToolCalls := out["tool_calls"]; hasToolCalls || out["content"] != nil {
+				return out
+			}
+			return nil
+		}
 		content := m["content"]
 		if content == nil {
 			if txt, _ := m["text"].(string); strings.TrimSpace(txt) != "" {
@@ -28,10 +49,22 @@ func normalizeResponsesInputItemWithState(m map[string]any, callNameByID map[str
 		if content == nil {
 			return nil
 		}
-		return map[string]any{
+		out := map[string]any{
 			"role":    normalizeOpenAIRoleForPrompt(role),
 			"content": content,
 		}
+		if role == "tool" || role == "function" {
+			if callID := strings.TrimSpace(asString(m["tool_call_id"])); callID != "" {
+				out["tool_call_id"] = callID
+			}
+			if callID := strings.TrimSpace(asString(m["call_id"])); callID != "" {
+				out["tool_call_id"] = callID
+			}
+			if name := strings.TrimSpace(asString(m["name"])); name != "" {
+				out["name"] = name
+			}
+		}
+		return out
 	}
 
 	itemType := strings.ToLower(strings.TrimSpace(asString(m["type"])))
@@ -115,7 +148,7 @@ func normalizeResponsesInputItemWithState(m map[string]any, callNameByID map[str
 
 		functionPayload := map[string]any{
 			"name":      name,
-			"arguments": stringifyToolCallArguments(argsRaw),
+			"arguments": prompt.StringifyToolCallArguments(argsRaw),
 		}
 		call := map[string]any{
 			"type":     "function",
@@ -177,27 +210,4 @@ func normalizeResponsesFallbackPart(m map[string]any) string {
 		}
 	}
 	return strings.TrimSpace(fmt.Sprintf("%v", m))
-}
-
-func stringifyToolCallArguments(v any) string {
-	switch x := v.(type) {
-	case nil:
-		return "{}"
-	case string:
-		s := strings.TrimSpace(x)
-		if s == "" {
-			return "{}"
-		}
-		s = normalizeToolArgumentString(s)
-		if s == "" {
-			return "{}"
-		}
-		return s
-	default:
-		b, err := json.Marshal(x)
-		if err != nil || len(b) == 0 {
-			return "{}"
-		}
-		return string(b)
-	}
 }

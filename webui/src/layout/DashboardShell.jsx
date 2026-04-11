@@ -1,4 +1,5 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
     LayoutDashboard,
     Upload,
@@ -8,30 +9,49 @@ import {
     Menu,
     X,
     Server,
-    Users
+    Users,
+    Globe
 } from 'lucide-react'
 import clsx from 'clsx'
 
-import AccountManager from '../components/AccountManager'
-import ApiTester from '../components/ApiTester'
+import AccountManagerContainer from '../features/account/AccountManagerContainer'
+import ApiTesterContainer from '../features/apiTester/ApiTesterContainer'
 import BatchImport from '../components/BatchImport'
-import VercelSync from '../components/VercelSync'
-import Settings from '../components/Settings'
+import VercelSyncContainer from '../features/vercel/VercelSyncContainer'
+import SettingsContainer from '../features/settings/SettingsContainer'
+import ProxyManagerContainer from '../features/proxy/ProxyManagerContainer'
 import LanguageToggle from '../components/LanguageToggle'
 import { useI18n } from '../i18n'
 
 export default function DashboardShell({ token, onLogout, config, fetchConfig, showMessage, message, onForceLogout, isVercel }) {
     const { t } = useI18n()
-    const [activeTab, setActiveTab] = useState('accounts')
+    const location = useLocation()
+    const navigate = useNavigate()
     const [sidebarOpen, setSidebarOpen] = useState(false)
 
     const navItems = [
         { id: 'accounts', label: t('nav.accounts.label'), icon: Users, description: t('nav.accounts.desc') },
+        { id: 'proxies', label: t('nav.proxies.label'), icon: Globe, description: t('nav.proxies.desc') },
         { id: 'test', label: t('nav.test.label'), icon: Server, description: t('nav.test.desc') },
         { id: 'import', label: t('nav.import.label'), icon: Upload, description: t('nav.import.desc') },
         { id: 'vercel', label: t('nav.vercel.label'), icon: Cloud, description: t('nav.vercel.desc') },
         { id: 'settings', label: t('nav.settings.label'), icon: SettingsIcon, description: t('nav.settings.desc') },
     ]
+
+    const tabIds = new Set(navItems.map(item => item.id))
+    const pathSegments = location.pathname.replace(/^\/+|\/+$/g, '').split('/').filter(Boolean)
+    const routeSegments = pathSegments[0] === 'admin' ? pathSegments.slice(1) : pathSegments
+    const pathTab = routeSegments[0] || ''
+    const activeTab = tabIds.has(pathTab) ? pathTab : 'accounts'
+    const adminBasePath = pathSegments[0] === 'admin' ? '/admin' : ''
+
+    const navigateToTab = useCallback((tabID) => {
+        const nextPath = tabID === 'accounts'
+            ? `${adminBasePath || ''}/`
+            : `${adminBasePath}/${tabID}`
+        navigate(nextPath)
+        setSidebarOpen(false)
+    }, [adminBasePath, navigate])
 
     const authFetch = useCallback(async (url, options = {}) => {
         const headers = {
@@ -47,18 +67,43 @@ export default function DashboardShell({ token, onLogout, config, fetchConfig, s
         return res
     }, [onLogout, t, token])
 
+
+    const [versionInfo, setVersionInfo] = useState(null)
+
+    useEffect(() => {
+        let disposed = false
+        async function loadVersion() {
+            try {
+                const res = await authFetch('/admin/version')
+                const data = await res.json()
+                if (!disposed) {
+                    setVersionInfo(data)
+                }
+            } catch (_err) {
+                if (!disposed) {
+                    setVersionInfo(null)
+                }
+            }
+        }
+        loadVersion()
+        return () => {
+            disposed = true
+        }
+    }, [authFetch])
     const renderTab = () => {
         switch (activeTab) {
             case 'accounts':
-                return <AccountManager config={config} onRefresh={fetchConfig} onMessage={showMessage} authFetch={authFetch} />
+                return <AccountManagerContainer config={config} onRefresh={fetchConfig} onMessage={showMessage} authFetch={authFetch} />
+            case 'proxies':
+                return <ProxyManagerContainer config={config} onRefresh={fetchConfig} onMessage={showMessage} authFetch={authFetch} />
             case 'test':
-                return <ApiTester config={config} onMessage={showMessage} authFetch={authFetch} />
+                return <ApiTesterContainer config={config} onMessage={showMessage} authFetch={authFetch} />
             case 'import':
                 return <BatchImport onRefresh={fetchConfig} onMessage={showMessage} authFetch={authFetch} />
             case 'vercel':
-                return <VercelSync onMessage={showMessage} authFetch={authFetch} isVercel={isVercel} />
+                return <VercelSyncContainer onMessage={showMessage} authFetch={authFetch} isVercel={isVercel} config={config} />
             case 'settings':
-                return <Settings onRefresh={fetchConfig} onMessage={showMessage} authFetch={authFetch} onForceLogout={onForceLogout} isVercel={isVercel} />
+                return <SettingsContainer onRefresh={fetchConfig} onMessage={showMessage} authFetch={authFetch} onForceLogout={onForceLogout} isVercel={isVercel} />
             default:
                 return null
         }
@@ -98,8 +143,7 @@ export default function DashboardShell({ token, onLogout, config, fetchConfig, s
                             <button
                                 key={item.id}
                                 onClick={() => {
-                                    setActiveTab(item.id)
-                                    setSidebarOpen(false)
+                                    navigateToTab(item.id)
                                 }}
                                 className={clsx(
                                     "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group border",
@@ -134,6 +178,20 @@ export default function DashboardShell({ token, onLogout, config, fetchConfig, s
                                 <div className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider mb-0.5 opacity-70">{t('sidebar.keys')}</div>
                                 <div className="text-lg font-bold text-foreground">{config.keys?.length || 0}</div>
                             </div>
+                        </div>
+                        <div className="bg-background rounded-lg p-3 border border-border shadow-sm">
+                            <div className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider mb-1 opacity-70">{t('sidebar.version')}</div>
+                            <div className="text-xs font-semibold text-foreground">{versionInfo?.current_tag || '-'}</div>
+                            {versionInfo?.has_update && (
+                                <a
+                                    className="inline-flex mt-1 text-[10px] text-amber-500 hover:text-amber-400"
+                                    href={versionInfo?.release_url || 'https://github.com/CJackHwang/ds2api/releases/latest'}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                >
+                                    {t('sidebar.updateAvailable', { latest: versionInfo.latest_tag || '' })}
+                                </a>
+                            )}
                         </div>
                         <button
                             onClick={onLogout}

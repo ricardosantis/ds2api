@@ -44,11 +44,14 @@ func TestBuildOpenAIFinalPrompt_HandlerPathIncludesToolRoundtripSemantics(t *tes
 	if len(toolNames) != 1 || toolNames[0] != "get_weather" {
 		t.Fatalf("unexpected tool names: %#v", toolNames)
 	}
-	if !strings.Contains(finalPrompt, "tool_call_id: call_1") ||
-		!strings.Contains(finalPrompt, "function.name: get_weather") ||
-		!strings.Contains(finalPrompt, "[TOOL_RESULT_HISTORY]") ||
-		!strings.Contains(finalPrompt, `"condition":"sunny"`) {
-		t.Fatalf("handler finalPrompt missing tool roundtrip semantics: %q", finalPrompt)
+	if !strings.Contains(finalPrompt, `"condition":"sunny"`) {
+		t.Fatalf("handler finalPrompt should preserve tool output content: %q", finalPrompt)
+	}
+	if !strings.Contains(finalPrompt, "<tool_calls>") {
+		t.Fatalf("handler finalPrompt should preserve assistant tool history: %q", finalPrompt)
+	}
+	if !strings.Contains(finalPrompt, "<tool_name>get_weather</tool_name>") {
+		t.Fatalf("handler finalPrompt should include tool name history: %q", finalPrompt)
 	}
 }
 
@@ -71,13 +74,16 @@ func TestBuildOpenAIFinalPrompt_VercelPreparePathKeepsFinalAnswerInstruction(t *
 	}
 
 	finalPrompt, _ := buildOpenAIFinalPrompt(messages, tools, "")
-	if !strings.Contains(finalPrompt, "After receiving a tool result, you MUST use it to produce the final answer.") {
-		t.Fatalf("vercel prepare finalPrompt missing final-answer instruction: %q", finalPrompt)
+	if !strings.Contains(finalPrompt, "Remember: Output ONLY the <tool_calls>...</tool_calls> XML block when calling tools.") {
+		t.Fatalf("vercel prepare finalPrompt missing final tool-call anchor instruction: %q", finalPrompt)
 	}
-	if !strings.Contains(finalPrompt, "Only call another tool when the previous result is missing required data or returned an error.") {
-		t.Fatalf("vercel prepare finalPrompt missing retry guard instruction: %q", finalPrompt)
+	if !strings.Contains(finalPrompt, "TOOL CALL FORMAT") {
+		t.Fatalf("vercel prepare finalPrompt missing xml format instruction: %q", finalPrompt)
 	}
-	if !strings.Contains(finalPrompt, "[TOOL_RESULT_HISTORY]") {
-		t.Fatalf("vercel prepare finalPrompt missing history marker instruction: %q", finalPrompt)
+	if !strings.Contains(finalPrompt, "Do NOT wrap XML in markdown fences") {
+		t.Fatalf("vercel prepare finalPrompt missing no-fence xml instruction: %q", finalPrompt)
+	}
+	if strings.Contains(finalPrompt, "```json") {
+		t.Fatalf("vercel prepare finalPrompt should not require fenced tool calls: %q", finalPrompt)
 	}
 }

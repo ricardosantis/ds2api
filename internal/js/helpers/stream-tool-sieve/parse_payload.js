@@ -6,6 +6,8 @@ const TOOL_CALL_MARKUP_SELFCLOSE_PATTERN = /<(?:[a-z0-9_:-]+:)?invoke\b([^>]*)\/
 const TOOL_CALL_MARKUP_KV_PATTERN = /<(?:[a-z0-9_:-]+:)?([a-z0-9_.-]+)\b[^>]*>([\s\S]*?)<\/(?:[a-z0-9_:-]+:)?\1>/gi;
 const TOOL_CALL_MARKUP_ATTR_PATTERN = /(name|function|tool)\s*=\s*"([^"]+)"/i;
 const TOOL_CALL_MARKUP_NAME_PATTERNS = [
+  /<(?:[a-z0-9_:-]+:)?tool_name\b[^>]*>([\s\S]*?)<\/(?:[a-z0-9_:-]+:)?tool_name>/i,
+  /<(?:[a-z0-9_:-]+:)?function_name\b[^>]*>([\s\S]*?)<\/(?:[a-z0-9_:-]+:)?function_name>/i,
   /<(?:[a-z0-9_:-]+:)?name\b[^>]*>([\s\S]*?)<\/(?:[a-z0-9_:-]+:)?name>/i,
   /<(?:[a-z0-9_:-]+:)?function\b[^>]*>([\s\S]*?)<\/(?:[a-z0-9_:-]+:)?function>/i,
 ];
@@ -56,6 +58,11 @@ function buildToolCallCandidates(text) {
   if (first >= 0 && last > first) {
     candidates.push(toStringSafe(trimmed.slice(first, last + 1)));
   }
+  const firstArr = trimmed.indexOf('[');
+  const lastArr = trimmed.lastIndexOf(']');
+  if (firstArr >= 0 && lastArr > firstArr) {
+    candidates.push(toStringSafe(trimmed.slice(firstArr, lastArr + 1)));
+  }
 
   const m = trimmed.match(TOOL_CALL_PATTERN);
   if (m && m[1]) {
@@ -76,7 +83,27 @@ function extractToolCallObjects(text) {
 
   // eslint-disable-next-line no-constant-condition
   while (true) {
-    let idx = lower.indexOf('tool_calls', offset);
+    const idxToolCalls = lower.indexOf('tool_calls', offset);
+    const idxFunction = lower.indexOf('"function"', offset);
+    const idxFunctionCall = lower.indexOf('functioncall', offset);
+    const idxToolUse = lower.indexOf('"tool_use"', offset);
+    let idx = -1;
+    let matched = '';
+    if (idxToolCalls >= 0 && (idxFunction < 0 || idxToolCalls <= idxFunction)) {
+      idx = idxToolCalls;
+      matched = 'tool_calls';
+    } else if (idxFunction >= 0) {
+      idx = idxFunction;
+      matched = '"function"';
+    }
+    if (idxFunctionCall >= 0 && (idx < 0 || idxFunctionCall < idx)) {
+      idx = idxFunctionCall;
+      matched = 'functioncall';
+    }
+    if (idxToolUse >= 0 && (idx < 0 || idxToolUse < idx)) {
+      idx = idxToolUse;
+      matched = '"tool_use"';
+    }
     if (idx < 0) {
       break;
     }
@@ -85,14 +112,17 @@ function extractToolCallObjects(text) {
       const obj = extractJSONObjectFrom(raw, start);
       if (obj.ok) {
         out.push(raw.slice(start, obj.end).trim());
-        offset = obj.end;
+        // Ensure forward progress even when the matched keyword is outside
+        // the extracted JSON object (e.g. closing XML wrapper tags containing
+        // "tool_calls" after an earlier JSON arguments object).
+        offset = Math.max(obj.end, idx + matched.length);
         idx = -1;
         break;
       }
       start = raw.slice(0, start).lastIndexOf('{');
     }
     if (idx >= 0) {
-      offset = idx + 'tool_calls'.length;
+      offset = idx + matched.length;
     }
   }
 
@@ -114,11 +144,29 @@ function parseToolCallsPayload(payload) {
     return [];
   }
   if (decoded.tool_calls) {
+    if (isLikelyChatMessageEnvelope(decoded)) {
+      return [];
+    }
     return parseToolCallList(decoded.tool_calls);
   }
 
   const one = parseToolCallItem(decoded);
   return one ? [one] : [];
+}
+
+function isLikelyChatMessageEnvelope(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+  if (!Object.prototype.hasOwnProperty.call(value, 'tool_calls')) {
+    return false;
+  }
+  const role = toStringSafe(value.role).trim().toLowerCase();
+  if (role === 'assistant' || role === 'tool' || role === 'user' || role === 'system') {
+    return true;
+  }
+  return Object.prototype.hasOwnProperty.call(value, 'tool_call_id')
+    || Object.prototype.hasOwnProperty.call(value, 'content');
 }
 
 function parseMarkupToolCalls(text) {
@@ -289,6 +337,20 @@ function parseToolCallItem(m) {
   let name = toStringSafe(m.name);
   let inputRaw = m.input;
   let hasInput = Object.prototype.hasOwnProperty.call(m, 'input');
+  const fnCall = m.functionCall && typeof m.functionCall === 'object' ? m.functionCall : null;
+  if (fnCall) {
+    if (!name) {
+      name = toStringSafe(fnCall.name);
+    }
+    if (!hasInput && Object.prototype.hasOwnProperty.call(fnCall, 'args')) {
+      inputRaw = fnCall.args;
+      hasInput = true;
+    }
+    if (!hasInput && Object.prototype.hasOwnProperty.call(fnCall, 'arguments')) {
+      inputRaw = fnCall.arguments;
+      hasInput = true;
+    }
+  }
   const fn = m.function && typeof m.function === 'object' ? m.function : null;
 
   if (fn) {

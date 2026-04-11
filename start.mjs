@@ -266,7 +266,7 @@ async function buildWebui() {
 // 启动后端（开发模式：go run，无需预编译）
 async function startBackendDev() {
   if (!checkGo()) throw new Error('未找到 Go，请先安装 Go (https://go.dev/dl/)');
-  log.info(`启动后端（go run）... http://localhost:${CONFIG.port}`);
+  log.info(`启动后端（go run）... 本地 http://127.0.0.1:${CONFIG.port}  绑定 0.0.0.0:${CONFIG.port}`);
   const proc = spawn('go', ['run', './cmd/ds2api'], {
     cwd: __dirname,
     stdio: 'inherit',
@@ -289,7 +289,7 @@ async function startBackendProd() {
     log.warn('未找到编译产物，正在编译...');
     await buildBackend();
   }
-  log.info(`启动后端（二进制）... http://localhost:${CONFIG.port}`);
+  log.info(`启动后端（二进制）... 本地 http://127.0.0.1:${CONFIG.port}  绑定 0.0.0.0:${CONFIG.port}`);
   const proc = spawn(BINARY, [], {
     cwd: __dirname,
     stdio: 'inherit',
@@ -325,8 +325,9 @@ async function startFrontend() {
 // 显示状态信息
 function showStatus() {
   console.log('\n' + '─'.repeat(50));
-  log.success(`后端 API:  http://localhost:${CONFIG.port}`);
-  log.success(`管理界面: http://localhost:${CONFIG.port}/admin`);
+  log.success(`后端 API:  http://127.0.0.1:${CONFIG.port}`);
+  log.success(`管理界面: http://127.0.0.1:${CONFIG.port}/admin`);
+  log.info(`后端绑定:  0.0.0.0:${CONFIG.port} (可通过局域网 IP 访问)`);
   if (existsSync(CONFIG.webuiDir)) {
     log.success(`前端 Dev:  http://localhost:${CONFIG.frontendPort}`);
   }

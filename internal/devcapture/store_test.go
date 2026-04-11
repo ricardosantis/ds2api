@@ -6,6 +6,35 @@ import (
 	"testing"
 )
 
+func TestNewFromEnvDefaults(t *testing.T) {
+	t.Setenv("DS2API_DEV_PACKET_CAPTURE_LIMIT", "")
+	t.Setenv("DS2API_DEV_PACKET_CAPTURE_MAX_BODY_BYTES", "")
+	t.Setenv("VERCEL", "")
+	t.Setenv("NOW_REGION", "")
+
+	s := NewFromEnv()
+	if s.Limit() != 20 {
+		t.Fatalf("expected default limit 20, got %d", s.Limit())
+	}
+	if s.MaxBodyBytes() != 5*1024*1024 {
+		t.Fatalf("expected default max body bytes 5MB, got %d", s.MaxBodyBytes())
+	}
+}
+
+func TestNewFromEnvHonorsOverrides(t *testing.T) {
+	t.Setenv("DS2API_DEV_PACKET_CAPTURE_LIMIT", "7")
+	t.Setenv("DS2API_DEV_PACKET_CAPTURE_MAX_BODY_BYTES", "8192")
+	t.Setenv("VERCEL", "")
+	t.Setenv("NOW_REGION", "")
+	s := NewFromEnv()
+	if s.Limit() != 7 {
+		t.Fatalf("expected override limit 7, got %d", s.Limit())
+	}
+	if s.MaxBodyBytes() != 8192 {
+		t.Fatalf("expected override max body bytes 8192, got %d", s.MaxBodyBytes())
+	}
+}
+
 func TestStorePushKeepsNewestWithinLimit(t *testing.T) {
 	s := &Store{enabled: true, limit: 2, maxBodyBytes: 1024}
 	for i := 0; i < 3; i++ {

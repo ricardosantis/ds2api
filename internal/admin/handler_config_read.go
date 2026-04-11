@@ -3,13 +3,20 @@ package admin
 import (
 	"net/http"
 	"strings"
+
+	"ds2api/internal/config"
 )
 
 func (h *Handler) getConfig(w http.ResponseWriter, _ *http.Request) {
 	snap := h.Store.Snapshot()
 	safe := map[string]any{
-		"keys":     snap.Keys,
-		"accounts": []map[string]any{},
+		"keys":                  snap.Keys,
+		"accounts":              []map[string]any{},
+		"proxies":               []map[string]any{},
+		"env_backed":            h.Store.IsEnvBacked(),
+		"env_source_present":    h.Store.HasEnvConfigSource(),
+		"env_writeback_enabled": h.Store.IsEnvWritebackEnabled(),
+		"config_path":           h.Store.ConfigPath(),
 		"claude_mapping": func() map[string]string {
 			if len(snap.ClaudeMapping) > 0 {
 				return snap.ClaudeMapping
@@ -32,12 +39,27 @@ func (h *Handler) getConfig(w http.ResponseWriter, _ *http.Request) {
 			"identifier":    acc.Identifier(),
 			"email":         acc.Email,
 			"mobile":        acc.Mobile,
+			"proxy_id":      acc.ProxyID,
 			"has_password":  strings.TrimSpace(acc.Password) != "",
 			"has_token":     token != "",
 			"token_preview": preview,
 		})
 	}
 	safe["accounts"] = accounts
+	proxies := make([]map[string]any, 0, len(snap.Proxies))
+	for _, proxy := range snap.Proxies {
+		proxy = config.NormalizeProxy(proxy)
+		proxies = append(proxies, map[string]any{
+			"id":           proxy.ID,
+			"name":         proxy.Name,
+			"type":         proxy.Type,
+			"host":         proxy.Host,
+			"port":         proxy.Port,
+			"username":     proxy.Username,
+			"has_password": strings.TrimSpace(proxy.Password) != "",
+		})
+	}
+	safe["proxies"] = proxies
 	writeJSON(w, http.StatusOK, safe)
 }
 

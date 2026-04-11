@@ -12,10 +12,11 @@ const MAX_AUTO_FETCH_FAILURES = 3
 
 const DEFAULT_FORM = {
     admin: { jwt_expire_hours: 24 },
-    runtime: { account_max_inflight: 2, account_max_queue: 10, global_max_inflight: 10 },
-    toolcall: { mode: 'feature_match', early_emit_confidence: 'high' },
+    runtime: { account_max_inflight: 2, account_max_queue: 10, global_max_inflight: 10, token_refresh_interval_hours: 6 },
+    compat: { strip_reference_markers: true },
     responses: { store_ttl_seconds: 900 },
     embeddings: { provider: '' },
+    auto_delete: { mode: 'none' },
     claude_mapping_text: '{\n  "fast": "deepseek-chat",\n  "slow": "deepseek-reasoner"\n}',
     model_aliases_text: '{}',
 }
@@ -37,6 +38,17 @@ function parseJSONMap(raw, fieldName, t) {
     return parsed
 }
 
+function normalizeAutoDeleteMode(raw) {
+    const mode = String(raw?.mode || '').trim().toLowerCase()
+    if (mode === 'none' || mode === 'single' || mode === 'all') {
+        return mode
+    }
+    if (Boolean(raw?.sessions)) {
+        return 'all'
+    }
+    return 'none'
+}
+
 function fromServerForm(data) {
     return {
         admin: { jwt_expire_hours: Number(data.admin?.jwt_expire_hours || 24) },
@@ -44,16 +56,19 @@ function fromServerForm(data) {
             account_max_inflight: Number(data.runtime?.account_max_inflight || 2),
             account_max_queue: Number(data.runtime?.account_max_queue || 10),
             global_max_inflight: Number(data.runtime?.global_max_inflight || 10),
+            token_refresh_interval_hours: Number(data.runtime?.token_refresh_interval_hours || 6),
         },
-        toolcall: {
-            mode: data.toolcall?.mode || 'feature_match',
-            early_emit_confidence: data.toolcall?.early_emit_confidence || 'high',
+        compat: {
+            strip_reference_markers: data.compat?.strip_reference_markers ?? true,
         },
         responses: {
             store_ttl_seconds: Number(data.responses?.store_ttl_seconds || 900),
         },
         embeddings: {
             provider: data.embeddings?.provider || '',
+        },
+        auto_delete: {
+            mode: normalizeAutoDeleteMode(data.auto_delete),
         },
         claude_mapping_text: JSON.stringify(data.claude_mapping || {}, null, 2),
         model_aliases_text: JSON.stringify(data.model_aliases || {}, null, 2),
@@ -67,13 +82,14 @@ function toServerPayload(form) {
             account_max_inflight: Number(form.runtime.account_max_inflight),
             account_max_queue: Number(form.runtime.account_max_queue),
             global_max_inflight: Number(form.runtime.global_max_inflight),
+            token_refresh_interval_hours: Number(form.runtime.token_refresh_interval_hours),
         },
-        toolcall: {
-            mode: String(form.toolcall.mode || '').trim(),
-            early_emit_confidence: String(form.toolcall.early_emit_confidence || '').trim(),
+        compat: {
+            strip_reference_markers: Boolean(form.compat?.strip_reference_markers ?? true),
         },
         responses: { store_ttl_seconds: Number(form.responses.store_ttl_seconds) },
         embeddings: { provider: String(form.embeddings.provider || '').trim() },
+        auto_delete: { mode: normalizeAutoDeleteMode(form.auto_delete) },
     }
 }
 
@@ -217,14 +233,59 @@ export function useSettingsForm({ apiFetch, t, onMessage, onRefresh, onForceLogo
             const { res, data } = await getExportData(apiFetch)
             if (!res.ok) {
                 onMessage('error', data.detail || t('settings.exportFailed'))
-                return
+                return null
             }
             setExportData(data)
             onMessage('success', t('settings.exportLoaded'))
+            return data
         } catch (_e) {
             onMessage('error', t('settings.exportFailed'))
+            return null
         }
     }, [apiFetch, onMessage, t])
+
+    const downloadExportFile = useCallback(async () => {
+        let latest = exportData
+        if (!latest?.json) {
+            const loaded = await loadExportData()
+            if (!loaded) {
+                return
+            }
+            latest = loaded
+        }
+        const jsonText = String(latest?.json || '').trim()
+        if (!jsonText) {
+            onMessage('error', t('settings.exportFailed'))
+            return
+        }
+        const blob = new Blob([jsonText], { type: 'application/json;charset=utf-8' })
+        const url = URL.createObjectURL(blob)
+        const now = new Date()
+        const pad = (n) => String(n).padStart(2, '0')
+        const filename = `ds2api-config-backup-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.json`
+        const link = document.createElement('a')
+        link.href = url
+        link.download = filename
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        URL.revokeObjectURL(url)
+        onMessage('success', t('settings.exportDownloaded'))
+    }, [exportData, loadExportData, onMessage, t])
+
+    const loadImportFile = useCallback((file) => {
+        if (!file) return
+        const reader = new FileReader()
+        reader.onload = () => {
+            const text = String(reader.result || '')
+            setImportText(text)
+            onMessage('success', t('settings.importFileLoaded'))
+        }
+        reader.onerror = () => {
+            onMessage('error', t('settings.importFileReadFailed'))
+        }
+        reader.readAsText(file, 'utf-8')
+    }, [onMessage, t])
 
     const doImport = useCallback(async () => {
         if (!String(importText || '').trim()) {
@@ -285,6 +346,8 @@ export function useSettingsForm({ apiFetch, t, onMessage, onRefresh, onForceLogo
         saveSettings,
         updatePassword,
         loadExportData,
+        downloadExportFile,
+        loadImportFile,
         doImport,
     }
 }

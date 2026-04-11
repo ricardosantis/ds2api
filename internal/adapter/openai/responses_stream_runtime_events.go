@@ -48,7 +48,7 @@ func (s *responsesStreamRuntime) processToolStreamEvents(events []toolStreamEven
 			if !s.emitEarlyToolDeltas {
 				continue
 			}
-			filtered := filterIncrementalToolCallDeltasByAllowed(evt.ToolCallDeltas, s.toolNames, s.functionNames)
+			filtered := filterIncrementalToolCallDeltasByAllowed(evt.ToolCallDeltas, s.functionNames)
 			if len(filtered) == 0 {
 				continue
 			}

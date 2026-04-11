@@ -188,8 +188,8 @@ func TestToAccountAllFields(t *testing.T) {
 	if acc.Password != "secret" {
 		t.Fatalf("unexpected password: %q", acc.Password)
 	}
-	if acc.Token != "tok123" {
-		t.Fatalf("unexpected token: %q", acc.Token)
+	if acc.Token != "" {
+		t.Fatalf("expected token to be ignored, got %q", acc.Token)
 	}
 }
 

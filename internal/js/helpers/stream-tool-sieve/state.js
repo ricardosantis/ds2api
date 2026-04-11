@@ -1,6 +1,7 @@
 'use strict';
 
-const TOOL_SIEVE_CONTEXT_TAIL_LIMIT = 256;
+// Keep in sync with Go toolSieveContextTailLimit.
+const TOOL_SIEVE_CONTEXT_TAIL_LIMIT = 2048;
 
 function createToolSieveState() {
   return {
@@ -8,6 +9,9 @@ function createToolSieveState() {
     capture: '',
     capturing: false,
     recentTextTail: '',
+    codeFenceStack: [],
+    codeFencePendingTicks: 0,
+    codeFenceLineStart: true,
     pendingToolRaw: '',
     pendingToolCalls: [],
     disableDeltas: false,
@@ -34,6 +38,7 @@ function noteText(state, text) {
   if (!state || !hasMeaningfulText(text)) {
     return;
   }
+  updateCodeFenceState(state, text);
   state.recentTextTail = appendTail(state.recentTextTail, text, TOOL_SIEVE_CONTEXT_TAIL_LIMIT);
 }
 
@@ -63,6 +68,91 @@ function insideCodeFence(text) {
   return ticks % 2 === 1;
 }
 
+function insideCodeFenceWithState(state, text) {
+  if (!state) {
+    return insideCodeFence(text);
+  }
+  const simulated = simulateCodeFenceState(
+    Array.isArray(state.codeFenceStack) ? state.codeFenceStack : [],
+    Number.isInteger(state.codeFencePendingTicks) ? state.codeFencePendingTicks : 0,
+    state.codeFenceLineStart !== false,
+    text,
+  );
+  return simulated.stack.length > 0;
+}
+
+function updateCodeFenceState(state, text) {
+  if (!state) {
+    return;
+  }
+  const next = simulateCodeFenceState(
+    Array.isArray(state.codeFenceStack) ? state.codeFenceStack : [],
+    Number.isInteger(state.codeFencePendingTicks) ? state.codeFencePendingTicks : 0,
+    state.codeFenceLineStart !== false,
+    text,
+  );
+  state.codeFenceStack = next.stack;
+  state.codeFencePendingTicks = next.pendingTicks;
+  state.codeFenceLineStart = next.lineStart;
+}
+
+function simulateCodeFenceState(stack, pendingTicks, lineStart, text) {
+  const chunk = typeof text === 'string' ? text : '';
+  const nextStack = Array.isArray(stack) ? [...stack] : [];
+  let ticks = Number.isInteger(pendingTicks) ? pendingTicks : 0;
+  let atLineStart = lineStart !== false;
+
+  const flushTicks = () => {
+    if (ticks > 0) {
+      if (atLineStart && ticks >= 3) {
+        applyFenceMarker(nextStack, ticks);
+      }
+      atLineStart = false;
+      ticks = 0;
+    }
+  };
+
+  for (let i = 0; i < chunk.length; i += 1) {
+    const ch = chunk[i];
+    if (ch === '`') {
+      ticks += 1;
+      continue;
+    }
+    flushTicks();
+    if (ch === '\n' || ch === '\r') {
+      atLineStart = true;
+      continue;
+    }
+    if ((ch === ' ' || ch === '\t') && atLineStart) {
+      continue;
+    }
+    atLineStart = false;
+  }
+  // keep ticks for cross-chunk continuation.
+  return {
+    stack: nextStack,
+    pendingTicks: ticks,
+    lineStart: atLineStart,
+  };
+}
+
+function applyFenceMarker(stack, ticks) {
+  if (!Array.isArray(stack)) {
+    return;
+  }
+  if (stack.length === 0) {
+    stack.push(ticks);
+    return;
+  }
+  const top = stack[stack.length - 1];
+  if (ticks >= top) {
+    stack.pop();
+    return;
+  }
+  // nested/open inner fence using longer marker for robustness.
+  stack.push(ticks);
+}
+
 function hasMeaningfulText(text) {
   return toStringSafe(text) !== '';
 }
@@ -88,6 +178,8 @@ module.exports = {
   appendTail,
   looksLikeToolExampleContext,
   insideCodeFence,
+  insideCodeFenceWithState,
+  updateCodeFenceState,
   hasMeaningfulText,
   toStringSafe,
 };

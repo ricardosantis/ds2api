@@ -44,109 +44,41 @@ func extractJSONObjectFrom(text string, start int) (string, int, bool) {
 	return "", 0, false
 }
 
-func findObjectFieldValueStart(text string, objStart int, keys []string) (int, bool) {
-	if objStart < 0 || objStart >= len(text) || text[objStart] != '{' {
-		return 0, false
+func trimWrappingJSONFence(prefix, suffix string) (string, string) {
+	trimmedPrefix := strings.TrimRight(prefix, " \t\r\n")
+	fenceIdx := strings.LastIndex(trimmedPrefix, "```")
+	if fenceIdx < 0 {
+		return prefix, suffix
 	}
-	depth := 0
-	quote := byte(0)
-	escaped := false
-	for i := objStart; i < len(text); i++ {
-		ch := text[i]
-		if quote != 0 {
-			if escaped {
-				escaped = false
-				continue
-			}
-			if ch == '\\' {
-				escaped = true
-				continue
-			}
-			if ch == quote {
-				quote = 0
-			}
-			continue
-		}
-		if ch == '"' || ch == '\'' {
-			if depth == 1 {
-				key, end, ok := parseJSONStringLiteral(text, i)
-				if !ok {
-					return 0, false
-				}
-				j := skipSpaces(text, end)
-				if j >= len(text) || text[j] != ':' {
-					i = end - 1
-					continue
-				}
-				j = skipSpaces(text, j+1)
-				if j >= len(text) {
-					return 0, false
-				}
-				if containsKey(keys, key) {
-					return j, true
-				}
-				i = j - 1
-				continue
-			}
-			quote = ch
-			continue
-		}
-		if ch == '{' {
-			depth++
-			continue
-		}
-		if ch == '}' {
-			depth--
-			if depth == 0 {
-				break
-			}
-		}
+	// Only strip when the trailing fence in prefix behaves like an opening fence.
+	// A legitimate closing fence before a standalone tool JSON must be preserved.
+	if strings.Count(trimmedPrefix[:fenceIdx+3], "```")%2 == 0 {
+		return prefix, suffix
 	}
-	return 0, false
+	fenceHeader := strings.TrimSpace(trimmedPrefix[fenceIdx+3:])
+	if fenceHeader != "" && !strings.EqualFold(fenceHeader, "json") {
+		return prefix, suffix
+	}
+
+	trimmedSuffix := strings.TrimLeft(suffix, " \t\r\n")
+	if !strings.HasPrefix(trimmedSuffix, "```") {
+		return prefix, suffix
+	}
+	consumedLeading := len(suffix) - len(trimmedSuffix)
+	return trimmedPrefix[:fenceIdx], suffix[consumedLeading+3:]
 }
 
-func parseJSONStringLiteral(text string, start int) (string, int, bool) {
-	if start < 0 || start >= len(text) || text[start] != '"' {
-		return "", 0, false
+func openFenceStartBefore(s string, pos int) (int, bool) {
+	if pos <= 0 || pos > len(s) {
+		return -1, false
 	}
-	var b strings.Builder
-	escaped := false
-	for i := start + 1; i < len(text); i++ {
-		ch := text[i]
-		if escaped {
-			b.WriteByte(ch)
-			escaped = false
-			continue
-		}
-		if ch == '\\' {
-			escaped = true
-			continue
-		}
-		if ch == '"' {
-			return b.String(), i + 1, true
-		}
-		b.WriteByte(ch)
+	segment := s[:pos]
+	lastFence := strings.LastIndex(segment, "```")
+	if lastFence < 0 {
+		return -1, false
 	}
-	return "", 0, false
-}
-
-func containsKey(keys []string, value string) bool {
-	for _, k := range keys {
-		if k == value {
-			return true
-		}
+	if strings.Count(segment, "```")%2 == 1 {
+		return lastFence, true
 	}
-	return false
-}
-
-func skipSpaces(text string, i int) int {
-	for i < len(text) {
-		switch text[i] {
-		case ' ', '\t', '\n', '\r':
-			i++
-		default:
-			return i
-		}
-	}
-	return i
+	return -1, false
 }

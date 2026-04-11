@@ -1,8 +1,13 @@
 {
-  "calls": [],
+  "calls": [
+    {
+      "name": "unknown_tool",
+      "input": {
+        "x": 1
+      }
+    }
+  ],
   "sawToolCallSyntax": true,
-  "rejectedByPolicy": true,
-  "rejectedToolNames": [
-    "unknown_tool"
-  ]
+  "rejectedByPolicy": false,
+  "rejectedToolNames": []
 }
