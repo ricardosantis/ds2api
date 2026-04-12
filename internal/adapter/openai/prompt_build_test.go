@@ -40,7 +40,7 @@ func TestBuildOpenAIFinalPrompt_HandlerPathIncludesToolRoundtripSemantics(t *tes
 		},
 	}
 
-	finalPrompt, toolNames := buildOpenAIFinalPrompt(messages, tools, "")
+	finalPrompt, toolNames := buildOpenAIFinalPrompt(messages, tools, "", false)
 	if len(toolNames) != 1 || toolNames[0] != "get_weather" {
 		t.Fatalf("unexpected tool names: %#v", toolNames)
 	}
@@ -73,7 +73,7 @@ func TestBuildOpenAIFinalPrompt_VercelPreparePathKeepsFinalAnswerInstruction(t *
 		},
 	}
 
-	finalPrompt, _ := buildOpenAIFinalPrompt(messages, tools, "")
+	finalPrompt, _ := buildOpenAIFinalPrompt(messages, tools, "", false)
 	if !strings.Contains(finalPrompt, "Remember: Output ONLY the <tool_calls>...</tool_calls> XML block when calling tools.") {
 		t.Fatalf("vercel prepare finalPrompt missing final tool-call anchor instruction: %q", finalPrompt)
 	}

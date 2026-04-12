@@ -12,7 +12,7 @@ func TestMessagesPrepareBasic(t *testing.T) {
 	if got == "" {
 		t.Fatal("expected non-empty prompt")
 	}
-	if got != "<｜User｜>\nHello<｜end▁of▁sentence｜>" {
+	if got != "<｜begin▁of▁sentence｜>\n\n<｜User｜>\nHello<｜end▁of▁sentence｜>\n\n<｜Assistant｜></think>" {
 		t.Fatalf("unexpected prompt: %q", got)
 	}
 }
@@ -29,10 +29,13 @@ func TestMessagesPrepareRoles(t *testing.T) {
 	if !contains(got, "<｜System｜>\nYou are helper<｜end▁of▁instructions｜>\n\n<｜User｜>\nHi<｜end▁of▁sentence｜>") {
 		t.Fatalf("expected system/user separation in %q", got)
 	}
-	if !contains(got, "<｜User｜>\nHi<｜end▁of▁sentence｜>\n\n<｜Assistant｜>\nHello<｜end▁of▁sentence｜>") {
+	if !contains(got, "<｜begin▁of▁sentence｜>") {
+		t.Fatalf("expected begin marker in %q", got)
+	}
+	if !contains(got, "<｜User｜>\nHi<｜end▁of▁sentence｜>\n\n<｜Assistant｜>\n</think>Hello<｜end▁of▁sentence｜>") {
 		t.Fatalf("expected user/assistant separation in %q", got)
 	}
-	if !contains(got, "<｜Assistant｜>\nHello<｜end▁of▁sentence｜>\n\n<｜Tool｜>\nSearch results<｜end▁of▁toolresults｜>") {
+	if !contains(got, "<｜Assistant｜>\n</think>Hello<｜end▁of▁sentence｜>\n\n<｜Tool｜>\nSearch results<｜end▁of▁toolresults｜>") {
 		t.Fatalf("expected assistant/tool separation in %q", got)
 	}
 	if !contains(got, "<｜Tool｜>\nSearch results<｜end▁of▁toolresults｜>\n\n<｜User｜>\nHow are you<｜end▁of▁sentence｜>") {
@@ -74,7 +77,7 @@ func TestMessagesPrepareArrayTextVariants(t *testing.T) {
 		},
 	}
 	got := MessagesPrepare(messages)
-	if got != "<｜User｜>\nline1\nline2<｜end▁of▁sentence｜>" {
+	if got != "<｜begin▁of▁sentence｜>\n\n<｜User｜>\nline1\nline2<｜end▁of▁sentence｜>\n\n<｜Assistant｜></think>" {
 		t.Fatalf("unexpected content from text variants: %q", got)
 	}
 }

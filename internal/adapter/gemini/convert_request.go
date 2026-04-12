@@ -28,7 +28,7 @@ func normalizeGeminiRequest(store ConfigReader, routeModel string, req map[strin
 	}
 
 	toolsRaw := convertGeminiTools(req["tools"])
-	finalPrompt, toolNames := openai.BuildPromptForAdapter(messagesRaw, toolsRaw, "")
+	finalPrompt, toolNames := openai.BuildPromptForAdapter(messagesRaw, toolsRaw, "", thinkingEnabled)
 	passThrough := collectGeminiPassThrough(req)
 
 	return util.StandardRequest{

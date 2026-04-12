@@ -162,7 +162,7 @@ func TestMessagesPrepareMergesConsecutiveSameRole(t *testing.T) {
 		{"role": "user", "content": "World"},
 	}
 	got := MessagesPrepare(messages)
-	if !strings.HasPrefix(got, "<｜User｜>") {
+	if !strings.HasPrefix(got, "<｜begin▁of▁sentence｜>") {
 		t.Fatalf("expected user marker at the start, got %q", got)
 	}
 	if !strings.Contains(got, "Hello") || !strings.Contains(got, "World") {
@@ -193,7 +193,7 @@ func TestMessagesPrepareAssistantMarkers(t *testing.T) {
 	if strings.Count(got, "<｜end▁of▁sentence｜>") != 2 {
 		t.Fatalf("expected both turns to be terminated, got %q", got)
 	}
-	if !strings.Contains(got, "<｜Assistant｜>\nHello!<｜end▁of▁sentence｜>") {
+	if !strings.Contains(got, "<｜Assistant｜>\n</think>Hello!<｜end▁of▁sentence｜>") {
 		t.Fatalf("expected assistant EOS suffix, got %q", got)
 	}
 	if strings.Contains(got, "<system_instructions>") {
