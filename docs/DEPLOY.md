@@ -258,11 +258,21 @@ VERCEL_TEAM_ID=team_xxxxxxxxxxxx   # 个人账号可留空
 | `DS2API_GLOBAL_MAX_INFLIGHT` | 全局并发上限 | `recommended_concurrency` |
 | `DS2API_ENV_WRITEBACK` | 检测到 `DS2API_CONFIG_JSON` 时自动写入 `DS2API_CONFIG_PATH`，并在成功后转为文件模式（`1/true/yes/on`） | 关闭 |
 | `DS2API_VERCEL_INTERNAL_SECRET` | 混合流式内部鉴权 | 回退用 `DS2API_ADMIN_KEY` |
-| `DS2API_VERCEL_STREAM_LEASE_TTL_SECONDS` | 流式 lease TTL | `900` |
+| `DS2API_VERCEL_STREAM_LEASE_TTL_SECONDS` | 流式 lease TTL | 默认与 `responses.store_ttl_seconds` 同步，若未设置则为 `900` |
 | `VERCEL_TOKEN` | Vercel 同步 token | — |
 | `VERCEL_PROJECT_ID` | Vercel 项目 ID | — |
 | `VERCEL_TEAM_ID` | Vercel 团队 ID | — |
 | `DS2API_VERCEL_PROTECTION_BYPASS` | 部署保护绕过密钥（内部 Node→Go 调用） | — |
+
+### 3.3 运行时行为配置（通过 Admin API 设置）
+
+部分运行时行为无法通过环境变量直接配置，需要在部署后通过 Admin API 设置，例如：
+
+- **自动删除会话模式** (`auto_delete.mode`)：支持 `none` / `single` / `all`，默认为 `none`。可通过 `PUT /admin/settings` 更新。
+- **每账号并发上限** (`account_max_inflight`)：环境变量已支持，但也可通过 Admin API 热更新。
+- **全局并发上限** (`global_max_inflight`)：同上。
+
+详细说明参见 [API.md](../API.md#admin-接口) 中 `/admin/settings` 部分。
 
 ### 3.3 Vercel 架构说明
 

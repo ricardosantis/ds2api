@@ -761,6 +761,11 @@ data: {"type":"message_stop"}
 
 导出完整配置，返回 `config`、`json`、`base64` 三种格式。
 
+响应示例：
+
+
+> 注：`_vercel_sync_hash` 和 `_vercel_sync_time` 为内部同步元数据字段，用于 Vercel 配置漂移检测。
+
 ### `POST /admin/keys`
 
 ```json
