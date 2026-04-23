@@ -11,6 +11,7 @@ func (h *Handler) getConfig(w http.ResponseWriter, _ *http.Request) {
 	snap := h.Store.Snapshot()
 	safe := map[string]any{
 		"keys":                  snap.Keys,
+		"api_keys":              snap.APIKeys,
 		"accounts":              []map[string]any{},
 		"proxies":               []map[string]any{},
 		"env_backed":            h.Store.IsEnvBacked(),
@@ -37,6 +38,8 @@ func (h *Handler) getConfig(w http.ResponseWriter, _ *http.Request) {
 		}
 		accounts = append(accounts, map[string]any{
 			"identifier":    acc.Identifier(),
+			"name":          acc.Name,
+			"remark":        acc.Remark,
 			"email":         acc.Email,
 			"mobile":        acc.Mobile,
 			"proxy_id":      acc.ProxyID,

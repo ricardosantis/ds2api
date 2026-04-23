@@ -35,6 +35,12 @@ func preview(b []byte) string {
 	return s
 }
 
+func (c *Client) jsonHeaders(headers map[string]string) map[string]string {
+	out := cloneStringMap(headers)
+	out["Content-Type"] = "application/json"
+	return out
+}
+
 func ScanSSELines(resp *http.Response, onLine func([]byte) bool) error {
 	scanner := bufio.NewScanner(resp.Body)
 	buf := make([]byte, 0, 64*1024)

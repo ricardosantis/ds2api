@@ -33,6 +33,8 @@ type ConfigStore interface {
 	RuntimeGlobalMaxInflight(defaultSize int) int
 	RuntimeTokenRefreshIntervalHours() int
 	AutoDeleteMode() string
+	HistorySplitEnabled() bool
+	HistorySplitTriggerAfterTurns() int
 	CompatStripReferenceMarkers() bool
 	AutoDeleteSessions() bool
 }

@@ -82,11 +82,17 @@ func (s geminiOpenAIErrorStub) ChatCompletions(w http.ResponseWriter, _ *http.Re
 }
 
 type geminiOpenAISuccessStub struct {
-	stream bool
-	body   string
+	stream  bool
+	body    string
+	seenReq map[string]any
 }
 
-func (s geminiOpenAISuccessStub) ChatCompletions(w http.ResponseWriter, _ *http.Request) {
+func (s *geminiOpenAISuccessStub) ChatCompletions(w http.ResponseWriter, r *http.Request) {
+	if r != nil {
+		var req map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		s.seenReq = req
+	}
 	if s.stream {
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
@@ -144,7 +150,7 @@ func TestGeminiRoutesRegistered(t *testing.T) {
 func TestGenerateContentReturnsFunctionCallParts(t *testing.T) {
 	h := &Handler{
 		Store: testGeminiConfig{},
-		OpenAI: geminiOpenAISuccessStub{
+		OpenAI: &geminiOpenAISuccessStub{
 			body: `{"id":"chatcmpl-1","object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","tool_calls":[{"id":"call_1","type":"function","function":{"name":"eval_javascript","arguments":"{\"code\":\"1+1\"}"}}]},"finish_reason":"tool_calls"}]}`,
 		},
 	}
@@ -184,7 +190,7 @@ func TestGenerateContentReturnsFunctionCallParts(t *testing.T) {
 }
 
 func TestGenerateContentMixedToolSnippetAlsoTriggersFunctionCall(t *testing.T) {
-	h := &Handler{Store: testGeminiConfig{}, OpenAI: geminiOpenAISuccessStub{}}
+	h := &Handler{Store: testGeminiConfig{}, OpenAI: &geminiOpenAISuccessStub{}}
 	r := chi.NewRouter()
 	RegisterRoutes(r, h)
 
@@ -217,7 +223,7 @@ func TestGenerateContentMixedToolSnippetAlsoTriggersFunctionCall(t *testing.T) {
 func TestStreamGenerateContentEmitsSSE(t *testing.T) {
 	h := &Handler{
 		Store:  testGeminiConfig{},
-		OpenAI: geminiOpenAISuccessStub{stream: true},
+		OpenAI: &geminiOpenAISuccessStub{stream: true},
 	}
 	r := chi.NewRouter()
 	RegisterRoutes(r, h)
@@ -248,6 +254,39 @@ func TestStreamGenerateContentEmitsSSE(t *testing.T) {
 	parts, _ := content["parts"].([]any)
 	if len(parts) == 0 {
 		t.Fatalf("expected non-empty parts in finish frame content, got %#v", content)
+	}
+}
+
+func TestGeminiProxyTranslatesInlineImageToOpenAIDataURL(t *testing.T) {
+	openAI := &geminiOpenAISuccessStub{}
+	h := &Handler{Store: testGeminiConfig{}, OpenAI: openAI}
+	r := chi.NewRouter()
+	RegisterRoutes(r, h)
+
+	body := `{"contents":[{"role":"user","parts":[{"text":"hello"},{"inlineData":{"mimeType":"image/png","data":"QUJDRA=="}}]}]}`
+	req := httptest.NewRequest(http.MethodPost, "/v1beta/models/gemini-2.5-pro:generateContent", strings.NewReader(body))
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	messages, _ := openAI.seenReq["messages"].([]any)
+	if len(messages) != 1 {
+		t.Fatalf("expected one translated message, got %#v", openAI.seenReq)
+	}
+	msg, _ := messages[0].(map[string]any)
+	content, _ := msg["content"].([]any)
+	if len(content) != 2 {
+		t.Fatalf("expected translated content blocks, got %#v", msg)
+	}
+	imageBlock, _ := content[1].(map[string]any)
+	if strings.TrimSpace(asString(imageBlock["type"])) != "image_url" {
+		t.Fatalf("expected image_url block, got %#v", imageBlock)
+	}
+	imageURL, _ := imageBlock["image_url"].(map[string]any)
+	if !strings.HasPrefix(strings.TrimSpace(asString(imageURL["url"])), "data:image/png;base64,") {
+		t.Fatalf("expected translated data url, got %#v", imageBlock)
 	}
 }
 

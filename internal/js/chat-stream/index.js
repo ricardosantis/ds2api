@@ -18,6 +18,7 @@ const {
   normalizePreparedToolNames,
   boolDefaultTrue,
   filterIncrementalToolCallDeltasByAllowed,
+  resetStreamToolCallState,
 } = require('./toolcall_policy');
 const {
   estimateTokens,
@@ -115,6 +116,7 @@ module.exports.__test = {
   normalizePreparedToolNames,
   boolDefaultTrue,
   filterIncrementalToolCallDeltasByAllowed,
+  resetStreamToolCallState,
   estimateTokens,
   buildUsage,
   filterLeakedContentFilterParts,

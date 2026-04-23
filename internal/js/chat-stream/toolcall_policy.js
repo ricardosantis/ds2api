@@ -98,6 +98,15 @@ function filterIncrementalToolCallDeltasByAllowed(deltas, allowedNames, seenName
   return out;
 }
 
+function resetStreamToolCallState(idStore, seenNames) {
+  if (idStore instanceof Map) {
+    idStore.clear();
+  }
+  if (seenNames instanceof Map) {
+    seenNames.clear();
+  }
+}
+
 function ensureStreamToolCallID(idStore, index) {
   const key = Number.isInteger(index) ? index : 0;
   const existing = idStore.get(key);
@@ -135,4 +144,5 @@ module.exports = {
   boolDefaultTrue,
   formatIncrementalToolCallDeltas,
   filterIncrementalToolCallDeltasByAllowed,
+  resetStreamToolCallState,
 };

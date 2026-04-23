@@ -19,7 +19,9 @@ func (h *Handler) updateConfig(w http.ResponseWriter, r *http.Request) {
 	}
 	old := h.Store.Snapshot()
 	err := h.Store.Update(func(c *config.Config) error {
-		if keys, ok := toStringSlice(req["keys"]); ok {
+		if apiKeys, ok := toAPIKeys(req["api_keys"]); ok {
+			c.APIKeys = apiKeys
+		} else if keys, ok := toStringSlice(req["keys"]); ok {
 			c.Keys = keys
 		}
 		if accountsRaw, ok := req["accounts"].([]any); ok {
@@ -78,17 +80,19 @@ func (h *Handler) addKey(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewDecoder(r.Body).Decode(&req)
 	key, _ := req["key"].(string)
 	key = strings.TrimSpace(key)
+	name := fieldString(req, "name")
+	remark := fieldString(req, "remark")
 	if key == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"detail": "Key 不能为空"})
 		return
 	}
 	err := h.Store.Update(func(c *config.Config) error {
-		for _, k := range c.Keys {
-			if k == key {
+		for _, item := range c.APIKeys {
+			if item.Key == key {
 				return fmt.Errorf("key 已存在")
 			}
 		}
-		c.Keys = append(c.Keys, key)
+		c.APIKeys = append(c.APIKeys, config.APIKey{Key: key, Name: name, Remark: remark})
 		return nil
 	})
 	if err != nil {
@@ -98,12 +102,25 @@ func (h *Handler) addKey(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"success": true, "total_keys": len(h.Store.Snapshot().Keys)})
 }
 
-func (h *Handler) deleteKey(w http.ResponseWriter, r *http.Request) {
-	key := chi.URLParam(r, "key")
+func (h *Handler) updateKey(w http.ResponseWriter, r *http.Request) {
+	key := strings.TrimSpace(chi.URLParam(r, "key"))
+	if key == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"detail": "key 不能为空"})
+		return
+	}
+
+	var req map[string]any
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"detail": "invalid json"})
+		return
+	}
+	name, nameOK := fieldStringOptional(req, "name")
+	remark, remarkOK := fieldStringOptional(req, "remark")
+
 	err := h.Store.Update(func(c *config.Config) error {
 		idx := -1
-		for i, k := range c.Keys {
-			if k == key {
+		for i, item := range c.APIKeys {
+			if item.Key == key {
 				idx = i
 				break
 			}
@@ -111,7 +128,35 @@ func (h *Handler) deleteKey(w http.ResponseWriter, r *http.Request) {
 		if idx < 0 {
 			return fmt.Errorf("key 不存在")
 		}
-		c.Keys = append(c.Keys[:idx], c.Keys[idx+1:]...)
+		if nameOK {
+			c.APIKeys[idx].Name = name
+		}
+		if remarkOK {
+			c.APIKeys[idx].Remark = remark
+		}
+		return nil
+	})
+	if err != nil {
+		writeJSON(w, http.StatusNotFound, map[string]any{"detail": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "total_keys": len(h.Store.Snapshot().Keys)})
+}
+
+func (h *Handler) deleteKey(w http.ResponseWriter, r *http.Request) {
+	key := chi.URLParam(r, "key")
+	err := h.Store.Update(func(c *config.Config) error {
+		idx := -1
+		for i, item := range c.APIKeys {
+			if item.Key == key {
+				idx = i
+				break
+			}
+		}
+		if idx < 0 {
+			return fmt.Errorf("key 不存在")
+		}
+		c.APIKeys = append(c.APIKeys[:idx], c.APIKeys[idx+1:]...)
 		return nil
 	})
 	if err != nil {
@@ -129,20 +174,23 @@ func (h *Handler) batchImport(w http.ResponseWriter, r *http.Request) {
 	}
 	importedKeys, importedAccounts := 0, 0
 	err := h.Store.Update(func(c *config.Config) error {
+		if apiKeys, ok := toAPIKeys(req["api_keys"]); ok {
+			var changed int
+			c.APIKeys, changed = mergeAPIKeysPreferStructured(c.APIKeys, apiKeys)
+			importedKeys += changed
+		}
 		if keys, ok := req["keys"].([]any); ok {
-			existing := map[string]bool{}
-			for _, k := range c.Keys {
-				existing[k] = true
-			}
+			legacy := make([]config.APIKey, 0, len(keys))
 			for _, k := range keys {
 				key := strings.TrimSpace(fmt.Sprintf("%v", k))
-				if key == "" || existing[key] {
+				if key == "" {
 					continue
 				}
-				c.Keys = append(c.Keys, key)
-				existing[key] = true
-				importedKeys++
+				legacy = append(legacy, config.APIKey{Key: key})
 			}
+			var changed int
+			c.APIKeys, changed = mergeAPIKeysPreferStructured(c.APIKeys, legacy)
+			importedKeys += changed
 		}
 		if accounts, ok := req["accounts"].([]any); ok {
 			existing := map[string]bool{}

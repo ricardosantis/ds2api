@@ -154,6 +154,10 @@ func TestConfigJSONRoundtrip(t *testing.T) {
 		AutoDelete: AutoDeleteConfig{
 			Mode: "single",
 		},
+		HistorySplit: HistorySplitConfig{
+			Enabled:           &trueVal,
+			TriggerAfterTurns: func() *int { v := 2; return &v }(),
+		},
 		Runtime: RuntimeConfig{
 			TokenRefreshIntervalHours: 12,
 		},
@@ -192,6 +196,12 @@ func TestConfigJSONRoundtrip(t *testing.T) {
 	}
 	if decoded.AutoDelete.Mode != "single" {
 		t.Fatalf("unexpected auto delete mode: %#v", decoded.AutoDelete.Mode)
+	}
+	if decoded.HistorySplit.Enabled == nil || !*decoded.HistorySplit.Enabled {
+		t.Fatalf("unexpected history split enabled: %#v", decoded.HistorySplit.Enabled)
+	}
+	if decoded.HistorySplit.TriggerAfterTurns == nil || *decoded.HistorySplit.TriggerAfterTurns != 2 {
+		t.Fatalf("unexpected history split trigger_after_turns: %#v", decoded.HistorySplit.TriggerAfterTurns)
 	}
 	if decoded.Compat.WideInputStrictOutput == nil || !*decoded.Compat.WideInputStrictOutput {
 		t.Fatalf("unexpected compat wide_input_strict_output: %#v", decoded.Compat.WideInputStrictOutput)
@@ -249,6 +259,8 @@ func TestConfigUnmarshalJSONPreservesUnknownFields(t *testing.T) {
 
 func TestConfigCloneIsDeepCopy(t *testing.T) {
 	falseVal := false
+	trueVal := true
+	turns := 2
 	cfg := Config{
 		Keys:     []string{"key1"},
 		Accounts: []Account{{Email: "user@test.com", Token: "token"}},
@@ -257,6 +269,10 @@ func TestConfigCloneIsDeepCopy(t *testing.T) {
 		},
 		Compat: CompatConfig{
 			StripReferenceMarkers: &falseVal,
+		},
+		HistorySplit: HistorySplitConfig{
+			Enabled:           &trueVal,
+			TriggerAfterTurns: &turns,
 		},
 		AdditionalFields: map[string]any{"custom": "value"},
 	}
@@ -269,6 +285,12 @@ func TestConfigCloneIsDeepCopy(t *testing.T) {
 	cfg.ClaudeMapping["fast"] = "modified-model"
 	if cfg.Compat.StripReferenceMarkers != nil {
 		*cfg.Compat.StripReferenceMarkers = true
+	}
+	if cfg.HistorySplit.Enabled != nil {
+		*cfg.HistorySplit.Enabled = false
+	}
+	if cfg.HistorySplit.TriggerAfterTurns != nil {
+		*cfg.HistorySplit.TriggerAfterTurns = 5
 	}
 
 	// Cloned should not be affected
@@ -283,6 +305,12 @@ func TestConfigCloneIsDeepCopy(t *testing.T) {
 	}
 	if cloned.Compat.StripReferenceMarkers == nil || *cloned.Compat.StripReferenceMarkers {
 		t.Fatalf("clone compat was affected: %#v", cloned.Compat.StripReferenceMarkers)
+	}
+	if cloned.HistorySplit.Enabled == nil || !*cloned.HistorySplit.Enabled {
+		t.Fatalf("clone history split enabled was affected: %#v", cloned.HistorySplit.Enabled)
+	}
+	if cloned.HistorySplit.TriggerAfterTurns == nil || *cloned.HistorySplit.TriggerAfterTurns != 2 {
+		t.Fatalf("clone history split trigger was affected: %#v", cloned.HistorySplit.TriggerAfterTurns)
 	}
 }
 
@@ -526,6 +554,101 @@ func TestStoreUpdate(t *testing.T) {
 	}
 	if !store.HasAPIKey("k2") {
 		t.Fatal("expected k2 after update")
+	}
+}
+
+func TestStoreUpdateReconcilesAPIKeyMutations(t *testing.T) {
+	t.Setenv("DS2API_CONFIG_JSON", `{
+		"keys":["k1"],
+		"api_keys":[{"key":"k1","name":"primary","remark":"prod"}],
+		"accounts":[]
+	}`)
+	store := LoadStore()
+
+	if err := store.Update(func(cfg *Config) error {
+		cfg.APIKeys = append(cfg.APIKeys, APIKey{Key: "k2", Name: "secondary", Remark: "staging"})
+		return nil
+	}); err != nil {
+		t.Fatalf("add api key failed: %v", err)
+	}
+
+	snap := store.Snapshot()
+	if len(snap.Keys) != 2 || snap.Keys[0] != "k1" || snap.Keys[1] != "k2" {
+		t.Fatalf("unexpected keys after api key add: %#v", snap.Keys)
+	}
+	if len(snap.APIKeys) != 2 {
+		t.Fatalf("unexpected api keys length after add: %#v", snap.APIKeys)
+	}
+	if snap.APIKeys[0].Name != "primary" || snap.APIKeys[0].Remark != "prod" {
+		t.Fatalf("metadata for existing key was lost: %#v", snap.APIKeys[0])
+	}
+	if snap.APIKeys[1].Name != "secondary" || snap.APIKeys[1].Remark != "staging" {
+		t.Fatalf("metadata for new key was lost: %#v", snap.APIKeys[1])
+	}
+
+	if err := store.Update(func(cfg *Config) error {
+		cfg.APIKeys = append([]APIKey(nil), cfg.APIKeys[1:]...)
+		return nil
+	}); err != nil {
+		t.Fatalf("delete api key failed: %v", err)
+	}
+
+	snap = store.Snapshot()
+	if len(snap.Keys) != 1 || snap.Keys[0] != "k2" {
+		t.Fatalf("unexpected keys after api key delete: %#v", snap.Keys)
+	}
+	if len(snap.APIKeys) != 1 || snap.APIKeys[0].Key != "k2" {
+		t.Fatalf("unexpected api keys after delete: %#v", snap.APIKeys)
+	}
+}
+
+func TestStoreUpdateReconcilesLegacyKeyMutations(t *testing.T) {
+	t.Setenv("DS2API_CONFIG_JSON", `{
+		"keys":["k1"],
+		"api_keys":[{"key":"k1","name":"primary","remark":"prod"}],
+		"accounts":[]
+	}`)
+	store := LoadStore()
+
+	if err := store.Update(func(cfg *Config) error {
+		cfg.Keys = append(cfg.Keys, "k2")
+		return nil
+	}); err != nil {
+		t.Fatalf("legacy key update failed: %v", err)
+	}
+
+	snap := store.Snapshot()
+	if len(snap.Keys) != 2 || snap.Keys[0] != "k1" || snap.Keys[1] != "k2" {
+		t.Fatalf("unexpected keys after legacy update: %#v", snap.Keys)
+	}
+	if len(snap.APIKeys) != 2 {
+		t.Fatalf("unexpected api keys after legacy update: %#v", snap.APIKeys)
+	}
+	if snap.APIKeys[0].Name != "primary" || snap.APIKeys[0].Remark != "prod" {
+		t.Fatalf("metadata for preserved key was lost: %#v", snap.APIKeys[0])
+	}
+	if snap.APIKeys[1].Key != "k2" || snap.APIKeys[1].Name != "" || snap.APIKeys[1].Remark != "" {
+		t.Fatalf("new legacy key should stay metadata-free: %#v", snap.APIKeys[1])
+	}
+}
+
+func TestNormalizeCredentialsPrefersStructuredAPIKeys(t *testing.T) {
+	cfg := Config{
+		Keys: []string{"legacy-key"},
+		APIKeys: []APIKey{
+			{Key: "structured-key", Name: "primary", Remark: "prod"},
+		},
+	}
+	cfg.NormalizeCredentials()
+
+	if len(cfg.Keys) != 1 || cfg.Keys[0] != "structured-key" {
+		t.Fatalf("unexpected normalized keys: %#v", cfg.Keys)
+	}
+	if len(cfg.APIKeys) != 1 {
+		t.Fatalf("unexpected normalized api keys: %#v", cfg.APIKeys)
+	}
+	if cfg.APIKeys[0].Key != "structured-key" || cfg.APIKeys[0].Name != "primary" || cfg.APIKeys[0].Remark != "prod" {
+		t.Fatalf("unexpected structured api key metadata: %#v", cfg.APIKeys[0])
 	}
 }
 

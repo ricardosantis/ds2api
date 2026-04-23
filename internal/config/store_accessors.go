@@ -174,3 +174,21 @@ func (s *Store) RuntimeTokenRefreshIntervalHours() int {
 func (s *Store) AutoDeleteSessions() bool {
 	return s.AutoDeleteMode() != "none"
 }
+
+func (s *Store) HistorySplitEnabled() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.cfg.HistorySplit.Enabled == nil {
+		return true
+	}
+	return *s.cfg.HistorySplit.Enabled
+}
+
+func (s *Store) HistorySplitTriggerAfterTurns() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.cfg.HistorySplit.TriggerAfterTurns == nil || *s.cfg.HistorySplit.TriggerAfterTurns <= 0 {
+		return 1
+	}
+	return *s.cfg.HistorySplit.TriggerAfterTurns
+}

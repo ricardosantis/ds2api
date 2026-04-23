@@ -2,13 +2,16 @@ package admin
 
 import (
 	"github.com/go-chi/chi/v5"
+
+	"ds2api/internal/chathistory"
 )
 
 type Handler struct {
-	Store  ConfigStore
-	Pool   PoolController
-	DS     DeepSeekCaller
-	OpenAI OpenAIChatCaller
+	Store       ConfigStore
+	Pool        PoolController
+	DS          DeepSeekCaller
+	OpenAI      OpenAIChatCaller
+	ChatHistory *chathistory.Store
 }
 
 func RegisterRoutes(r chi.Router, h *Handler) {
@@ -25,6 +28,7 @@ func RegisterRoutes(r chi.Router, h *Handler) {
 		pr.Post("/config/import", h.configImport)
 		pr.Get("/config/export", h.configExport)
 		pr.Post("/keys", h.addKey)
+		pr.Put("/keys/{key}", h.updateKey)
 		pr.Delete("/keys/{key}", h.deleteKey)
 		pr.Get("/proxies", h.listProxies)
 		pr.Post("/proxies", h.addProxy)
@@ -33,6 +37,7 @@ func RegisterRoutes(r chi.Router, h *Handler) {
 		pr.Post("/proxies/test", h.testProxy)
 		pr.Get("/accounts", h.listAccounts)
 		pr.Post("/accounts", h.addAccount)
+		pr.Put("/accounts/{identifier}", h.updateAccount)
 		pr.Delete("/accounts/{identifier}", h.deleteAccount)
 		pr.Put("/accounts/{identifier}/proxy", h.updateAccountProxy)
 		pr.Get("/queue/status", h.queueStatus)
@@ -50,6 +55,11 @@ func RegisterRoutes(r chi.Router, h *Handler) {
 		pr.Get("/export", h.exportConfig)
 		pr.Get("/dev/captures", h.getDevCaptures)
 		pr.Delete("/dev/captures", h.clearDevCaptures)
+		pr.Get("/chat-history", h.getChatHistory)
+		pr.Get("/chat-history/{id}", h.getChatHistoryItem)
+		pr.Delete("/chat-history", h.clearChatHistory)
+		pr.Delete("/chat-history/{id}", h.deleteChatHistoryItem)
+		pr.Put("/chat-history/settings", h.updateChatHistorySettings)
 		pr.Get("/version", h.getVersion)
 	})
 }

@@ -41,6 +41,36 @@ func TestNormalizeOpenAIChatRequest(t *testing.T) {
 	}
 }
 
+func TestNormalizeOpenAIChatRequestCollectsRefFileIDs(t *testing.T) {
+	store := newEmptyStoreForNormalizeTest(t)
+	req := map[string]any{
+		"model": "gpt-5-codex",
+		"messages": []any{
+			map[string]any{
+				"role": "user",
+				"content": []any{
+					map[string]any{"type": "input_text", "text": "hello"},
+					map[string]any{"type": "input_file", "file_id": "file-msg"},
+				},
+			},
+		},
+		"attachments": []any{
+			map[string]any{"file_id": "file-attachment"},
+		},
+		"ref_file_ids": []any{"file-top", "file-attachment"},
+	}
+	n, err := normalizeOpenAIChatRequest(store, req, "")
+	if err != nil {
+		t.Fatalf("normalize failed: %v", err)
+	}
+	if len(n.RefFileIDs) != 3 {
+		t.Fatalf("expected 3 distinct file ids, got %#v", n.RefFileIDs)
+	}
+	if n.RefFileIDs[0] != "file-top" || n.RefFileIDs[1] != "file-attachment" || n.RefFileIDs[2] != "file-msg" {
+		t.Fatalf("unexpected file ids: %#v", n.RefFileIDs)
+	}
+}
+
 func TestNormalizeOpenAIResponsesRequestInput(t *testing.T) {
 	store := newEmptyStoreForNormalizeTest(t)
 	req := map[string]any{

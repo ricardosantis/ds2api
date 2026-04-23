@@ -10,16 +10,28 @@
 
 ## 目录
 
+- [部署方式优先级建议](#部署方式优先级建议)
 - [前置要求](#0-前置要求)
-- [一、本地运行](#一本地运行)
-- [二、Docker 部署](#二docker-部署)
+- [一、下载 Release 构建包](#一下载-release-构建包)
+- [二、Docker / GHCR 部署](#二docker--ghcr-部署)
 - [三、Vercel 部署](#三vercel-部署)
 - [四、Heroku 部署](#四heroku-部署)
-- [五、下载 Release 构建包](#四下载-release-构建包)
+- [五、本地源码运行](#五本地源码运行)
 - [六、反向代理（Nginx）](#五反向代理nginx)
 - [七、Linux systemd 服务化](#六linux-systemd-服务化)
 - [八、部署后检查](#七部署后检查)
 - [九、发布前进行本地回归](#八发布前进行本地回归)
+
+---
+
+## 部署方式优先级建议
+
+推荐按以下顺序选择部署方式：
+
+1. **下载 Release 构建包运行**：最省事，产物已编译完成，最适合大多数用户。
+2. **Docker / GHCR 镜像部署**：适合需要容器化、编排或云环境部署。
+3. **Vercel 部署**：适合已有 Vercel 环境且接受其平台约束的场景。
+4. **本地源码运行 / 自行编译**：适合开发、调试或需要自行修改代码的场景。
 
 ---
 
@@ -49,70 +61,59 @@ cp config.example.json config.json
 
 ---
 
-## 一、本地运行
+## 一、下载 Release 构建包
 
-### 1.1 基本步骤
+仓库内置 GitHub Actions 工作流：`.github/workflows/release-artifacts.yml`
+
+- **触发条件**：仅在 Release `published` 时触发（普通 push 不会构建）
+- **构建产物**：多平台二进制压缩包 + `sha256sums.txt`
+- **容器镜像发布**：仅发布到 GHCR（`ghcr.io/cjackhwang/ds2api`）
+
+| 平台 | 架构 | 文件格式 |
+| --- | --- | --- |
+| Linux | amd64, arm64 | `.tar.gz` |
+| macOS | amd64, arm64 | `.tar.gz` |
+| Windows | amd64 | `.zip` |
+
+每个压缩包包含：
+
+- `ds2api` 可执行文件（Windows 为 `ds2api.exe`）
+- `static/admin/`（WebUI 构建产物）
+- `config.example.json`、`.env.example`
+- `README.MD`、`README.en.md`、`LICENSE`
+
+### 使用步骤
 
 ```bash
-# 克隆仓库
-git clone https://github.com/CJackHwang/ds2api.git
-cd ds2api
+# 1. 下载对应平台的压缩包
+# 2. 解压
+tar -xzf ds2api_<tag>_linux_amd64.tar.gz
+cd ds2api_<tag>_linux_amd64
 
-# 复制并编辑配置
+# 3. 配置
 cp config.example.json config.json
-# 使用你喜欢的编辑器打开 config.json，填入：
-#   - keys: 你的 API 访问密钥
-#   - accounts: DeepSeek 账号（email 或 mobile + password）
+# 编辑 config.json
 
-# 启动服务
-go run ./cmd/ds2api
-```
-
-默认本地访问地址是 `http://127.0.0.1:5001`；服务实际绑定 `0.0.0.0:5001`，可通过 `PORT` 环境变量覆盖。
-
-### 1.2 WebUI 构建
-
-本地首次启动时，若 `static/admin/` 不存在，服务会自动尝试构建 WebUI（需要 Node.js/npm；缺依赖时会先执行 `npm ci`，再执行 `npm run build -- --outDir static/admin --emptyOutDir`）。
-
-你也可以手动构建：
-
-```bash
-./scripts/build-webui.sh
-```
-
-或手动执行：
-
-```bash
-cd webui
-npm install
-npm run build
-# 产物输出到 static/admin/
-```
-
-通过环境变量控制自动构建行为：
-
-```bash
-# 强制关闭自动构建
-DS2API_AUTO_BUILD_WEBUI=false go run ./cmd/ds2api
-
-# 强制开启自动构建
-DS2API_AUTO_BUILD_WEBUI=true go run ./cmd/ds2api
-```
-
-### 1.3 编译为二进制文件
-
-```bash
-go build -o ds2api ./cmd/ds2api
+# 4. 启动
 ./ds2api
 ```
 
+### 维护者发布步骤
+
+1. 在 GitHub 创建并发布 Release（带 tag，如 `vX.Y.Z`）
+2. 等待 Actions 工作流 `Release Artifacts` 完成
+3. 在 Release 的 Assets 下载对应平台压缩包
+
 ---
 
-## 二、Docker 部署
+## 二、Docker / GHCR 部署
 
 ### 2.1 基本步骤
 
 ```bash
+# 拉取预编译镜像
+docker pull ghcr.io/cjackhwang/ds2api:latest
+
 # 复制环境变量模板和配置文件
 cp .env.example .env
 cp config.example.json config.json
@@ -129,7 +130,13 @@ docker-compose up -d
 docker-compose logs -f
 ```
 
-默认 `docker-compose.yml` 会把宿主机 `6011` 映射到容器内的 `5001`。如果你希望直接对外暴露 `5001`，请设置 `DS2API_HOST_PORT=5001`（或者手动调整 `ports` 配置）。
+默认 `docker-compose.yml` 直接使用 `ghcr.io/cjackhwang/ds2api:latest`，并把宿主机 `6011` 映射到容器内的 `5001`。如果你希望直接对外暴露 `5001`，请设置 `DS2API_HOST_PORT=5001`（或者手动调整 `ports` 配置）。
+
+如需固定版本，也可以直接拉取指定 tag：
+
+```bash
+docker pull ghcr.io/cjackhwang/ds2api:v3.0.0
+```
 
 ### 2.2 更新
 
@@ -252,11 +259,21 @@ VERCEL_TEAM_ID=team_xxxxxxxxxxxx   # 个人账号可留空
 | `DS2API_GLOBAL_MAX_INFLIGHT` | 全局并发上限 | `recommended_concurrency` |
 | `DS2API_ENV_WRITEBACK` | 检测到 `DS2API_CONFIG_JSON` 时自动写入 `DS2API_CONFIG_PATH`，并在成功后转为文件模式（`1/true/yes/on`） | 关闭 |
 | `DS2API_VERCEL_INTERNAL_SECRET` | 混合流式内部鉴权 | 回退用 `DS2API_ADMIN_KEY` |
-| `DS2API_VERCEL_STREAM_LEASE_TTL_SECONDS` | 流式 lease TTL | `900` |
+| `DS2API_VERCEL_STREAM_LEASE_TTL_SECONDS` | 流式 lease TTL | 默认与 `responses.store_ttl_seconds` 同步，若未设置则为 `900` |
 | `VERCEL_TOKEN` | Vercel 同步 token | — |
 | `VERCEL_PROJECT_ID` | Vercel 项目 ID | — |
 | `VERCEL_TEAM_ID` | Vercel 团队 ID | — |
 | `DS2API_VERCEL_PROTECTION_BYPASS` | 部署保护绕过密钥（内部 Node→Go 调用） | — |
+
+### 3.3 运行时行为配置（通过 Admin API 设置）
+
+部分运行时行为无法通过环境变量直接配置，需要在部署后通过 Admin API 设置，例如：
+
+- **自动删除会话模式** (`auto_delete.mode`)：支持 `none` / `single` / `all`，默认为 `none`。可通过 `PUT /admin/settings` 更新。
+- **每账号并发上限** (`account_max_inflight`)：环境变量已支持，但也可通过 Admin API 热更新。
+- **全局并发上限** (`global_max_inflight`)：同上。
+
+详细说明参见 [API.md](../API.md#admin-接口) 中 `/admin/settings` 部分。
 
 ### 3.3 Vercel 架构说明
 
@@ -391,57 +408,61 @@ heroku ps:scale web=1
 
 ---
 
-## 五、下载 Release 构建包
+## 五、本地源码运行
 
-仓库内置 GitHub Actions 工作流：`.github/workflows/release-artifacts.yml`
-
-- **触发条件**：仅在 Release `published` 时触发（普通 push 不会构建）
-- **构建产物**：多平台二进制压缩包 + `sha256sums.txt`
-- **容器镜像发布**：仅发布到 GHCR（`ghcr.io/cjackhwang/ds2api`）
-
-| 平台 | 架构 | 文件格式 |
-| --- | --- | --- |
-| Linux | amd64, arm64 | `.tar.gz` |
-| macOS | amd64, arm64 | `.tar.gz` |
-| Windows | amd64 | `.zip` |
-
-每个压缩包包含：
-
-- `ds2api` 可执行文件（Windows 为 `ds2api.exe`）
-- `static/admin/`（WebUI 构建产物）
-- `config.example.json`、`.env.example`
-- `README.MD`、`README.en.md`、`LICENSE`
-
-### 使用步骤
+### 4.1 基本步骤
 
 ```bash
-# 1. 下载对应平台的压缩包
-# 2. 解压
-tar -xzf ds2api_<tag>_linux_amd64.tar.gz
-cd ds2api_<tag>_linux_amd64
+# 克隆仓库
+git clone https://github.com/CJackHwang/ds2api.git
+cd ds2api
 
-# 3. 配置
+# 复制并编辑配置
 cp config.example.json config.json
-# 编辑 config.json
+# 使用你喜欢的编辑器打开 config.json，填入：
+#   - keys: 你的 API 访问密钥
+#   - accounts: DeepSeek 账号（email 或 mobile + password）
 
-# 4. 启动
-./ds2api
+# 启动服务
+go run ./cmd/ds2api
 ```
 
-### 维护者发布步骤
+默认本地访问地址是 `http://127.0.0.1:5001`；服务实际绑定 `0.0.0.0:5001`，可通过 `PORT` 环境变量覆盖。
 
-1. 在 GitHub 创建并发布 Release（带 tag，如 `vX.Y.Z`）
-2. 等待 Actions 工作流 `Release Artifacts` 完成
-3. 在 Release 的 Assets 下载对应平台压缩包
+### 4.2 WebUI 构建
 
-### 拉取 GHCR 镜像（可选）
+本地首次启动时，若 `static/admin/` 不存在，服务会自动尝试构建 WebUI（需要 Node.js/npm；缺依赖时会先执行 `npm ci`，再执行 `npm run build -- --outDir static/admin --emptyOutDir`）。
+
+你也可以手动构建：
 
 ```bash
-# latest
-docker pull ghcr.io/cjackhwang/ds2api:latest
+./scripts/build-webui.sh
+```
 
-# 指定版本（示例）
-docker pull ghcr.io/cjackhwang/ds2api:v3.0.0
+或手动执行：
+
+```bash
+cd webui
+npm install
+npm run build
+# 产物输出到 static/admin/
+```
+
+通过环境变量控制自动构建行为：
+
+```bash
+# 强制关闭自动构建
+DS2API_AUTO_BUILD_WEBUI=false go run ./cmd/ds2api
+
+# 强制开启自动构建
+DS2API_AUTO_BUILD_WEBUI=true go run ./cmd/ds2api
+```
+
+### 4.3 编译为二进制文件
+
+```bash
+go build -o ds2api ./cmd/ds2api
+./ds2api
 ```
 
 ---

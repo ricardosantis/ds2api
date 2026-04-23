@@ -14,6 +14,8 @@ export default function ApiTesterContainer({ config, onMessage, authFetch }) {
         setModel,
         message,
         setMessage,
+        attachedFiles,
+        setAttachedFiles,
         apiKey,
         setApiKey,
         selectedAccount,
@@ -70,6 +72,7 @@ export default function ApiTesterContainer({ config, onMessage, authFetch }) {
         effectiveKey,
         selectedAccount,
         streamingMode,
+        attachedFiles,
         abortControllerRef,
         setLoading,
         setIsStreaming,
@@ -79,7 +82,7 @@ export default function ApiTesterContainer({ config, onMessage, authFetch }) {
     })
 
     return (
-        <div className={clsx('flex flex-col lg:grid lg:grid-cols-12 gap-6 h-[calc(100vh-140px)]')}>
+        <div className={clsx('flex flex-col lg:grid lg:grid-cols-12 gap-6 h-[calc(100vh-140px)] min-h-0')}>
             <ConfigPanel
                 t={t}
                 configExpanded={configExpanded}
@@ -104,6 +107,12 @@ export default function ApiTesterContainer({ config, onMessage, authFetch }) {
                 t={t}
                 message={message}
                 setMessage={setMessage}
+                attachedFiles={attachedFiles}
+                setAttachedFiles={setAttachedFiles}
+                setSelectedAccount={setSelectedAccount}
+                effectiveKey={effectiveKey}
+                selectedAccount={selectedAccount}
+                onMessage={onMessage}
                 response={response}
                 isStreaming={isStreaming}
                 loading={loading}

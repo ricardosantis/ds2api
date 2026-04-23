@@ -1,5 +1,10 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const webuiDir = dirname(fileURLToPath(import.meta.url))
+const repoRoot = resolve(webuiDir, '..')
 
 export default defineConfig(({ mode }) => ({
     plugins: [
@@ -7,6 +12,9 @@ export default defineConfig(({ mode }) => ({
     ],
     server: {
         port: 5173,
+        fs: {
+            allow: [repoRoot],
+        },
         proxy: {
             // 代理 /admin 下的 API 请求到后端
             '/admin': {

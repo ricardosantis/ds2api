@@ -13,6 +13,7 @@ type CollectResult struct {
 	Text          string
 	Thinking      string
 	ContentFilter bool
+	CitationLinks map[int]string
 }
 
 // CollectStream fully consumes a DeepSeek SSE response and separates
@@ -28,11 +29,23 @@ func CollectStream(resp *http.Response, thinkingEnabled bool, closeBody bool) Co
 	text := strings.Builder{}
 	thinking := strings.Builder{}
 	contentFilter := false
+	stopped := false
+	collector := newCitationLinkCollector()
 	currentType := "text"
 	if thinkingEnabled {
 		currentType = "thinking"
 	}
 	_ = deepseek.ScanSSELines(resp, func(line []byte) bool {
+		chunk, done, parsed := ParseDeepSeekSSELine(line)
+		if parsed && !done {
+			collector.ingestChunk(chunk)
+		}
+		if done {
+			return false
+		}
+		if stopped {
+			return true
+		}
 		result := ParseDeepSeekContentLine(line, thinkingEnabled, currentType)
 		currentType = result.NextType
 		if !result.Parsed {
@@ -42,7 +55,11 @@ func CollectStream(resp *http.Response, thinkingEnabled bool, closeBody bool) Co
 			if result.ContentFilter {
 				contentFilter = true
 			}
-			return false
+			// Keep scanning to collect late-arriving citation metadata lines
+			// that can appear after response/status=FINISHED, but stop as soon
+			// as [DONE] arrives.
+			stopped = true
+			return true
 		}
 		for _, p := range result.Parts {
 			if p.Type == "thinking" {
@@ -59,5 +76,6 @@ func CollectStream(resp *http.Response, thinkingEnabled bool, closeBody bool) Co
 		Text:          text.String(),
 		Thinking:      thinking.String(),
 		ContentFilter: contentFilter,
+		CitationLinks: collector.build(),
 	}
 }

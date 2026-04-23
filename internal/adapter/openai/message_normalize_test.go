@@ -296,3 +296,31 @@ func TestNormalizeOpenAIMessagesForPrompt_AssistantArrayContentFallbackWhenTextE
 		t.Fatalf("expected content fallback text preserved, got %q", content)
 	}
 }
+
+func TestNormalizeOpenAIMessagesForPrompt_AssistantReasoningContentPreserved(t *testing.T) {
+	raw := []any{
+		map[string]any{
+			"role":              "assistant",
+			"content":           "visible answer",
+			"reasoning_content": "internal reasoning",
+		},
+	}
+
+	normalized := normalizeOpenAIMessagesForPrompt(raw, "")
+	if len(normalized) != 1 {
+		t.Fatalf("expected one normalized assistant message, got %#v", normalized)
+	}
+	content, _ := normalized[0]["content"].(string)
+	if !strings.Contains(content, "[reasoning_content]") {
+		t.Fatalf("expected labeled reasoning block in assistant content, got %q", content)
+	}
+	if !strings.Contains(content, "internal reasoning") {
+		t.Fatalf("expected reasoning text in assistant content, got %q", content)
+	}
+	if !strings.Contains(content, "visible answer") {
+		t.Fatalf("expected visible answer in assistant content, got %q", content)
+	}
+	if reasoningIdx := strings.Index(content, "[reasoning_content]"); reasoningIdx < 0 || reasoningIdx > strings.Index(content, "visible answer") {
+		t.Fatalf("expected reasoning block before visible answer, got %q", content)
+	}
+}

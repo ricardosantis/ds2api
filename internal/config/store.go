@@ -43,6 +43,7 @@ func LoadStoreWithError() (*Store, error) {
 
 func loadStore() (*Store, error) {
 	cfg, fromEnv, err := loadConfig()
+	cfg.NormalizeCredentials()
 	if validateErr := ValidateConfig(cfg); validateErr != nil {
 		err = errors.Join(err, validateErr)
 	}
@@ -112,6 +113,7 @@ func loadConfigFromFile(path string) (Config, error) {
 	if err := json.Unmarshal(content, &cfg); err != nil {
 		return Config{}, err
 	}
+	cfg.NormalizeCredentials()
 	cfg.DropInvalidAccounts()
 	if strings.Contains(string(content), `"test_status"`) && !IsVercel() {
 		if b, err := json.MarshalIndent(cfg, "", "  "); err == nil {
@@ -207,6 +209,7 @@ func (s *Store) UpdateAccountToken(identifier, token string) error {
 func (s *Store) Replace(cfg Config) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	cfg.NormalizeCredentials()
 	s.cfg = cfg.Clone()
 	s.rebuildIndexes()
 	return s.saveLocked()
@@ -215,10 +218,13 @@ func (s *Store) Replace(cfg Config) error {
 func (s *Store) Update(mutator func(*Config) error) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	cfg := s.cfg.Clone()
+	base := s.cfg.Clone()
+	cfg := base.Clone()
 	if err := mutator(&cfg); err != nil {
 		return err
 	}
+	cfg.ReconcileCredentials(base)
+	cfg.NormalizeCredentials()
 	s.cfg = cfg
 	s.rebuildIndexes()
 	return s.saveLocked()

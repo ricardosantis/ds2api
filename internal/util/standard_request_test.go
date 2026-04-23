@@ -22,6 +22,7 @@ func TestStandardRequestCompletionPayloadSetsModelTypeFromResolvedModel(t *testi
 				FinalPrompt:   "hello",
 				Thinking:      tc.thinking,
 				Search:        tc.search,
+				RefFileIDs:    []string{"file-a", "file-b"},
 				PassThrough: map[string]any{
 					"temperature": 0.3,
 				},
@@ -43,6 +44,13 @@ func TestStandardRequestCompletionPayloadSetsModelTypeFromResolvedModel(t *testi
 			}
 			if got := payload["temperature"]; got != 0.3 {
 				t.Fatalf("expected passthrough temperature, got %#v", got)
+			}
+			refFileIDs, ok := payload["ref_file_ids"].([]any)
+			if !ok {
+				t.Fatalf("expected ref_file_ids slice, got %#v", payload["ref_file_ids"])
+			}
+			if len(refFileIDs) != 2 || refFileIDs[0] != "file-a" || refFileIDs[1] != "file-b" {
+				t.Fatalf("unexpected ref_file_ids: %#v", refFileIDs)
 			}
 		})
 	}

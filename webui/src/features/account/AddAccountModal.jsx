@@ -24,6 +24,26 @@ export default function AddAccountModal({
                 </div>
                 <div className="p-6 space-y-4">
                     <div>
+                        <label className="block text-sm font-medium mb-1.5">{t('accountManager.nameOptional')}</label>
+                        <input
+                            type="text"
+                            className="input-field"
+                            placeholder={t('accountManager.namePlaceholder')}
+                            value={newAccount.name}
+                            onChange={e => setNewAccount({ ...newAccount, name: e.target.value })}
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1.5">{t('accountManager.remarkOptional')}</label>
+                        <input
+                            type="text"
+                            className="input-field"
+                            placeholder={t('accountManager.remarkPlaceholder')}
+                            value={newAccount.remark}
+                            onChange={e => setNewAccount({ ...newAccount, remark: e.target.value })}
+                        />
+                    </div>
+                    <div>
                         <label className="block text-sm font-medium mb-1.5">{t('accountManager.emailOptional')}</label>
                         <input
                             type="email"

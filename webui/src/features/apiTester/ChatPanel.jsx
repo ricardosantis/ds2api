@@ -1,10 +1,19 @@
-import { Bot, Loader2, Send, Square, User, Zap } from 'lucide-react'
+import { Bot, Loader2, Send, Square, User, Zap, Paperclip, X, FileIcon } from 'lucide-react'
 import clsx from 'clsx'
+import { useRef, useState } from 'react'
+
+import { getAttachedFileAccountIds } from './fileAccountBinding'
 
 export default function ChatPanel({
     t,
     message,
     setMessage,
+    attachedFiles = [],
+    setAttachedFiles,
+    setSelectedAccount,
+    effectiveKey,
+    selectedAccount,
+    onMessage,
     response,
     isStreaming,
     loading,
@@ -13,6 +22,69 @@ export default function ChatPanel({
     onRunTest,
     onStopGeneration,
 }) {
+    const fileInputRef = useRef(null)
+    const [uploadingFiles, setUploadingFiles] = useState(false)
+
+    const handleFileSelect = async (e) => {
+        const files = Array.from(e.target.files)
+        if (files.length === 0) return
+
+        if (!effectiveKey) {
+            onMessage('error', t('apiTester.missingApiKey') || 'Missing API Key')
+            return
+        }
+
+        setUploadingFiles(true)
+        const initialSelectedAccount = String(selectedAccount || '').trim()
+        let boundAccount = initialSelectedAccount
+        for (const file of files) {
+            const formData = new FormData()
+            formData.append('file', file)
+            formData.append('purpose', 'assistants')
+
+            const headers = {
+                'Authorization': `Bearer ${effectiveKey}`,
+            }
+            if (boundAccount) {
+                headers['X-Ds2-Target-Account'] = boundAccount
+            }
+
+            try {
+                const res = await fetch('/v1/files', {
+                    method: 'POST',
+                    headers,
+                    body: formData
+                })
+                if (!res.ok) {
+                    const err = await res.text()
+                    onMessage('error', err || 'File upload failed')
+                    continue
+                }
+                const data = await res.json()
+                setAttachedFiles(prev => [...prev, data])
+                const uploadedAccount = String(data?.account_id || '').trim()
+                if (!boundAccount && uploadedAccount) {
+                    boundAccount = uploadedAccount
+                }
+            } catch (error) {
+                onMessage('error', error.message || 'Network error during upload')
+            }
+        }
+        setUploadingFiles(false)
+        if (!initialSelectedAccount && boundAccount && setSelectedAccount) {
+            setSelectedAccount(boundAccount)
+        }
+        if (fileInputRef.current) {
+            fileInputRef.current.value = ''
+        }
+    }
+
+    const removeFile = (id) => {
+        setAttachedFiles(prev => prev.filter(f => f.id !== id))
+    }
+
+    const attachmentAccountIds = getAttachedFileAccountIds(attachedFiles)
+    const attachmentAccountId = attachmentAccountIds.length === 1 ? attachmentAccountIds[0] : ''
     return (
         <div className="lg:col-span-9 flex flex-col bg-card border border-border rounded-xl shadow-sm overflow-hidden min-h-0 flex-1 relative">
             <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-8 custom-scrollbar scroll-smooth">
@@ -61,7 +133,9 @@ export default function ChatPanel({
                             )}
 
                             <div className="text-sm leading-7 text-foreground whitespace-pre-wrap">
-                                {streamingContent || response?.choices?.[0]?.message?.content || (response?.error && <span className="text-destructive font-medium">{response.error}</span>) || (loading && <span className="text-muted-foreground italic">{t('apiTester.generating')}</span>)}
+                                {response?.success === false
+                                    ? <span className="text-destructive font-medium">{response.error || t('apiTester.requestFailed')}</span>
+                                    : (streamingContent || response?.choices?.[0]?.message?.content || (loading && <span className="text-muted-foreground italic">{t('apiTester.generating')}</span>))}
                                 {isStreaming && <span className="inline-block w-1.5 h-4 bg-primary ml-1 align-middle animate-pulse" />}
                             </div>
                         </div>
@@ -70,9 +144,52 @@ export default function ChatPanel({
             </div>
 
             <div className="p-4 lg:p-6 border-t border-border bg-card">
+                {attachedFiles.length > 0 && (
+                    <div className="max-w-4xl mx-auto flex flex-wrap gap-2 mb-3">
+                        {attachedFiles.map(file => (
+                            <div key={file.id} className="flex items-center gap-2 bg-secondary/50 border border-border rounded-md px-2 py-1 text-xs text-secondary-foreground">
+                                <FileIcon className="w-3 h-3 text-muted-foreground" />
+                                <span className="truncate max-w-[150px]">{file.filename || file.id}</span>
+                                <button
+                                    onClick={() => removeFile(file.id)}
+                                    className="text-muted-foreground hover:text-destructive transition-colors ml-1"
+                                >
+                                    <X className="w-3 h-3" />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+                {attachmentAccountIds.length > 1 && (
+                    <div className="max-w-4xl mx-auto mb-3 text-[11px] text-amber-600">
+                        {t('apiTester.fileAccountConflict')}
+                    </div>
+                )}
+                {attachmentAccountId && (
+                    <div className="max-w-4xl mx-auto mb-3 text-[11px] text-muted-foreground">
+                        {t('apiTester.attachmentAccountHint', { account: attachmentAccountId })}
+                    </div>
+                )}
                 <div className="max-w-4xl mx-auto relative group">
+                    <input
+                        type="file"
+                        className="hidden"
+                        ref={fileInputRef}
+                        multiple
+                        onChange={handleFileSelect}
+                    />
+                    <div className="absolute left-2 bottom-2 z-10">
+                        <button
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={uploadingFiles || isStreaming}
+                            className="p-2 text-muted-foreground hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Attach files"
+                        >
+                            {uploadingFiles ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
+                        </button>
+                    </div>
                     <textarea
-                        className="w-full bg-[#09090b] border border-border rounded-xl pl-4 pr-12 py-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none custom-scrollbar placeholder:text-muted-foreground/50 text-foreground shadow-inner"
+                        className="w-full bg-[#09090b] border border-border rounded-xl pl-12 pr-12 py-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none custom-scrollbar placeholder:text-muted-foreground/50 text-foreground shadow-inner"
                         placeholder={t('apiTester.enterMessage')}
                         rows={1}
                         style={{ minHeight: '52px' }}
@@ -81,11 +198,13 @@ export default function ChatPanel({
                         onKeyDown={e => {
                             if (e.key === 'Enter' && !e.shiftKey) {
                                 e.preventDefault()
-                                onRunTest()
+                                if (!loading && !uploadingFiles && (message.trim() || attachedFiles.length > 0)) {
+                                    onRunTest()
+                                }
                             }
                         }}
                     />
-                    <div className="absolute right-2 bottom-2">
+                    <div className="absolute right-2 bottom-2 z-10">
                         {loading && isStreaming ? (
                             <button onClick={onStopGeneration} className="p-2 text-muted-foreground hover:text-destructive transition-colors">
                                 <Square className="w-4 h-4 fill-current" />
@@ -93,7 +212,7 @@ export default function ChatPanel({
                         ) : (
                             <button
                                 onClick={onRunTest}
-                                disabled={loading || !message.trim()}
+                                disabled={loading || uploadingFiles || (!message.trim() && attachedFiles.length === 0)}
                                 className="p-2 text-primary hover:text-primary/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}

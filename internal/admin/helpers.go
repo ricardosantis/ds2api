@@ -62,11 +62,123 @@ func toAccount(m map[string]any) config.Account {
 	email := fieldString(m, "email")
 	mobile := config.NormalizeMobileForStorage(fieldString(m, "mobile"))
 	return config.Account{
+		Name:     fieldString(m, "name"),
+		Remark:   fieldString(m, "remark"),
 		Email:    email,
 		Mobile:   mobile,
 		Password: fieldString(m, "password"),
 		ProxyID:  fieldString(m, "proxy_id"),
 	}
+}
+
+func toAPIKeys(v any) ([]config.APIKey, bool) {
+	arr, ok := v.([]any)
+	if !ok {
+		return nil, false
+	}
+	out := make([]config.APIKey, 0, len(arr))
+	seen := map[string]struct{}{}
+	for _, item := range arr {
+		switch x := item.(type) {
+		case map[string]any:
+			key := fieldString(x, "key")
+			if key == "" {
+				continue
+			}
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			out = append(out, config.APIKey{
+				Key:    key,
+				Name:   fieldString(x, "name"),
+				Remark: fieldString(x, "remark"),
+			})
+		default:
+			key := strings.TrimSpace(fmt.Sprintf("%v", item))
+			if key == "" {
+				continue
+			}
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			out = append(out, config.APIKey{Key: key})
+		}
+	}
+	return out, true
+}
+
+func normalizeAPIKeyForStorage(item config.APIKey) config.APIKey {
+	return config.APIKey{
+		Key:    strings.TrimSpace(item.Key),
+		Name:   strings.TrimSpace(item.Name),
+		Remark: strings.TrimSpace(item.Remark),
+	}
+}
+
+func apiKeyHasMetadata(item config.APIKey) bool {
+	return strings.TrimSpace(item.Name) != "" || strings.TrimSpace(item.Remark) != ""
+}
+
+func mergeAPIKeysPreferStructured(existing, incoming []config.APIKey) ([]config.APIKey, int) {
+	if len(existing) == 0 && len(incoming) == 0 {
+		return nil, 0
+	}
+
+	merged := make([]config.APIKey, 0, len(existing)+len(incoming))
+	index := make(map[string]int, len(existing)+len(incoming))
+	for _, item := range existing {
+		item = normalizeAPIKeyForStorage(item)
+		if item.Key == "" {
+			continue
+		}
+		if _, ok := index[item.Key]; ok {
+			continue
+		}
+		index[item.Key] = len(merged)
+		merged = append(merged, item)
+	}
+
+	imported := 0
+	for _, item := range incoming {
+		item = normalizeAPIKeyForStorage(item)
+		if item.Key == "" {
+			continue
+		}
+		if idx, ok := index[item.Key]; ok {
+			keep := merged[idx]
+			next := mergeAPIKeyRecord(keep, item)
+			if next != keep {
+				merged[idx] = next
+				imported++
+			}
+			continue
+		}
+		index[item.Key] = len(merged)
+		merged = append(merged, item)
+		imported++
+	}
+
+	if len(merged) == 0 {
+		return nil, imported
+	}
+	return merged, imported
+}
+
+func mergeAPIKeyRecord(existing, incoming config.APIKey) config.APIKey {
+	existing = normalizeAPIKeyForStorage(existing)
+	incoming = normalizeAPIKeyForStorage(incoming)
+	if existing.Key == "" {
+		return incoming
+	}
+	if apiKeyHasMetadata(existing) {
+		return existing
+	}
+	if apiKeyHasMetadata(incoming) {
+		return incoming
+	}
+	return existing
 }
 
 func fieldString(m map[string]any, key string) string {
@@ -75,6 +187,14 @@ func fieldString(m map[string]any, key string) string {
 		return ""
 	}
 	return strings.TrimSpace(fmt.Sprintf("%v", v))
+}
+
+func fieldStringOptional(m map[string]any, key string) (string, bool) {
+	v, ok := m[key]
+	if !ok || v == nil {
+		return "", false
+	}
+	return strings.TrimSpace(fmt.Sprintf("%v", v)), true
 }
 
 func statusOr(v int, d int) int {
@@ -99,6 +219,8 @@ func accountMatchesIdentifier(acc config.Account, identifier string) bool {
 }
 
 func normalizeAccountForStorage(acc config.Account) config.Account {
+	acc.Name = strings.TrimSpace(acc.Name)
+	acc.Remark = strings.TrimSpace(acc.Remark)
 	acc.Email = strings.TrimSpace(acc.Email)
 	acc.Mobile = config.NormalizeMobileForStorage(acc.Mobile)
 	acc.ProxyID = strings.TrimSpace(acc.ProxyID)

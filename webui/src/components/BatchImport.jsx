@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { FileCode, Download, Upload, Copy, Check, AlertTriangle } from 'lucide-react'
 import clsx from 'clsx'
 import { useI18n } from '../i18n'
+import { getBatchImportTemplates } from '../utils/batchImportTemplates'
 
 export default function BatchImport({ onRefresh, onMessage, authFetch }) {
     const { t } = useI18n()
@@ -11,55 +12,7 @@ export default function BatchImport({ onRefresh, onMessage, authFetch }) {
     const [copied, setCopied] = useState(false)
 
     const apiFetch = authFetch || fetch
-    const templates = {
-        full: {
-            name: t('batchImport.templates.full.name'),
-            desc: t('batchImport.templates.full.desc'),
-            config: {
-                keys: ["your-api-key-1", "your-api-key-2"],
-                accounts: [
-                    { email: "user1@example.com", password: "password1", token: "" },
-                    { email: "user2@example.com", password: "password2", token: "" },
-                    { mobile: "+8613800138001", password: "password3", token: "" }
-                ],
-                claude_model_mapping: {
-                    fast: "deepseek-chat",
-                    slow: "deepseek-reasoner"
-                }
-            }
-        },
-        email_only: {
-            name: t('batchImport.templates.emailOnly.name'),
-            desc: t('batchImport.templates.emailOnly.desc'),
-            config: {
-                keys: ["your-api-key"],
-                accounts: [
-                    { email: "account1@example.com", password: "pass1", token: "" },
-                    { email: "account2@example.com", password: "pass2", token: "" },
-                    { email: "account3@example.com", password: "pass3", token: "" }
-                ]
-            }
-        },
-        mobile_only: {
-            name: t('batchImport.templates.mobileOnly.name'),
-            desc: t('batchImport.templates.mobileOnly.desc'),
-            config: {
-                keys: ["your-api-key"],
-                accounts: [
-                    { mobile: "+8613800000001", password: "pass1", token: "" },
-                    { mobile: "+8613800000002", password: "pass2", token: "" },
-                    { mobile: "+8613800000003", password: "pass3", token: "" }
-                ]
-            }
-        },
-        keys_only: {
-            name: t('batchImport.templates.keysOnly.name'),
-            desc: t('batchImport.templates.keysOnly.desc'),
-            config: {
-                keys: ["key-1", "key-2", "key-3"]
-            }
-        }
-    }
+    const templates = getBatchImportTemplates(t)
 
     const handleImport = async () => {
         if (!jsonInput.trim()) {

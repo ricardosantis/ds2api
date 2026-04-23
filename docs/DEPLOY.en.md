@@ -10,16 +10,28 @@ Doc map: [Index](./README.md) | [Architecture](./ARCHITECTURE.en.md) | [API](../
 
 ## Table of Contents
 
+- [Recommended deployment priority](#recommended-deployment-priority)
 - [Prerequisites](#0-prerequisites)
-- [1. Local Run](#1-local-run)
-- [2. Docker Deployment](#2-docker-deployment)
+- [1. Download Release Binaries](#1-download-release-binaries)
+- [2. Docker / GHCR Deployment](#2-docker--ghcr-deployment)
 - [3. Vercel Deployment](#3-vercel-deployment)
 - [4. Heroku Deployment](#4-heroku-deployment)
-- [5. Download Release Binaries](#4-download-release-binaries)
+- [5. Local Run from Source](#5-local-run-from-source)
 - [6. Reverse Proxy (Nginx)](#5-reverse-proxy-nginx)
 - [7. Linux systemd Service](#6-linux-systemd-service)
 - [8. Post-Deploy Checks](#7-post-deploy-checks)
 - [9. Pre-Release Local Regression](#8-pre-release-local-regression)
+
+---
+
+## Recommended deployment priority
+
+Recommended order when choosing a deployment method:
+
+1. **Download and run release binaries**: the easiest path for most users because the artifacts are already built.
+2. **Docker / GHCR image deployment**: suitable for containerized, orchestrated, or cloud environments.
+3. **Vercel deployment**: suitable if you already use Vercel and accept its platform constraints.
+4. **Run from source / build locally**: suitable for development, debugging, or when you need to modify the code yourself.
 
 ---
 
@@ -49,70 +61,59 @@ Use `config.json` as the single source of truth:
 
 ---
 
-## 1. Local Run
+## 1. Download Release Binaries
 
-### 1.1 Basic Steps
+Built-in GitHub Actions workflow: `.github/workflows/release-artifacts.yml`
+
+- **Trigger**: only on Release `published` (no build on normal push)
+- **Outputs**: multi-platform binary archives + `sha256sums.txt`
+- **Container publishing**: GHCR only (`ghcr.io/cjackhwang/ds2api`)
+
+| Platform | Architecture | Format |
+| --- | --- | --- |
+| Linux | amd64, arm64 | `.tar.gz` |
+| macOS | amd64, arm64 | `.tar.gz` |
+| Windows | amd64 | `.zip` |
+
+Each archive includes:
+
+- `ds2api` executable (`ds2api.exe` on Windows)
+- `static/admin/` (built WebUI assets)
+- `config.example.json`, `.env.example`
+- `README.MD`, `README.en.md`, `LICENSE`
+
+### Usage
 
 ```bash
-# Clone
-git clone https://github.com/CJackHwang/ds2api.git
-cd ds2api
+# 1. Download the archive for your platform
+# 2. Extract
+tar -xzf ds2api_<tag>_linux_amd64.tar.gz
+cd ds2api_<tag>_linux_amd64
 
-# Copy and edit config
+# 3. Configure
 cp config.example.json config.json
-# Open config.json and fill in:
-#   - keys: your API access keys
-#   - accounts: DeepSeek accounts (email or mobile + password)
+# Edit config.json
 
-# Start
-go run ./cmd/ds2api
-```
-
-Default local access URL: `http://127.0.0.1:5001`; the server actually binds to `0.0.0.0:5001` (override with `PORT`).
-
-### 1.2 WebUI Build
-
-On first local startup, if `static/admin/` is missing, DS2API will automatically attempt to build the WebUI (requires Node.js/npm; when dependencies are missing it runs `npm ci` first, then `npm run build -- --outDir static/admin --emptyOutDir`).
-
-Manual build:
-
-```bash
-./scripts/build-webui.sh
-```
-
-Or step by step:
-
-```bash
-cd webui
-npm install
-npm run build
-# Output goes to static/admin/
-```
-
-Control auto-build via environment variable:
-
-```bash
-# Disable auto-build
-DS2API_AUTO_BUILD_WEBUI=false go run ./cmd/ds2api
-
-# Force enable auto-build
-DS2API_AUTO_BUILD_WEBUI=true go run ./cmd/ds2api
-```
-
-### 1.3 Compile to Binary
-
-```bash
-go build -o ds2api ./cmd/ds2api
+# 4. Start
 ./ds2api
 ```
 
+### Maintainer Release Flow
+
+1. Create and publish a GitHub Release (with tag, for example `vX.Y.Z`)
+2. Wait for the `Release Artifacts` workflow to complete
+3. Download the matching archive from Release Assets
+
 ---
 
-## 2. Docker Deployment
+## 2. Docker / GHCR Deployment
 
 ### 2.1 Basic Steps
 
 ```bash
+# Pull prebuilt image
+docker pull ghcr.io/cjackhwang/ds2api:latest
+
 # Copy env template and config file
 cp .env.example .env
 cp config.example.json config.json
@@ -129,7 +130,13 @@ docker-compose up -d
 docker-compose logs -f
 ```
 
-The default `docker-compose.yml` maps host port `6011` to container port `5001`. If you want `5001` exposed directly, set `DS2API_HOST_PORT=5001` (or adjust the `ports` mapping).
+The default `docker-compose.yml` directly uses `ghcr.io/cjackhwang/ds2api:latest` and maps host port `6011` to container port `5001`. If you want `5001` exposed directly, set `DS2API_HOST_PORT=5001` (or adjust the `ports` mapping).
+
+If you want a pinned version instead of `latest`, you can also pull a specific tag directly:
+
+```bash
+docker pull ghcr.io/cjackhwang/ds2api:v3.0.0
+```
 
 ### 2.2 Update
 
@@ -391,57 +398,61 @@ heroku ps:scale web=1
 
 ---
 
-## 5. Download Release Binaries
+## 5. Local Run from Source
 
-Built-in GitHub Actions workflow: `.github/workflows/release-artifacts.yml`
-
-- **Trigger**: only on Release `published` (no build on normal push)
-- **Outputs**: multi-platform binary archives + `sha256sums.txt`
-- **Container publishing**: GHCR only (`ghcr.io/cjackhwang/ds2api`)
-
-| Platform | Architecture | Format |
-| --- | --- | --- |
-| Linux | amd64, arm64 | `.tar.gz` |
-| macOS | amd64, arm64 | `.tar.gz` |
-| Windows | amd64 | `.zip` |
-
-Each archive includes:
-
-- `ds2api` executable (`ds2api.exe` on Windows)
-- `static/admin/` (built WebUI assets)
-- `config.example.json`, `.env.example`
-- `README.MD`, `README.en.md`, `LICENSE`
-
-### Usage
+### 4.1 Basic Steps
 
 ```bash
-# 1. Download the archive for your platform
-# 2. Extract
-tar -xzf ds2api_<tag>_linux_amd64.tar.gz
-cd ds2api_<tag>_linux_amd64
+# Clone
+git clone https://github.com/CJackHwang/ds2api.git
+cd ds2api
 
-# 3. Configure
+# Copy and edit config
 cp config.example.json config.json
-# Edit config.json
+# Open config.json and fill in:
+#   - keys: your API access keys
+#   - accounts: DeepSeek accounts (email or mobile + password)
 
-# 4. Start
-./ds2api
+# Start
+go run ./cmd/ds2api
 ```
 
-### Maintainer Release Flow
+Default local access URL: `http://127.0.0.1:5001`; the server actually binds to `0.0.0.0:5001` (override with `PORT`).
 
-1. Create and publish a GitHub Release (with tag, for example `vX.Y.Z`)
-2. Wait for the `Release Artifacts` workflow to complete
-3. Download the matching archive from Release Assets
+### 4.2 WebUI Build
 
-### Pull from GHCR (Optional)
+On first local startup, if `static/admin/` is missing, DS2API will automatically attempt to build the WebUI (requires Node.js/npm; when dependencies are missing it runs `npm ci` first, then `npm run build -- --outDir static/admin --emptyOutDir`).
+
+Manual build:
 
 ```bash
-# latest
-docker pull ghcr.io/cjackhwang/ds2api:latest
+./scripts/build-webui.sh
+```
 
-# specific version (example)
-docker pull ghcr.io/cjackhwang/ds2api:v3.0.0
+Or step by step:
+
+```bash
+cd webui
+npm install
+npm run build
+# Output goes to static/admin/
+```
+
+Control auto-build via environment variable:
+
+```bash
+# Disable auto-build
+DS2API_AUTO_BUILD_WEBUI=false go run ./cmd/ds2api
+
+# Force enable auto-build
+DS2API_AUTO_BUILD_WEBUI=true go run ./cmd/ds2api
+```
+
+### 4.3 Compile to Binary
+
+```bash
+go build -o ds2api ./cmd/ds2api
+./ds2api
 ```
 
 ---

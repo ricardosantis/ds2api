@@ -39,7 +39,7 @@ func (s *responsesStreamRuntime) sendDone() {
 	}
 }
 
-func (s *responsesStreamRuntime) processToolStreamEvents(events []toolStreamEvent, emitContent bool) {
+func (s *responsesStreamRuntime) processToolStreamEvents(events []toolStreamEvent, emitContent bool, resetAfterToolCalls bool) {
 	for _, evt := range events {
 		if emitContent && evt.Content != "" {
 			s.emitTextDelta(evt.Content)
@@ -56,6 +56,9 @@ func (s *responsesStreamRuntime) processToolStreamEvents(events []toolStreamEven
 		}
 		if len(evt.ToolCalls) > 0 {
 			s.emitFunctionCallDoneEvents(evt.ToolCalls)
+			if resetAfterToolCalls {
+				s.resetStreamToolCallState()
+			}
 		}
 	}
 }

@@ -17,6 +17,9 @@ func (c Config) MarshalJSON() ([]byte, error) {
 	if len(c.Keys) > 0 {
 		m["keys"] = c.Keys
 	}
+	if len(c.APIKeys) > 0 {
+		m["api_keys"] = c.APIKeys
+	}
 	if len(c.Accounts) > 0 {
 		m["accounts"] = c.Accounts
 	}
@@ -48,6 +51,9 @@ func (c Config) MarshalJSON() ([]byte, error) {
 		m["embeddings"] = c.Embeddings
 	}
 	m["auto_delete"] = c.AutoDelete
+	if c.HistorySplit.Enabled != nil || c.HistorySplit.TriggerAfterTurns != nil {
+		m["history_split"] = c.HistorySplit
+	}
 	if c.VercelSyncHash != "" {
 		m["_vercel_sync_hash"] = c.VercelSyncHash
 	}
@@ -67,6 +73,10 @@ func (c *Config) UnmarshalJSON(b []byte) error {
 		switch k {
 		case "keys":
 			if err := json.Unmarshal(v, &c.Keys); err != nil {
+				return fmt.Errorf("invalid field %q: %w", k, err)
+			}
+		case "api_keys":
+			if err := json.Unmarshal(v, &c.APIKeys); err != nil {
 				return fmt.Errorf("invalid field %q: %w", k, err)
 			}
 		case "accounts":
@@ -115,6 +125,10 @@ func (c *Config) UnmarshalJSON(b []byte) error {
 			if err := json.Unmarshal(v, &c.AutoDelete); err != nil {
 				return fmt.Errorf("invalid field %q: %w", k, err)
 			}
+		case "history_split":
+			if err := json.Unmarshal(v, &c.HistorySplit); err != nil {
+				return fmt.Errorf("invalid field %q: %w", k, err)
+			}
 		case "_vercel_sync_hash":
 			if err := json.Unmarshal(v, &c.VercelSyncHash); err != nil {
 				return fmt.Errorf("invalid field %q: %w", k, err)
@@ -130,12 +144,14 @@ func (c *Config) UnmarshalJSON(b []byte) error {
 			}
 		}
 	}
+	c.NormalizeCredentials()
 	return nil
 }
 
 func (c Config) Clone() Config {
 	clone := Config{
 		Keys:           slices.Clone(c.Keys),
+		APIKeys:        slices.Clone(c.APIKeys),
 		Accounts:       slices.Clone(c.Accounts),
 		Proxies:        slices.Clone(c.Proxies),
 		ClaudeMapping:  cloneStringMap(c.ClaudeMapping),
@@ -147,9 +163,13 @@ func (c Config) Clone() Config {
 			WideInputStrictOutput: cloneBoolPtr(c.Compat.WideInputStrictOutput),
 			StripReferenceMarkers: cloneBoolPtr(c.Compat.StripReferenceMarkers),
 		},
-		Responses:        c.Responses,
-		Embeddings:       c.Embeddings,
-		AutoDelete:       c.AutoDelete,
+		Responses:  c.Responses,
+		Embeddings: c.Embeddings,
+		AutoDelete: c.AutoDelete,
+		HistorySplit: HistorySplitConfig{
+			Enabled:           cloneBoolPtr(c.HistorySplit.Enabled),
+			TriggerAfterTurns: cloneIntPtr(c.HistorySplit.TriggerAfterTurns),
+		},
 		VercelSyncHash:   c.VercelSyncHash,
 		VercelSyncTime:   c.VercelSyncTime,
 		AdditionalFields: map[string]any{},
@@ -172,6 +192,14 @@ func cloneStringMap(in map[string]string) map[string]string {
 }
 
 func cloneBoolPtr(in *bool) *bool {
+	if in == nil {
+		return nil
+	}
+	v := *in
+	return &v
+}
+
+func cloneIntPtr(in *int) *int {
 	if in == nil {
 		return nil
 	}

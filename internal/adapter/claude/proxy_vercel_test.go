@@ -34,11 +34,13 @@ func (s openAIProxyStub) ChatCompletions(w http.ResponseWriter, _ *http.Request)
 
 type openAIProxyCaptureStub struct {
 	seenModel string
+	seenReq   map[string]any
 }
 
 func (s *openAIProxyCaptureStub) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	var req map[string]any
 	_ = json.NewDecoder(r.Body).Decode(&req)
+	s.seenReq = req
 	if m, ok := req["model"].(string); ok {
 		s.seenModel = m
 	}
@@ -82,5 +84,35 @@ func TestClaudeProxyViaOpenAIPreservesClaudeMapping(t *testing.T) {
 	}
 	if got := strings.TrimSpace(openAI.seenModel); got != "deepseek-reasoner" {
 		t.Fatalf("expected mapped proxy model deepseek-reasoner, got %q", got)
+	}
+}
+
+func TestClaudeProxyTranslatesInlineImageToOpenAIDataURL(t *testing.T) {
+	openAI := &openAIProxyCaptureStub{}
+	h := &Handler{OpenAI: openAI}
+	req := httptest.NewRequest(http.MethodPost, "/anthropic/v1/messages", strings.NewReader(`{"model":"claude-sonnet-4-5","messages":[{"role":"user","content":[{"type":"text","text":"hello"},{"type":"image","source":{"type":"base64","media_type":"image/png","data":"QUJDRA=="}}]}],"stream":false}`))
+	rec := httptest.NewRecorder()
+
+	h.Messages(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("unexpected status: %d body=%s", rec.Code, rec.Body.String())
+	}
+	messages, _ := openAI.seenReq["messages"].([]any)
+	if len(messages) != 1 {
+		t.Fatalf("expected one translated message, got %#v", openAI.seenReq)
+	}
+	msg, _ := messages[0].(map[string]any)
+	content, _ := msg["content"].([]any)
+	if len(content) != 2 {
+		t.Fatalf("expected translated content blocks, got %#v", msg)
+	}
+	imageBlock, _ := content[1].(map[string]any)
+	if strings.TrimSpace(asString(imageBlock["type"])) != "image_url" {
+		t.Fatalf("expected image_url block, got %#v", imageBlock)
+	}
+	imageURL, _ := imageBlock["image_url"].(map[string]any)
+	if !strings.HasPrefix(strings.TrimSpace(asString(imageURL["url"])), "data:image/png;base64,") {
+		t.Fatalf("expected translated data url, got %#v", imageBlock)
 	}
 }

@@ -99,12 +99,36 @@ func newResponsesStreamRuntime(
 	}
 }
 
+func (s *responsesStreamRuntime) failResponse(message, code string) {
+	s.failed = true
+	failedResp := map[string]any{
+		"id":          s.responseID,
+		"type":        "response",
+		"object":      "response",
+		"model":       s.model,
+		"status":      "failed",
+		"output":      []any{},
+		"output_text": "",
+		"error": map[string]any{
+			"message": message,
+			"type":    "invalid_request_error",
+			"code":    code,
+			"param":   nil,
+		},
+	}
+	if s.persistResponse != nil {
+		s.persistResponse(failedResp)
+	}
+	s.sendEvent("response.failed", openaifmt.BuildResponsesFailedPayload(s.responseID, s.model, message, code))
+	s.sendDone()
+}
+
 func (s *responsesStreamRuntime) finalize() {
 	finalThinking := s.thinking.String()
 	finalText := cleanVisibleOutput(s.text.String(), s.stripReferenceMarkers)
 
 	if s.bufferToolContent {
-		s.processToolStreamEvents(flushToolSieve(&s.sieve, s.toolNames), true)
+		s.processToolStreamEvents(flushToolSieve(&s.sieve, s.toolNames), true, true)
 	}
 
 	textParsed := toolcall.ParseStandaloneToolCallsDetailed(finalText, s.toolNames)
@@ -121,28 +145,16 @@ func (s *responsesStreamRuntime) finalize() {
 	s.closeMessageItem()
 
 	if s.toolChoice.IsRequired() && len(detected) == 0 {
-		s.failed = true
-		message := "tool_choice requires at least one valid tool call."
-		failedResp := map[string]any{
-			"id":          s.responseID,
-			"type":        "response",
-			"object":      "response",
-			"model":       s.model,
-			"status":      "failed",
-			"output":      []any{},
-			"output_text": "",
-			"error": map[string]any{
-				"message": message,
-				"type":    "invalid_request_error",
-				"code":    "tool_choice_violation",
-				"param":   nil,
-			},
+		s.failResponse("tool_choice requires at least one valid tool call.", "tool_choice_violation")
+		return
+	}
+	if len(detected) == 0 && strings.TrimSpace(finalText) == "" {
+		code := "upstream_empty_output"
+		message := "Upstream model returned empty output."
+		if finalThinking != "" {
+			message = "Upstream model returned reasoning without visible output."
 		}
-		if s.persistResponse != nil {
-			s.persistResponse(failedResp)
-		}
-		s.sendEvent("response.failed", openaifmt.BuildResponsesFailedPayload(s.responseID, s.model, message, "tool_choice_violation"))
-		s.sendDone()
+		s.failResponse(message, code)
 		return
 	}
 	s.closeIncompleteFunctionItems()
@@ -212,7 +224,7 @@ func (s *responsesStreamRuntime) onParsed(parsed sse.LineResult) streamengine.Pa
 			s.emitTextDelta(trimmed)
 			continue
 		}
-		s.processToolStreamEvents(processToolSieveChunk(&s.sieve, trimmed, s.toolNames), true)
+		s.processToolStreamEvents(processToolSieveChunk(&s.sieve, trimmed, s.toolNames), true, true)
 	}
 
 	return streamengine.ParsedDecision{ContentSeen: contentSeen}

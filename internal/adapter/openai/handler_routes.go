@@ -9,8 +9,16 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"ds2api/internal/auth"
+	"ds2api/internal/chathistory"
 	"ds2api/internal/config"
 	"ds2api/internal/util"
+)
+
+const (
+	// openAIUploadMaxSize limits total multipart request body size (100 MiB).
+	openAIUploadMaxSize = 100 << 20
+	// openAIGeneralMaxSize limits total JSON request body size (100 MiB).
+	openAIGeneralMaxSize = 100 << 20
 )
 
 // writeJSON is a package-internal alias kept to avoid mass-renaming across
@@ -18,9 +26,10 @@ import (
 var writeJSON = util.WriteJSON
 
 type Handler struct {
-	Store ConfigReader
-	Auth  AuthResolver
-	DS    DeepSeekCaller
+	Store       ConfigReader
+	Auth        AuthResolver
+	DS          DeepSeekCaller
+	ChatHistory *chathistory.Store
 
 	leaseMu      sync.Mutex
 	streamLeases map[string]streamLease
@@ -46,6 +55,7 @@ func RegisterRoutes(r chi.Router, h *Handler) {
 	r.Post("/v1/chat/completions", h.ChatCompletions)
 	r.Post("/v1/responses", h.Responses)
 	r.Get("/v1/responses/{response_id}", h.GetResponseByID)
+	r.Post("/v1/files", h.UploadFile)
 	r.Post("/v1/embeddings", h.Embeddings)
 }
 

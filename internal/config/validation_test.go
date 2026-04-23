@@ -39,6 +39,13 @@ func TestValidateConfigRejectsInvalidValues(t *testing.T) {
 			cfg:  Config{AutoDelete: AutoDeleteConfig{Mode: "maybe"}},
 			want: "auto_delete.mode",
 		},
+		{
+			name: "history split",
+			cfg: Config{HistorySplit: HistorySplitConfig{
+				TriggerAfterTurns: intPtr(0),
+			}},
+			want: "history_split.trigger_after_turns",
+		},
 	}
 
 	for _, tc := range tests {
@@ -59,3 +66,5 @@ func TestValidateConfigAcceptsLegacyAutoDeleteSessions(t *testing.T) {
 		t.Fatalf("expected legacy auto_delete.sessions config to remain valid, got %v", err)
 	}
 }
+
+func intPtr(v int) *int { return &v }

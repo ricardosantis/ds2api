@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"ds2api/internal/auth"
@@ -43,9 +44,18 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 	r = r.WithContext(auth.WithAuth(r.Context(), a))
 
+	r.Body = http.MaxBytesReader(w, r.Body, openAIGeneralMaxSize)
 	var req map[string]any
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "too large") {
+			writeOpenAIError(w, http.StatusRequestEntityTooLarge, "request body too large")
+			return
+		}
 		writeOpenAIError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	if err := h.preprocessInlineFileInputs(r.Context(), a, req); err != nil {
+		writeOpenAIInlineFileError(w, err)
 		return
 	}
 	stdReq, err := normalizeOpenAIChatRequest(h.Store, req, requestTraceID(r))
@@ -53,32 +63,50 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		writeOpenAIError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	stdReq, err = h.applyHistorySplit(r.Context(), a, stdReq)
+	if err != nil {
+		writeOpenAIError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	historySession := startChatHistory(h.ChatHistory, r, a, stdReq)
 
 	sessionID, err = h.DS.CreateSession(r.Context(), a, 3)
 	if err != nil {
 		if a.UseConfigToken {
+			if historySession != nil {
+				historySession.error(http.StatusUnauthorized, "Account token is invalid. Please re-login the account in admin.", "error", "", "")
+			}
 			writeOpenAIError(w, http.StatusUnauthorized, "Account token is invalid. Please re-login the account in admin.")
 		} else {
+			if historySession != nil {
+				historySession.error(http.StatusUnauthorized, "Invalid token. If this should be a DS2API key, add it to config.keys first.", "error", "", "")
+			}
 			writeOpenAIError(w, http.StatusUnauthorized, "Invalid token. If this should be a DS2API key, add it to config.keys first.")
 		}
 		return
 	}
 	pow, err := h.DS.GetPow(r.Context(), a, 3)
 	if err != nil {
+		if historySession != nil {
+			historySession.error(http.StatusUnauthorized, "Failed to get PoW (invalid token or unknown error).", "error", "", "")
+		}
 		writeOpenAIError(w, http.StatusUnauthorized, "Failed to get PoW (invalid token or unknown error).")
 		return
 	}
 	payload := stdReq.CompletionPayload(sessionID)
 	resp, err := h.DS.CallCompletion(r.Context(), a, payload, pow, 3)
 	if err != nil {
+		if historySession != nil {
+			historySession.error(http.StatusInternalServerError, "Failed to get completion.", "error", "", "")
+		}
 		writeOpenAIError(w, http.StatusInternalServerError, "Failed to get completion.")
 		return
 	}
 	if stdReq.Stream {
-		h.handleStream(w, r, resp, sessionID, stdReq.ResponseModel, stdReq.FinalPrompt, stdReq.Thinking, stdReq.Search, stdReq.ToolNames)
+		h.handleStream(w, r, resp, sessionID, stdReq.ResponseModel, stdReq.FinalPrompt, stdReq.Thinking, stdReq.Search, stdReq.ToolNames, historySession)
 		return
 	}
-	h.handleNonStream(w, r.Context(), resp, sessionID, stdReq.ResponseModel, stdReq.FinalPrompt, stdReq.Thinking, stdReq.ToolNames)
+	h.handleNonStream(w, resp, sessionID, stdReq.ResponseModel, stdReq.FinalPrompt, stdReq.Thinking, stdReq.Search, stdReq.ToolNames, historySession)
 }
 
 func (h *Handler) autoDeleteRemoteSession(ctx context.Context, a *auth.RequestAuth, sessionID string) {
@@ -114,30 +142,52 @@ func (h *Handler) autoDeleteRemoteSession(ctx context.Context, a *auth.RequestAu
 	}
 }
 
-func (h *Handler) handleNonStream(w http.ResponseWriter, ctx context.Context, resp *http.Response, completionID, model, finalPrompt string, thinkingEnabled bool, toolNames []string) {
+func (h *Handler) handleNonStream(w http.ResponseWriter, resp *http.Response, completionID, model, finalPrompt string, thinkingEnabled, searchEnabled bool, toolNames []string, historySession *chatHistorySession) {
 	if resp.StatusCode != http.StatusOK {
 		defer func() { _ = resp.Body.Close() }()
 		body, _ := io.ReadAll(resp.Body)
+		if historySession != nil {
+			historySession.error(resp.StatusCode, string(body), "error", "", "")
+		}
 		writeOpenAIError(w, resp.StatusCode, string(body))
 		return
 	}
-	_ = ctx
 	result := sse.CollectStream(resp, thinkingEnabled, true)
 
 	stripReferenceMarkers := h.compatStripReferenceMarkers()
 	finalThinking := cleanVisibleOutput(result.Thinking, stripReferenceMarkers)
 	finalText := cleanVisibleOutput(result.Text, stripReferenceMarkers)
-	if writeUpstreamEmptyOutputError(w, finalThinking, finalText, result.ContentFilter) {
+	if searchEnabled {
+		finalText = replaceCitationMarkersWithLinks(finalText, result.CitationLinks)
+	}
+	if shouldWriteUpstreamEmptyOutputError(finalText) {
+		status, message, code := upstreamEmptyOutputDetail(result.ContentFilter, finalText, finalThinking)
+		if historySession != nil {
+			historySession.error(status, message, code, finalThinking, finalText)
+		}
+		writeUpstreamEmptyOutputError(w, finalText, result.ContentFilter)
 		return
 	}
 	respBody := openaifmt.BuildChatCompletion(completionID, model, finalPrompt, finalThinking, finalText, toolNames)
+	finishReason := "stop"
+	if choices, ok := respBody["choices"].([]map[string]any); ok && len(choices) > 0 {
+		if fr, _ := choices[0]["finish_reason"].(string); strings.TrimSpace(fr) != "" {
+			finishReason = fr
+		}
+	}
+	if historySession != nil {
+		historySession.success(http.StatusOK, finalThinking, finalText, finishReason, openaifmt.BuildChatUsage(finalPrompt, finalThinking, finalText))
+	}
 	writeJSON(w, http.StatusOK, respBody)
 }
 
-func (h *Handler) handleStream(w http.ResponseWriter, r *http.Request, resp *http.Response, completionID, model, finalPrompt string, thinkingEnabled, searchEnabled bool, toolNames []string) {
+func (h *Handler) handleStream(w http.ResponseWriter, r *http.Request, resp *http.Response, completionID, model, finalPrompt string, thinkingEnabled, searchEnabled bool, toolNames []string, historySession *chatHistorySession) {
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
+		if historySession != nil {
+			historySession.error(resp.StatusCode, string(body), "error", "", "")
+		}
 		writeOpenAIError(w, resp.StatusCode, string(body))
 		return
 	}
@@ -188,13 +238,32 @@ func (h *Handler) handleStream(w http.ResponseWriter, r *http.Request, resp *htt
 		OnKeepAlive: func() {
 			streamRuntime.sendKeepAlive()
 		},
-		OnParsed: streamRuntime.onParsed,
+		OnParsed: func(parsed sse.LineResult) streamengine.ParsedDecision {
+			decision := streamRuntime.onParsed(parsed)
+			if historySession != nil {
+				historySession.progress(streamRuntime.thinking.String(), streamRuntime.text.String())
+			}
+			return decision
+		},
 		OnFinalize: func(reason streamengine.StopReason, _ error) {
 			if string(reason) == "content_filter" {
 				streamRuntime.finalize("content_filter")
+			} else {
+				streamRuntime.finalize("stop")
+			}
+			if historySession == nil {
 				return
 			}
-			streamRuntime.finalize("stop")
+			if streamRuntime.finalErrorMessage != "" {
+				historySession.error(streamRuntime.finalErrorStatus, streamRuntime.finalErrorMessage, streamRuntime.finalErrorCode, streamRuntime.thinking.String(), streamRuntime.text.String())
+				return
+			}
+			historySession.success(http.StatusOK, streamRuntime.finalThinking, streamRuntime.finalText, streamRuntime.finalFinishReason, streamRuntime.finalUsage)
+		},
+		OnContextDone: func() {
+			if historySession != nil {
+				historySession.stopped(streamRuntime.thinking.String(), streamRuntime.text.String(), string(streamengine.StopReasonContextCancelled))
+			}
 		},
 	})
 }

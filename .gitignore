@@ -62,3 +62,8 @@ CLAUDE.local.md
 
 # Local tool bootstrap cache
 .tmp/
+
+# Chat history
+data/
+.codex
+.roomodes

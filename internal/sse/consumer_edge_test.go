@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 )
 
 // ─── CollectStream edge cases ────────────────────────────────────────
@@ -115,6 +116,94 @@ func TestCollectStreamWithCitation(t *testing.T) {
 	}
 }
 
+func TestCollectStreamExtractsCitationLinks(t *testing.T) {
+	resp := makeHTTPResponse(
+		"data: {\"p\":\"response/fragments/-1/results\",\"v\":[{\"url\":\"https://example.com/a\",\"cite_index\":0},{\"url\":\"https://example.com/b\",\"cite_index\":1}]}\n" +
+			"data: {\"p\":\"response/content\",\"v\":\"结论[citation:1][citation:2]\"}\n" +
+			"data: [DONE]\n",
+	)
+	result := CollectStream(resp, false, false)
+
+	if got := result.CitationLinks[1]; got != "https://example.com/a" {
+		t.Fatalf("expected citation 1 link, got %q", got)
+	}
+	if got := result.CitationLinks[2]; got != "https://example.com/b" {
+		t.Fatalf("expected citation 2 link, got %q", got)
+	}
+}
+
+func TestCollectStreamExtractsCitationLinksForSequentialZeroBasedIndices(t *testing.T) {
+	resp := makeHTTPResponse(
+		"data: {\"p\":\"response/fragments/-1/results\",\"v\":[{\"url\":\"https://example.com/a\",\"cite_index\":0},{\"url\":\"https://example.com/b\",\"cite_index\":1},{\"url\":\"https://example.com/c\",\"cite_index\":2}]}\n" +
+			"data: {\"p\":\"response/content\",\"v\":\"结论[citation:1][citation:2][citation:3]\"}\n" +
+			"data: [DONE]\n",
+	)
+	result := CollectStream(resp, false, false)
+
+	if got := result.CitationLinks[1]; got != "https://example.com/a" {
+		t.Fatalf("expected citation 1 link, got %q", got)
+	}
+	if got := result.CitationLinks[2]; got != "https://example.com/b" {
+		t.Fatalf("expected citation 2 link, got %q", got)
+	}
+	if got := result.CitationLinks[3]; got != "https://example.com/c" {
+		t.Fatalf("expected citation 3 link, got %q", got)
+	}
+}
+
+func TestCollectStreamExtractsCitationLinksForOneBasedIndices(t *testing.T) {
+	resp := makeHTTPResponse(
+		"data: {\"p\":\"response/fragments/-1/results\",\"v\":[{\"url\":\"https://example.com/a\",\"cite_index\":1},{\"url\":\"https://example.com/b\",\"cite_index\":2}]}\n" +
+			"data: {\"p\":\"response/content\",\"v\":\"结论[citation:1][citation:2]\"}\n" +
+			"data: [DONE]\n",
+	)
+	result := CollectStream(resp, false, false)
+
+	if got := result.CitationLinks[1]; got != "https://example.com/a" {
+		t.Fatalf("expected citation 1 link, got %q", got)
+	}
+	if got := result.CitationLinks[2]; got != "https://example.com/b" {
+		t.Fatalf("expected citation 2 link, got %q", got)
+	}
+}
+
+func TestCollectStreamExtractsCitationLinksWithRepeatedURLsAndNilIndices(t *testing.T) {
+	resp := makeHTTPResponse(
+		"data: {\"p\":\"response/fragments/-1/results\",\"v\":[{\"url\":\"https://example.com/a\",\"cite_index\":null},{\"url\":\"https://example.com/a\",\"cite_index\":null},{\"url\":\"https://example.com/b\",\"cite_index\":null}]}\n" +
+			"data: {\"p\":\"response/content\",\"v\":\"结论[citation:1][citation:2][citation:3]\"}\n" +
+			"data: [DONE]\n",
+	)
+	result := CollectStream(resp, false, false)
+
+	if got := result.CitationLinks[1]; got != "https://example.com/a" {
+		t.Fatalf("expected citation 1 link, got %q", got)
+	}
+	if got := result.CitationLinks[2]; got != "https://example.com/a" {
+		t.Fatalf("expected citation 2 link, got %q", got)
+	}
+	if got := result.CitationLinks[3]; got != "https://example.com/b" {
+		t.Fatalf("expected citation 3 link, got %q", got)
+	}
+}
+
+func TestCollectStreamCollectsCitationLinksAfterFinished(t *testing.T) {
+	resp := makeHTTPResponse(
+		"data: {\"p\":\"response/content\",\"v\":\"结论[citation:1]\"}\n" +
+			"data: {\"p\":\"response/status\",\"v\":\"FINISHED\"}\n" +
+			"data: {\"p\":\"response/fragments/-1/results\",\"v\":[{\"url\":\"https://example.com/a\",\"cite_index\":1}]}\n" +
+			"data: {\"p\":\"response/content\",\"v\":\"should-not-append\"}\n" +
+			"data: [DONE]\n",
+	)
+
+	result := CollectStream(resp, false, false)
+	if result.Text != "结论[citation:1]" {
+		t.Fatalf("expected text to freeze after finished, got %q", result.Text)
+	}
+	if got := result.CitationLinks[1]; got != "https://example.com/a" {
+		t.Fatalf("expected citation 1 link, got %q", got)
+	}
+}
+
 func TestCollectStreamMultipleThinkingChunks(t *testing.T) {
 	resp := makeHTTPResponse(
 		"data: {\"p\":\"response/thinking_content\",\"v\":\"part1\"}\n" +
@@ -136,6 +225,39 @@ func TestCollectStreamStatusFinished(t *testing.T) {
 	result := CollectStream(resp, false, false)
 	if result.Text != "Hello" {
 		t.Fatalf("expected 'Hello', got %q", result.Text)
+	}
+}
+
+func TestCollectStreamStopsOnDoneAfterFinished(t *testing.T) {
+	pr, pw := io.Pipe()
+	defer func() { _ = pw.Close() }()
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     make(http.Header),
+		Body:       pr,
+	}
+
+	resultCh := make(chan CollectResult, 1)
+	go func() {
+		resultCh <- CollectStream(resp, false, false)
+	}()
+
+	_, _ = io.WriteString(pw, "data: {\"p\":\"response/content\",\"v\":\"Hello\"}\n")
+	_, _ = io.WriteString(pw, "data: {\"p\":\"response/status\",\"v\":\"FINISHED\"}\n")
+	_, _ = io.WriteString(pw, "data: {\"p\":\"response/fragments/-1/results\",\"v\":[{\"url\":\"https://example.com/a\",\"cite_index\":1}]}\n")
+	_, _ = io.WriteString(pw, "data: [DONE]\n")
+
+	select {
+	case result := <-resultCh:
+		if result.Text != "Hello" {
+			t.Fatalf("expected text to freeze at FINISHED, got %q", result.Text)
+		}
+		if got := result.CitationLinks[1]; got != "https://example.com/a" {
+			t.Fatalf("expected citation metadata after FINISHED, got %q", got)
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("CollectStream did not stop on [DONE] after FINISHED")
 	}
 }
 

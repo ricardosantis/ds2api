@@ -1,14 +1,10 @@
 'use strict';
 
-// Keep in sync with Go toolSieveContextTailLimit.
-const TOOL_SIEVE_CONTEXT_TAIL_LIMIT = 2048;
-
 function createToolSieveState() {
   return {
     pending: '',
     capture: '',
     capturing: false,
-    recentTextTail: '',
     codeFenceStack: [],
     codeFencePendingTicks: 0,
     codeFenceLineStart: true,
@@ -39,20 +35,6 @@ function noteText(state, text) {
     return;
   }
   updateCodeFenceState(state, text);
-  state.recentTextTail = appendTail(state.recentTextTail, text, TOOL_SIEVE_CONTEXT_TAIL_LIMIT);
-}
-
-function appendTail(prev, next, max) {
-  const left = typeof prev === 'string' ? prev : '';
-  const right = typeof next === 'string' ? next : '';
-  if (!Number.isFinite(max) || max <= 0) {
-    return '';
-  }
-  const combined = left + right;
-  if (combined.length <= max) {
-    return combined;
-  }
-  return combined.slice(combined.length - max);
 }
 
 function looksLikeToolExampleContext(text) {
@@ -171,11 +153,9 @@ function toStringSafe(v) {
 }
 
 module.exports = {
-  TOOL_SIEVE_CONTEXT_TAIL_LIMIT,
   createToolSieveState,
   resetIncrementalToolState,
   noteText,
-  appendTail,
   looksLikeToolExampleContext,
   insideCodeFence,
   insideCodeFenceWithState,

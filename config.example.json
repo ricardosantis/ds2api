@@ -5,14 +5,29 @@
     "your-api-key-1",
     "your-api-key-2"
   ],
+  "api_keys": [
+    {
+      "key": "your-api-key-1",
+      "name": "主 API Key",
+      "remark": "给 OpenAI 客户端使用"
+    },
+    {
+      "key": "your-api-key-2",
+      "name": "备用 API Key",
+      "remark": "压测或临时调试"
+    }
+  ],
   "accounts": [
     {
       "_comment": "邮箱登录方式",
+      "name": "主账号",
+      "remark": "优先用于生产流量",
       "email": "example1@example.com",
       "password": "your-password-1"
     },
     {
       "_comment": "邮箱登录方式 - 账号2",
+      "name": "备用账号",
       "email": "example2@example.com",
       "password": "your-password-2"
     },
@@ -33,6 +48,10 @@
   },
   "responses": {
     "store_ttl_seconds": 900
+  },
+  "history_split": {
+    "enabled": true,
+    "trigger_after_turns": 1
   },
   "embeddings": {
     "provider": "deterministic"

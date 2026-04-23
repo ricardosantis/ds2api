@@ -50,6 +50,10 @@ func (m streamStatusDSStub) GetPow(_ context.Context, _ *auth.RequestAuth, _ int
 	return "pow", nil
 }
 
+func (m streamStatusDSStub) UploadFile(_ context.Context, _ *auth.RequestAuth, _ deepseek.UploadFileRequest, _ int) (*deepseek.UploadFileResult, error) {
+	return &deepseek.UploadFileResult{ID: "file-id", Filename: "file.txt", Bytes: 1, Status: "uploaded"}, nil
+}
+
 func (m streamStatusDSStub) CallCompletion(_ context.Context, _ *auth.RequestAuth, _ map[string]any, _ string, _ int) (*http.Response, error) {
 	return m.resp, nil
 }
@@ -142,53 +146,6 @@ func TestResponsesStreamStatusCapturedAs200(t *testing.T) {
 	}
 }
 
-func TestResponsesNonStreamMixedProseToolPayloadHandlerPath(t *testing.T) {
-	statuses := make([]int, 0, 1)
-	content, _ := json.Marshal(map[string]any{
-		"p": "response/content",
-		"v": "我来调用工具\n{\"tool_calls\":[{\"name\":\"read_file\",\"input\":{\"path\":\"README.MD\"}}]}",
-	})
-	h := &Handler{
-		Store: mockOpenAIConfig{wideInput: true},
-		Auth:  streamStatusAuthStub{},
-		DS:    streamStatusDSStub{resp: makeOpenAISSEHTTPResponse("data: "+string(content), "data: [DONE]")},
-	}
-	r := chi.NewRouter()
-	r.Use(captureStatusMiddleware(&statuses))
-	RegisterRoutes(r, h)
-
-	reqBody := `{"model":"deepseek-chat","input":"请调用工具","tools":[{"type":"function","function":{"name":"read_file","description":"read","parameters":{"type":"object","properties":{"path":{"type":"string"}}}}}],"stream":false}`
-	req := httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(reqBody))
-	req.Header.Set("Authorization", "Bearer direct-token")
-	req.Header.Set("Content-Type", "application/json")
-	rec := httptest.NewRecorder()
-	r.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
-	}
-	if len(statuses) != 1 || statuses[0] != http.StatusOK {
-		t.Fatalf("expected captured status 200, got %#v", statuses)
-	}
-
-	var out map[string]any
-	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
-		t.Fatalf("decode response failed: %v body=%s", err, rec.Body.String())
-	}
-	outputText, _ := out["output_text"].(string)
-	if outputText != "" {
-		t.Fatalf("expected output_text hidden for mixed prose tool payload, got %q", outputText)
-	}
-	output, _ := out["output"].([]any)
-	if len(output) != 1 {
-		t.Fatalf("expected one output item, got %#v", output)
-	}
-	first, _ := output[0].(map[string]any)
-	if first["type"] != "function_call" {
-		t.Fatalf("expected function_call output item, got %#v", output)
-	}
-}
-
 func TestChatCompletionsStreamContentFilterStopsNormallyWithoutLeak(t *testing.T) {
 	statuses := make([]int, 0, 1)
 	h := &Handler{
@@ -236,6 +193,49 @@ func TestChatCompletionsStreamContentFilterStopsNormallyWithoutLeak(t *testing.T
 	choice, _ := choices[0].(map[string]any)
 	if choice["finish_reason"] != "stop" {
 		t.Fatalf("expected finish_reason=stop for content-filter upstream stop, got %#v", choice["finish_reason"])
+	}
+}
+
+func TestChatCompletionsStreamEmitsFailureFrameWhenUpstreamOutputEmpty(t *testing.T) {
+	statuses := make([]int, 0, 1)
+	h := &Handler{
+		Store: mockOpenAIConfig{wideInput: true},
+		Auth:  streamStatusAuthStub{},
+		DS:    streamStatusDSStub{resp: makeOpenAISSEHTTPResponse("data: [DONE]")},
+	}
+	r := chi.NewRouter()
+	r.Use(captureStatusMiddleware(&statuses))
+	RegisterRoutes(r, h)
+
+	reqBody := `{"model":"deepseek-chat","messages":[{"role":"user","content":"hi"}],"stream":true}`
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(reqBody))
+	req.Header.Set("Authorization", "Bearer direct-token")
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	if len(statuses) != 1 || statuses[0] != http.StatusOK {
+		t.Fatalf("expected captured status 200, got %#v", statuses)
+	}
+
+	frames, done := parseSSEDataFrames(t, rec.Body.String())
+	if !done {
+		t.Fatalf("expected [DONE], body=%s", rec.Body.String())
+	}
+	if len(frames) != 1 {
+		t.Fatalf("expected one failure frame, got %#v body=%s", frames, rec.Body.String())
+	}
+	last := frames[0]
+	statusCode, ok := last["status_code"].(float64)
+	if !ok || int(statusCode) != http.StatusTooManyRequests {
+		t.Fatalf("expected status_code=429, got %#v body=%s", last["status_code"], rec.Body.String())
+	}
+	errObj, _ := last["error"].(map[string]any)
+	if asString(errObj["code"]) != "upstream_empty_output" {
+		t.Fatalf("expected code=upstream_empty_output, got %#v", last)
 	}
 }
 

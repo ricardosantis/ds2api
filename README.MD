@@ -86,29 +86,19 @@ flowchart LR
 - **前端**：React 管理台（`webui/`），运行时托管静态构建产物
 - **部署**：本地运行、Docker、Vercel Serverless、Linux systemd
 
-### 3.X 底层架构调整（相较旧版本）
-
-- **统一路由内核**：所有协议入口统一汇聚到 `internal/server/router.go`，并在同一路由树中注册 OpenAI / Claude / Gemini / Admin / WebUI 路由，避免多入口行为漂移。
-- **统一执行链路**：Claude / Gemini 入口先经 `internal/translatorcliproxy` 做协议转换，再进入 `openai.ChatCompletions` 统一处理工具调用与流式语义，最后再转换回原协议响应。
-- **适配器分层更清晰**：`internal/adapter/{claude,gemini}` 负责入口/出口协议封装，`internal/adapter/openai` 负责核心执行，DeepSeek 侧调用只保留在 OpenAI 内核中。
-- **Tool Calling 双运行时对齐**：Go 侧（`internal/toolcall`）与 Vercel Node 侧（`internal/js/helpers/stream-tool-sieve`）保持一致的解析/防泄漏语义，覆盖 JSON / XML / invoke / text-kv 多风格输入。
-- **配置与运行时设置解耦**：静态配置（`config`）与运行时策略（`settings`）通过 Admin API 分离管理，支持热更新和密码轮换失效旧 JWT。
-- **流式能力升级**：`/v1/responses` 与 `/v1/chat/completions` 共享更一致的工具调用增量输出策略，降低不同 SDK 下的行为差异。
-- **可观测与可运维增强**：`/healthz`、`/readyz`、`/admin/version`、`/admin/dev/captures` 形成排障闭环，便于发布后验证。
-
 ## 核心能力
 
 | 能力 | 说明 |
 | --- | --- |
-| OpenAI 兼容 | `GET /v1/models`、`GET /v1/models/{id}`、`POST /v1/chat/completions`、`POST /v1/responses`、`GET /v1/responses/{response_id}`、`POST /v1/embeddings` |
+| OpenAI 兼容 | `GET /v1/models`、`GET /v1/models/{id}`、`POST /v1/chat/completions`、`POST /v1/responses`、`GET /v1/responses/{response_id}`、`POST /v1/embeddings`、`POST /v1/files` |
 | Claude 兼容 | `GET /anthropic/v1/models`、`POST /anthropic/v1/messages`、`POST /anthropic/v1/messages/count_tokens`（及快捷路径 `/v1/messages`、`/messages`） |
 | Gemini 兼容 | `POST /v1beta/models/{model}:generateContent`、`POST /v1beta/models/{model}:streamGenerateContent`（及 `/v1/models/{model}:*` 路径） |
 | 多账号轮询 | 自动 token 刷新、邮箱/手机号双登录方式 |
 | 并发队列控制 | 每账号 in-flight 上限 + 等待队列，动态计算建议并发值 |
 | DeepSeek PoW | 纯 Go 高性能实现（DeepSeekHashV1），毫秒级响应 |
 | Tool Calling | 防泄漏处理：非代码块高置信特征识别、`delta.tool_calls` 早发、结构化增量输出 |
-| Admin API | 配置管理、运行时设置热更新、账号测试 / 批量测试、会话清理、导入导出、Vercel 同步、版本检查 |
-| WebUI 管理台 | `/admin` 单页应用（中英文双语、深色模式） |
+| Admin API | 配置管理、运行时设置热更新、代理管理、账号测试 / 批量测试、会话清理、导入导出、Vercel 同步、版本检查 |
+| WebUI 管理台 | `/admin` 单页应用（中英文双语、深色模式，支持查看服务器端对话记录） |
 | 运维探针 | `GET /healthz`（存活）、`GET /readyz`（就绪） |
 
 ## 平台兼容矩阵
@@ -124,39 +114,57 @@ flowchart LR
 
 ## 模型支持
 
-### OpenAI 接口
+### OpenAI 接口（`GET /v1/models`）
 
-| 模型 | thinking | search |
-| --- | --- | --- |
-| `deepseek-chat` | ❌ | ❌ |
-| `deepseek-reasoner` | ✅ | ❌ |
-| `deepseek-chat-search` | ❌ | ✅ |
-| `deepseek-reasoner-search` | ✅ | ✅ |
+| 模型类型 | 模型 ID | thinking | search |
+| --- | --- | --- | --- |
+| default | `deepseek-chat` | ❌ | ❌ |
+| default | `deepseek-reasoner` | ✅ | ❌ |
+| default | `deepseek-chat-search` | ❌ | ✅ |
+| default | `deepseek-reasoner-search` | ✅ | ✅ |
+| expert | `deepseek-expert-chat` | ❌ | ❌ |
+| expert | `deepseek-expert-reasoner` | ✅ | ❌ |
+| expert | `deepseek-expert-chat-search` | ❌ | ✅ |
+| expert | `deepseek-expert-reasoner-search` | ✅ | ✅ |
+| vision | `deepseek-vision-chat` | ❌ | ❌ |
+| vision | `deepseek-vision-reasoner` | ✅ | ❌ |
+| vision | `deepseek-vision-chat-search` | ❌ | ✅ |
+| vision | `deepseek-vision-reasoner-search` | ✅ | ✅ |
 
-### Claude 接口
+除原生模型外，也支持常见 alias 输入（如 `gpt-5`、`gpt-5-mini`、`gpt-5-codex`、`gpt-4.1`、`o3`、`claude-opus-4-6`、`claude-sonnet-4-5`、`gemini-2.5-pro`、`gemini-2.5-flash` 等），但 `/v1/models` 返回的是规范化后的 DeepSeek 原生模型 ID。
 
-| 模型 | 默认映射 |
+### Claude 接口（`GET /anthropic/v1/models`）
+
+| 当前常用模型 | 默认映射 |
 | --- | --- |
 | `claude-sonnet-4-5` | `deepseek-chat` |
 | `claude-haiku-4-5`（兼容 `claude-3-5-haiku-latest`） | `deepseek-chat` |
 | `claude-opus-4-6` | `deepseek-reasoner` |
 
 可通过配置中的 `claude_mapping` 或 `claude_model_mapping` 覆盖映射关系。
-另外，`/anthropic/v1/models` 现已包含 Claude 1.x/2.x/3.x/4.x 历史模型 ID 与常见别名，便于旧客户端直接兼容。
-
+`/anthropic/v1/models` 除上述当前主别名外，还会返回 Claude 4.x snapshots，以及 3.x / 2.x / 1.x 历史模型 ID 与常见 alias，便于旧客户端直接兼容。
 
 #### Claude Code 接入避坑（实测）
 
 - `ANTHROPIC_BASE_URL` 推荐直接指向 DS2API 根地址（例如 `http://127.0.0.1:5001`），Claude Code 会请求 `/v1/messages?beta=true`。
 - `ANTHROPIC_API_KEY` 需要与 `config.json` 中 `keys` 一致；建议同时保留常规 key 与 `sk-ant-*` 形态 key，兼容不同客户端校验习惯。
 - 若系统设置了代理，建议对 DS2API 地址配置 `NO_PROXY=127.0.0.1,localhost,<你的主机IP>`，避免本地回环请求被代理拦截。
-- 如遇“工具调用输出成文本、未执行”问题，请升级到包含 Claude 工具调用多格式解析（JSON/XML/ANTML/invoke）的版本。
+- 如遇“工具调用输出成文本、未执行”问题，请优先检查模型输出是否为受支持的 XML/Markup 工具块（例如 `<tool_call>` / `<function_call>` / `<invoke>` / `tool_use`），而不是纯 JSON `tool_calls` 片段。
 
 ### Gemini 接口
 
 Gemini 适配器将模型名通过 `model_aliases` 或内置规则映射到 DeepSeek 原生模型，支持 `generateContent` 和 `streamGenerateContent` 两种调用方式，并完整支持 Tool Calling（`functionDeclarations` → `functionCall` 输出）。
 
 ## 快速开始
+
+### 部署方式优先级建议
+
+推荐按以下顺序选择部署方式：
+
+1. **下载 Release 构建包运行**：最省事，产物已编译完成，最适合大多数用户。
+2. **Docker / GHCR 镜像部署**：适合需要容器化、编排或云环境部署。
+3. **Vercel 部署**：适合已有 Vercel 环境且接受其平台约束的场景。
+4. **本地源码运行 / 自行编译**：适合开发、调试或需要自行修改代码的场景。
 
 ### 通用第一步（所有部署方式）
 
@@ -171,28 +179,20 @@ cp config.example.json config.json
 - 本地运行：直接读取 `config.json`
 - Docker / Vercel：由 `config.json` 生成 `DS2API_CONFIG_JSON`（Base64）注入环境变量，也可以直接写原始 JSON
 
-### 方式一：本地运行
+WebUI 管理台里的“全量配置模板”也直接复用同一份 `config.example.json`，所以更新示例文件后，前端模板会自动保持一致。
 
-**前置要求**：Go 1.26+，Node.js `20.19+` 或 `22.12+`（仅在需要构建 WebUI 时）
+### 方式一：下载 Release 构建包
+
+每次发布 Release 时，GitHub Actions 会自动构建多平台二进制包：
 
 ```bash
-# 1. 克隆仓库
-git clone https://github.com/CJackHwang/ds2api.git
-cd ds2api
-
-# 2. 配置
+# 下载对应平台的压缩包后
+tar -xzf ds2api_<tag>_linux_amd64.tar.gz
+cd ds2api_<tag>_linux_amd64
 cp config.example.json config.json
-# 编辑 config.json，填入你的 DeepSeek 账号信息和 API key
-
-# 3. 启动
-go run ./cmd/ds2api
+# 编辑 config.json
+./ds2api
 ```
-
-默认本地访问地址：`http://127.0.0.1:5001`
-
-服务实际绑定：`0.0.0.0:5001`，因此同一局域网设备通常也可以通过你的内网 IP 访问。
-
-> **WebUI 自动构建**：本地首次启动时，若 `static/admin` 不存在，会自动尝试执行 `npm ci`（仅在缺少依赖时）和 `npm run build -- --outDir static/admin --emptyOutDir`（需要本机有 Node.js）。你也可以手动构建：`./scripts/build-webui.sh`
 
 ### 方式二：Docker 运行
 
@@ -247,35 +247,28 @@ base64 < config.json | tr -d '\n'
 
 详细部署说明请参阅 [部署指南](docs/DEPLOY.md)。
 
-### 方式四：下载 Release 构建包
+### 方式四：本地源码运行
 
-每次发布 Release 时，GitHub Actions 会自动构建多平台二进制包：
+**前置要求**：Go 1.26+，Node.js `20.19+` 或 `22.12+`（仅在需要构建 WebUI 时）
 
 ```bash
-# 下载对应平台的压缩包后
-tar -xzf ds2api_<tag>_linux_amd64.tar.gz
-cd ds2api_<tag>_linux_amd64
+# 1. 克隆仓库
+git clone https://github.com/CJackHwang/ds2api.git
+cd ds2api
+
+# 2. 配置
 cp config.example.json config.json
-# 编辑 config.json
-./ds2api
+# 编辑 config.json，填入你的 DeepSeek 账号信息和 API key
+
+# 3. 启动
+go run ./cmd/ds2api
 ```
 
-### 方式五：OpenCode CLI 接入
+默认本地访问地址：`http://127.0.0.1:5001`
 
-1. 复制示例配置：
+服务实际绑定：`0.0.0.0:5001`，因此同一局域网设备通常也可以通过你的内网 IP 访问。
 
-```bash
-cp opencode.json.example opencode.json
-```
-
-2. 编辑 `opencode.json`：
-- 将 `baseURL` 改为你的 DS2API 地址（例如 `https://your-domain.com/v1`）
-- 将 `apiKey` 改为你的 DS2API key（对应 `config.keys`）
-
-3. 在项目目录启动 OpenCode CLI（按你的安装方式运行 `opencode`）。
-
-> 建议优先使用 OpenAI 兼容路径（`/v1/*`），即示例里的 `@ai-sdk/openai-compatible` provider。
-> 若客户端支持 `wire_api`，可分别测试 `responses` 与 `chat`，DS2API 两条链路都兼容。
+> **WebUI 自动构建**：本地首次启动时，若 `static/admin` 不存在，会自动尝试执行 `npm ci`（仅在缺少依赖时）和 `npm run build -- --outDir static/admin --emptyOutDir`（需要本机有 Node.js）。你也可以手动构建：`./scripts/build-webui.sh`
 
 ## 配置说明
 
@@ -284,8 +277,17 @@ cp opencode.json.example opencode.json
 ```json
 {
   "keys": ["your-api-key-1", "your-api-key-2"],
+  "api_keys": [
+    {
+      "key": "your-api-key-1",
+      "name": "主 Key",
+      "remark": "生产流量"
+    }
+  ],
   "accounts": [
     {
+      "name": "账号 A",
+      "remark": "主账号",
       "email": "user@example.com",
       "password": "your-password"
     },
@@ -296,8 +298,12 @@ cp opencode.json.example opencode.json
   ],
   "model_aliases": {
     "gpt-4o": "deepseek-chat",
+    "gpt-5": "deepseek-chat",
+    "gpt-5-mini": "deepseek-chat",
     "gpt-5-codex": "deepseek-reasoner",
-    "o3": "deepseek-reasoner"
+    "o3": "deepseek-reasoner",
+    "claude-opus-4-6": "deepseek-reasoner",
+    "gemini-2.5-flash": "deepseek-chat"
   },
   "compat": {
     "wide_input_strict_output": true,
@@ -329,7 +335,8 @@ cp opencode.json.example opencode.json
 ```
 
 - `keys`：API 访问密钥列表，客户端通过 `Authorization: Bearer <key>` 鉴权
-- `accounts`：DeepSeek 账号列表，支持 `email` 或 `mobile` 登录
+- `api_keys`：推荐使用的新结构化密钥列表，支持 `key` + `name` + `remark`（`keys` 仍兼容）
+- `accounts`：DeepSeek 账号列表，支持 `email` 或 `mobile` 登录；可额外填写 `name` / `remark` 便于管理
 - `token`：配置文件中即使填写也会在加载时被清空（不会从 `config.json` 读取 token）；实际 token 仅在运行时内存中维护并自动刷新
 - `model_aliases`：常见模型名（如 GPT/Codex/Claude）到 DeepSeek 模型的映射
 - `compat.wide_input_strict_output`：建议保持 `true`（当前实现默认宽进严出）
@@ -344,6 +351,8 @@ cp opencode.json.example opencode.json
 
 ### 环境变量
 
+> 建议：长期维护请优先以 `config.json`（或其 Base64）为单一配置源。环境变量仅保留部署必需项；`DS2API_CONFIG_JSON` 主要用于 Vercel/无持久盘场景，后续可能进一步收敛。
+
 | 变量 | 用途 | 默认值 |
 | --- | --- | --- |
 | `PORT` | 服务端口 | `5001` |
@@ -353,6 +362,7 @@ cp opencode.json.example opencode.json
 | `DS2API_JWT_EXPIRE_HOURS` | Admin JWT 过期小时数 | `24` |
 | `DS2API_CONFIG_PATH` | 配置文件路径 | `config.json` |
 | `DS2API_CONFIG_JSON` | 直接注入配置（JSON 或 Base64） | — |
+| `DS2API_CHAT_HISTORY_PATH` | 服务器端对话记录文件路径 | `data/chat_history.json` |
 | `DS2API_ENV_WRITEBACK` | 环境变量模式下自动写回配置文件并切换文件模式（`1/true/yes/on`） | 关闭 |
 | `DS2API_STATIC_ADMIN_DIR` | 管理台静态文件目录 | `static/admin` |
 | `DS2API_AUTO_BUILD_WEBUI` | 启动时自动构建 WebUI | 本地开启，Vercel 关闭 |
@@ -370,6 +380,15 @@ cp opencode.json.example opencode.json
 | `DS2API_VERCEL_PROTECTION_BYPASS` | Vercel 部署保护绕过密钥（内部 Node→Go 调用） | — |
 
 > 提示：当检测到 `DS2API_CONFIG_JSON` 时，管理台会显示当前模式风险与自动持久化状态（含 `DS2API_CONFIG_PATH` 路径与模式切换说明）。
+
+#### 必填 / 可选（按部署方式）
+
+- **所有部署都必填**：`DS2API_ADMIN_KEY`
+- **配置来源二选一（推荐前者）**：
+  - `config.json` 文件（推荐，持久化更直观）
+  - `DS2API_CONFIG_JSON`（可选，适合 Vercel；支持 JSON 或 Base64）
+- **仅在环境变量配置模式建议开启**：`DS2API_ENV_WRITEBACK=1`（避免管理台改动重启后丢失）
+- 其余环境变量均为可选调优项。
 
 ## 鉴权模式
 
@@ -401,7 +420,7 @@ Gemini 路由还可以使用 `x-goog-api-key`，或在没有认证头时使用 `
 当请求中带 `tools` 时，DS2API 会做防泄漏处理与结构化转译：
 
 1. 只在**非代码块上下文**启用执行型 toolcall 识别（代码块示例默认不触发）
-2. 解析层以 XML/Markup 为最高优先级，同时兼容 JSON / ANTML / invoke / text-kv，并统一归一到内部工具调用结构
+2. 解析层当前以 XML/Markup 家族为准（`<tool_call>` / `<function_call>` / `<invoke>` / `tool_use` / antml 变体）；纯 JSON `tool_calls` 片段默认不作为可执行调用解析
 3. `responses` 流式严格使用官方 item 生命周期事件（`response.output_item.*`、`response.content_part.*`、`response.function_call_arguments.*`）
 4. `responses` 支持并执行 `tool_choice`（`auto`/`none`/`required`/强制函数）；`required` 违规时非流式返回 `422`，流式返回 `response.failed`
 5. 客户端请求哪种协议，就按该协议返回工具调用（OpenAI/Claude/Gemini 各自原生结构）；模型侧优先约束输出规范 XML，再由兼容层转译
@@ -500,7 +519,7 @@ go test -v -run 'TestParseToolCalls|TestRepair' ./internal/toolcall/
 - **触发条件**：仅在 GitHub Release `published` 时触发（普通 push 不会触发）
 - **构建产物**：多平台二进制包（`linux/amd64`、`linux/arm64`、`darwin/amd64`、`darwin/arm64`、`windows/amd64`）+ `sha256sums.txt`
 - **容器镜像发布**：仅推送到 GHCR（`ghcr.io/cjackhwang/ds2api`）
-- **每个压缩包包含**：`ds2api` 可执行文件、`static/admin`、WASM 文件（同时支持内置 fallback）、配置示例、README、LICENSE
+- **每个压缩包包含**：`ds2api` 可执行文件、`static/admin`、WASM 文件（同时支持内置 fallback）、`config.example.json` 配置示例、README、LICENSE
 
 ## 免责声明
 

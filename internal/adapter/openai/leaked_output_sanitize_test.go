@@ -26,6 +26,22 @@ func TestSanitizeLeakedOutputRemovesStandaloneMetaMarkers(t *testing.T) {
 	}
 }
 
+func TestSanitizeLeakedOutputRemovesThinkAndBosMarkers(t *testing.T) {
+	raw := "A<think>B</think>C<｜begin▁of▁sentence｜>D<| begin_of_sentence |>E<｜begin_of_sentence｜>F"
+	got := sanitizeLeakedOutput(raw)
+	if got != "ABCDEF" {
+		t.Fatalf("unexpected sanitize result for think/BOS markers: %q", got)
+	}
+}
+
+func TestSanitizeLeakedOutputRemovesDanglingThinkBlock(t *testing.T) {
+	raw := "Answer prefix<think>internal reasoning that never closes"
+	got := sanitizeLeakedOutput(raw)
+	if got != "Answer prefix" {
+		t.Fatalf("unexpected sanitize result for dangling think block: %q", got)
+	}
+}
+
 func TestSanitizeLeakedOutputRemovesAgentXMLLeaks(t *testing.T) {
 	raw := "Done.<attempt_completion><result>Some final answer</result></attempt_completion>"
 	got := sanitizeLeakedOutput(raw)

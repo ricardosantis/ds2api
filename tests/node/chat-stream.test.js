@@ -17,6 +17,7 @@ const {
   normalizePreparedToolNames,
   boolDefaultTrue,
   filterIncrementalToolCallDeltasByAllowed,
+  resetStreamToolCallState,
   buildUsage,
   estimateTokens,
   shouldSkipPath,
@@ -107,6 +108,16 @@ test('incremental and final tool formatting share stable id via idStore', () => 
   assert.equal(incremental[0].id, finalCalls[0].id);
 });
 
+test('resetStreamToolCallState gives each completed block a fresh id', () => {
+  const idStore = new Map();
+  const first = formatIncrementalToolCallDeltas([{ index: 0, name: 'read_file' }], idStore);
+  resetStreamToolCallState(idStore);
+  const second = formatIncrementalToolCallDeltas([{ index: 0, name: 'search' }], idStore);
+  assert.equal(first.length, 1);
+  assert.equal(second.length, 1);
+  assert.notEqual(first[0].id, second[0].id);
+});
+
 test('formatIncrementalToolCallDeltas drops empty deltas (Go parity)', () => {
   const idStore = new Map();
   const formatted = formatIncrementalToolCallDeltas([{ index: 0 }], idStore);
@@ -129,7 +140,7 @@ test('parseChunkForContent keeps split response/content fragments inside respons
   assert.equal(combined, '{"tool_calls":[{"name":"read_file","input":{"path":"README.MD"}}]}');
 });
 
-test('parseChunkForContent + sieve does not leak suspicious prefix in split tool json case', () => {
+test('parseChunkForContent + sieve passes JSON tool payload through as text (XML-only)', () => {
   const chunk = {
     p: 'response',
     v: [
@@ -146,15 +157,14 @@ test('parseChunkForContent + sieve does not leak suspicious prefix in split tool
   events.push(...flushToolSieve(state, ['read_file']));
 
   const hasToolCalls = events.some((evt) => evt.type === 'tool_calls' && evt.calls && evt.calls.length > 0);
-  const hasToolDeltas = events.some((evt) => evt.type === 'tool_call_deltas' && evt.deltas && evt.deltas.length > 0);
   const leakedText = events
     .filter((evt) => evt.type === 'text' && evt.text)
     .map((evt) => evt.text)
     .join('');
 
-  assert.equal(hasToolCalls || hasToolDeltas, true);
-  assert.equal(leakedText.includes('{'), false);
-  assert.equal(leakedText.toLowerCase().includes('tool_calls'), false);
+  // JSON payloads are no longer intercepted — they pass through as text.
+  assert.equal(hasToolCalls, false);
+  assert.equal(leakedText.includes('tool_calls'), true);
 });
 
 test('parseChunkForContent consumes nested item.v array payloads', () => {

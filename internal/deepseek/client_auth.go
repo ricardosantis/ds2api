@@ -91,17 +91,25 @@ func (c *Client) CreateSession(ctx context.Context, a *auth.RequestAuth, maxAtte
 }
 
 func (c *Client) GetPow(ctx context.Context, a *auth.RequestAuth, maxAttempts int) (string, error) {
+	return c.GetPowForTarget(ctx, a, DeepSeekCompletionTargetPath, maxAttempts)
+}
+
+func (c *Client) GetPowForTarget(ctx context.Context, a *auth.RequestAuth, targetPath string, maxAttempts int) (string, error) {
 	if maxAttempts <= 0 {
 		maxAttempts = c.maxRetries
+	}
+	targetPath = strings.TrimSpace(targetPath)
+	if targetPath == "" {
+		targetPath = DeepSeekCompletionTargetPath
 	}
 	clients := c.requestClientsForAuth(ctx, a)
 	attempts := 0
 	refreshed := false
 	for attempts < maxAttempts {
 		headers := c.authHeaders(a.DeepSeekToken)
-		resp, status, err := c.postJSONWithStatus(ctx, clients.regular, clients.fallback, DeepSeekCreatePowURL, headers, map[string]any{"target_path": "/api/v0/chat/completion"})
+		resp, status, err := c.postJSONWithStatus(ctx, clients.regular, clients.fallback, DeepSeekCreatePowURL, headers, map[string]any{"target_path": targetPath})
 		if err != nil {
-			config.Logger.Warn("[get_pow] request error", "error", err, "account", a.AccountID)
+			config.Logger.Warn("[get_pow] request error", "error", err, "account", a.AccountID, "target_path", targetPath)
 			attempts++
 			continue
 		}
@@ -117,7 +125,7 @@ func (c *Client) GetPow(ctx context.Context, a *auth.RequestAuth, maxAttempts in
 			}
 			return BuildPowHeader(challenge, answer)
 		}
-		config.Logger.Warn("[get_pow] failed", "status", status, "code", code, "biz_code", bizCode, "msg", msg, "biz_msg", bizMsg, "use_config_token", a.UseConfigToken, "account", a.AccountID)
+		config.Logger.Warn("[get_pow] failed", "status", status, "code", code, "biz_code", bizCode, "msg", msg, "biz_msg", bizMsg, "use_config_token", a.UseConfigToken, "account", a.AccountID, "target_path", targetPath)
 		if a.UseConfigToken {
 			if !refreshed && shouldAttemptRefresh(status, code, bizCode, msg, bizMsg) {
 				if c.Auth.RefreshToken(ctx, a) {

@@ -156,6 +156,33 @@ func TestNormalizeResponsesInputAsMessagesFunctionCallItemPreservesConcatenatedA
 	}
 }
 
+func TestCollectOpenAIRefFileIDs(t *testing.T) {
+	got := collectOpenAIRefFileIDs(map[string]any{
+		"ref_file_ids": []any{"file-top", "file-dup"},
+		"attachments": []any{
+			map[string]any{"file_id": "file-attachment"},
+		},
+		"input": []any{
+			map[string]any{
+				"type": "message",
+				"content": []any{
+					map[string]any{"type": "input_file", "file_id": "file-input"},
+					map[string]any{"type": "input_file", "id": "file-dup"},
+				},
+			},
+		},
+	})
+	want := []string{"file-top", "file-dup", "file-attachment", "file-input"}
+	if len(got) != len(want) {
+		t.Fatalf("expected %d file ids, got %#v", len(want), got)
+	}
+	for i, id := range want {
+		if got[i] != id {
+			t.Fatalf("unexpected file ids at %d: got=%#v want=%#v", i, got, want)
+		}
+	}
+}
+
 func TestExtractEmbeddingInputs(t *testing.T) {
 	got := extractEmbeddingInputs([]any{"a", "b"})
 	if len(got) != 2 || got[0] != "a" || got[1] != "b" {

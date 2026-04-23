@@ -31,13 +31,13 @@ Docs: [Overview](README.en.md) / [Architecture](docs/ARCHITECTURE.en.md) / [Depl
 | Base URL | `http://localhost:5001` or your deployment domain |
 | Default Content-Type | `application/json` |
 | Health probes | `GET /healthz`, `GET /readyz` |
-| CORS | Enabled (`Access-Control-Allow-Origin: *`, allows `Content-Type`, `Authorization`, `X-API-Key`, `X-Ds2-Target-Account`, `X-Vercel-Protection-Bypass`) |
+| CORS | Enabled (`Access-Control-Allow-Origin: *`, allows `Content-Type`, `Authorization`, `X-API-Key`, `X-Ds2-Target-Account`, `X-Ds2-Source`, `X-Vercel-Protection-Bypass`) |
 
 ### 3.0 Adapter-Layer Notes
 
 - OpenAI / Claude / Gemini protocols are now mounted on one shared `chi` router tree assembled in `internal/server/router.go`.
 - Adapter responsibilities are streamlined to: **request normalization → DeepSeek invocation → protocol-shaped rendering**, reducing legacy split-logic paths.
-- Tool-calling semantics are aligned between Go and Node runtime: structured parsing first (JSON/XML/invoke/markup), plus stream-time anti-leak filtering.
+- Tool-calling semantics are aligned between Go and Node runtime: parsing is now centered on XML/Markup-family tool syntax (`<tool_call>` / `<function_call>` / `<invoke>` / `tool_use` / antml variants), plus stream-time anti-leak filtering.
 - `Admin API` separates static config from runtime policy: `/admin/config*` for configuration state, `/admin/settings*` for runtime behavior.
 
 ---
@@ -108,6 +108,7 @@ Gemini-compatible clients can also send `x-goog-api-key`, `?key=`, or `?api_key=
 | POST | `/v1/responses` | Business | OpenAI Responses API (stream/non-stream) |
 | GET | `/v1/responses/{response_id}` | Business | Query stored response (in-memory TTL) |
 | POST | `/v1/embeddings` | Business | OpenAI Embeddings API |
+| POST | `/v1/files` | Business | OpenAI Files upload (multipart/form-data) |
 | GET | `/anthropic/v1/models` | None | Claude model list |
 | POST | `/anthropic/v1/messages` | Business | Claude messages |
 | POST | `/anthropic/v1/messages/count_tokens` | Business | Claude token counting |
@@ -129,11 +130,19 @@ Gemini-compatible clients can also send `x-goog-api-key`, `?key=`, or `?api_key=
 | POST | `/admin/settings/password` | Admin | Update admin password and invalidate old JWTs |
 | POST | `/admin/config/import` | Admin | Import config (merge/replace) |
 | GET | `/admin/config/export` | Admin | Export full config (`config`/`json`/`base64`) |
-| POST | `/admin/keys` | Admin | Add API key |
+| POST | `/admin/keys` | Admin | Add API key (optional `name`/`remark`) |
+| PUT | `/admin/keys/{key}` | Admin | Update API key metadata |
 | DELETE | `/admin/keys/{key}` | Admin | Delete API key |
+| GET | `/admin/proxies` | Admin | List proxies |
+| POST | `/admin/proxies` | Admin | Add proxy |
+| PUT | `/admin/proxies/{proxyID}` | Admin | Update proxy (empty password keeps old secret) |
+| DELETE | `/admin/proxies/{proxyID}` | Admin | Delete proxy (auto-unbind referenced accounts) |
+| POST | `/admin/proxies/test` | Admin | Test proxy connectivity |
 | GET | `/admin/accounts` | Admin | Paginated account list |
 | POST | `/admin/accounts` | Admin | Add account |
+| PUT | `/admin/accounts/{identifier}` | Admin | Update account name/remark |
 | DELETE | `/admin/accounts/{identifier}` | Admin | Delete account |
+| PUT | `/admin/accounts/{identifier}/proxy` | Admin | Bind/unbind proxy for an account |
 | GET | `/admin/queue/status` | Admin | Account queue status |
 | POST | `/admin/accounts/test` | Admin | Test one account |
 | POST | `/admin/accounts/test-all` | Admin | Test all accounts |
@@ -149,6 +158,10 @@ Gemini-compatible clients can also send `x-goog-api-key`, `?key=`, or `?api_key=
 | GET | `/admin/export` | Admin | Export config JSON/Base64 |
 | GET | `/admin/dev/captures` | Admin | Read local packet-capture entries |
 | DELETE | `/admin/dev/captures` | Admin | Clear local packet-capture entries |
+| GET | `/admin/chat-history` | Admin | Read server-side conversation history |
+| DELETE | `/admin/chat-history` | Admin | Clear server-side conversation history |
+| DELETE | `/admin/chat-history/{id}` | Admin | Delete one server-side conversation entry |
+| PUT | `/admin/chat-history/settings` | Admin | Update conversation history retention limit |
 | GET | `/admin/version` | Admin | Check current version and latest Release |
 
 ---
@@ -173,7 +186,7 @@ Gemini-compatible clients can also send `x-goog-api-key`, `?key=`, or `?api_key=
 
 ### `GET /v1/models`
 
-No auth required. Returns supported models.
+No auth required. Returns the currently supported DeepSeek native model list.
 
 **Response**:
 
@@ -184,10 +197,20 @@ No auth required. Returns supported models.
     {"id": "deepseek-chat", "object": "model", "created": 1677610602, "owned_by": "deepseek", "permission": []},
     {"id": "deepseek-reasoner", "object": "model", "created": 1677610602, "owned_by": "deepseek", "permission": []},
     {"id": "deepseek-chat-search", "object": "model", "created": 1677610602, "owned_by": "deepseek", "permission": []},
-    {"id": "deepseek-reasoner-search", "object": "model", "created": 1677610602, "owned_by": "deepseek", "permission": []}
+    {"id": "deepseek-reasoner-search", "object": "model", "created": 1677610602, "owned_by": "deepseek", "permission": []},
+    {"id": "deepseek-expert-chat", "object": "model", "created": 1677610602, "owned_by": "deepseek", "permission": []},
+    {"id": "deepseek-expert-reasoner", "object": "model", "created": 1677610602, "owned_by": "deepseek", "permission": []},
+    {"id": "deepseek-expert-chat-search", "object": "model", "created": 1677610602, "owned_by": "deepseek", "permission": []},
+    {"id": "deepseek-expert-reasoner-search", "object": "model", "created": 1677610602, "owned_by": "deepseek", "permission": []},
+    {"id": "deepseek-vision-chat", "object": "model", "created": 1677610602, "owned_by": "deepseek", "permission": []},
+    {"id": "deepseek-vision-reasoner", "object": "model", "created": 1677610602, "owned_by": "deepseek", "permission": []},
+    {"id": "deepseek-vision-chat-search", "object": "model", "created": 1677610602, "owned_by": "deepseek", "permission": []},
+    {"id": "deepseek-vision-reasoner-search", "object": "model", "created": 1677610602, "owned_by": "deepseek", "permission": []}
   ]
 }
 ```
+
+> Note: `/v1/models` returns normalized DeepSeek native model IDs. Common aliases are accepted only as request input and are not expanded as separate items in this endpoint.
 
 ### Model Alias Resolution
 
@@ -197,6 +220,13 @@ For `chat` / `responses` / `embeddings`, DS2API follows a wide-input/strict-outp
 2. Then match exact keys in `model_aliases`.
 3. If still unmatched, fall back by known family heuristics (`o*`, `gpt-*`, `claude-*`, etc.).
 4. If still unmatched, return `invalid_request_error`.
+
+Current built-in default aliases (excerpt):
+
+- OpenAI: `gpt-4o`, `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano`, `gpt-5`, `gpt-5-mini`, `gpt-5-codex`
+- OpenAI reasoning: `o1`, `o1-mini`, `o3`, `o3-mini`
+- Claude: `claude-sonnet-4-5`, `claude-haiku-4-5`, `claude-opus-4-6` (plus compatibility aliases `claude-3-5-sonnet` / `claude-3-5-haiku` / `claude-3-opus`)
+- Gemini: `gemini-2.5-pro`, `gemini-2.5-flash`
 
 ### `POST /v1/chat/completions`
 
@@ -211,7 +241,7 @@ Content-Type: application/json
 
 | Field | Type | Required | Notes |
 | --- | --- | --- | --- |
-| `model` | string | ✅ | DeepSeek native models + common aliases (`gpt-4o`, `gpt-5-codex`, `o3`, `claude-sonnet-4-5`, etc.) |
+| `model` | string | ✅ | DeepSeek native models + common aliases (`gpt-5`, `gpt-5-mini`, `gpt-5-codex`, `o3`, `claude-opus-4-6`, `gemini-2.5-pro`, `gemini-2.5-flash`, etc.) |
 | `messages` | array | ✅ | OpenAI-style messages |
 | `stream` | boolean | ❌ | Default `false` |
 | `tools` | array | ❌ | Function calling schema |
@@ -302,7 +332,12 @@ When `tools` is present, DS2API performs anti-leak handling:
 }
 ```
 
-**Stream**: Once high-confidence toolcall features are matched, DS2API emits `delta.tool_calls` immediately (without waiting for full JSON closure), then keeps sending argument deltas; confirmed raw tool JSON is never forwarded as `delta.content`.
+**Stream**: Once high-confidence toolcall features are matched, DS2API emits `delta.tool_calls` immediately (without waiting for full argument closure), then keeps sending argument deltas; confirmed tool-call fragments are not forwarded as `delta.content`.
+
+Additional notes:
+
+- The parser currently follows XML/Markup-family tool payloads (`<tool_call>`, `<function_call>`, `<invoke>`, `tool_use`, antml variants). Standalone JSON `tool_calls` payloads are not treated as executable tool calls by default.
+- `tool_calls` shown inside fenced markdown code blocks (for example, ```json ... ```) are treated as examples, not executable calls.
 
 ---
 
@@ -381,6 +416,21 @@ Business auth required. Returns OpenAI-compatible embeddings shape.
 
 > Requires `embeddings.provider`. Current supported values: `mock` / `deterministic` / `builtin`. If missing/unsupported, returns standard error shape with HTTP 501.
 
+### `POST /v1/files`
+
+Business auth required. OpenAI Files-compatible upload endpoint; currently only `multipart/form-data` is supported.
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `file` | file | ✅ | Binary payload |
+| `purpose` | string | ❌ | Forwarded purpose field |
+
+Constraints and behavior:
+
+- `Content-Type` must be `multipart/form-data` (otherwise `400`).
+- Total request size limit is `100 MiB` (over-limit returns `413`).
+- Success returns an OpenAI `file` object (`id/object/bytes/filename/purpose/status`, etc.) and includes `account_id` for source-account tracing.
+
 ---
 
 ## Claude-Compatible API
@@ -408,7 +458,7 @@ No auth required.
 }
 ```
 
-> Note: the example is partial; the real response includes historical Claude 1.x/2.x/3.x/4.x IDs and common aliases.
+> Note: the example is partial; besides the current primary aliases, the real response also includes Claude 4.x snapshots plus historical 3.x / 2.x / 1.x IDs and common aliases.
 
 ### `POST /anthropic/v1/messages`
 
@@ -599,11 +649,15 @@ Returns Vercel preconfiguration status.
 
 ### `GET /admin/config`
 
-Returns sanitized config.
+Returns sanitized config, including both `keys` and `api_keys`.
 
 ```json
 {
   "keys": ["k1", "k2"],
+  "api_keys": [
+    {"key": "k1", "name": "Primary", "remark": "Production"},
+    {"key": "k2", "name": "Backup", "remark": "Load test"}
+  ],
   "env_backed": false,
   "env_source_present": true,
   "env_writeback_enabled": true,
@@ -627,13 +681,18 @@ Returns sanitized config.
 
 ### `POST /admin/config`
 
-Only updates `keys`, `accounts`, and `claude_mapping`.
+Only updates `keys`, `api_keys`, `accounts`, and `claude_mapping`.
+If both `api_keys` and `keys` are sent, the structured `api_keys` entries win so `name` / `remark` metadata is preserved; `keys` remains a legacy fallback.
 
 **Request**:
 
 ```json
 {
   "keys": ["k1", "k2"],
+  "api_keys": [
+    {"key": "k1", "name": "Primary", "remark": "Production"},
+    {"key": "k2", "name": "Backup", "remark": "Load test"}
+  ],
   "accounts": [
     {"email": "user@example.com", "password": "pwd", "token": ""}
   ],
@@ -693,7 +752,7 @@ Imports full config with:
 
 The request can send config directly, or wrapped as `{"config": {...}, "mode":"merge"}`.
 Query params `?mode=merge` / `?mode=replace` are also supported.
-Import accepts `keys`, `accounts`, `claude_mapping` / `claude_model_mapping`, `model_aliases`, `admin`, `runtime`, `responses`, `embeddings`, and `auto_delete`; legacy `toolcall` fields are ignored.
+Import accepts `keys`, `api_keys`, `accounts`, `claude_mapping` / `claude_model_mapping`, `model_aliases`, `admin`, `runtime`, `responses`, `embeddings`, and `auto_delete`; legacy `toolcall` fields are ignored.
 
 > `compat` fields are managed via `/admin/settings` or the config file; this import endpoint does not update `compat`.
 
@@ -704,7 +763,17 @@ Exports full config in three forms: `config`, `json`, and `base64`.
 ### `POST /admin/keys`
 
 ```json
-{"key": "new-api-key"}
+{"key": "new-api-key", "name": "Primary", "remark": "Production"}
+```
+
+**Response**: `{"success": true, "total_keys": 3}`
+
+### `PUT /admin/keys/{key}`
+
+Updates the `name` / `remark` of the specified API key. The path `key` is read-only and cannot be changed.
+
+```json
+{"name": "Backup", "remark": "Load test"}
 ```
 
 **Response**: `{"success": true, "total_keys": 3}`
@@ -713,6 +782,26 @@ Exports full config in three forms: `config`, `json`, and `base64`.
 
 **Response**: `{"success": true, "total_keys": 2}`
 
+### `GET /admin/proxies`
+
+Lists proxy configs (password is never returned; use `has_password` as a marker).
+
+### `POST /admin/proxies`
+
+Adds a proxy. Request accepts `id` (optional; auto-generated when omitted), `name`, `type` (`http` / `socks5`), `host`, `port`, `username`, `password`.
+
+### `PUT /admin/proxies/{proxyID}`
+
+Updates a proxy. If `password` is an empty string, the existing secret is preserved.
+
+### `DELETE /admin/proxies/{proxyID}`
+
+Deletes a proxy and automatically clears `proxy_id` on all accounts that reference it.
+
+### `POST /admin/proxies/test`
+
+Tests proxy connectivity: provide `proxy_id` to test a saved proxy; omit it to run a one-off test using proxy fields in the request body.
+
 ### `GET /admin/accounts`
 
 **Query params**:
@@ -720,7 +809,7 @@ Exports full config in three forms: `config`, `json`, and `base64`.
 | Param | Default | Range |
 | --- | --- | --- |
 | `page` | `1` | ≥ 1 |
-| `page_size` | `10` | 1–100 |
+| `page_size` | `10` | 1–5000 |
 | `q` | empty | Filter by identifier / email / mobile |
 
 **Response**:
@@ -755,11 +844,29 @@ Returned items also include `test_status`, usually `ok` or `failed`.
 
 **Response**: `{"success": true, "total_accounts": 6}`
 
+### `PUT /admin/accounts/{identifier}`
+
+Updates the `name` / `remark` of the specified account. The path `identifier` can be email or mobile and cannot be changed.
+
+```json
+{"name": "Primary account", "remark": "Shared with the team"}
+```
+
+**Response**: `{"success": true, "total_accounts": 6}`
+
 ### `DELETE /admin/accounts/{identifier}`
 
 `identifier` can be email, mobile, or the synthetic id for token-only accounts (`token:<hash>`).
 
 **Response**: `{"success": true, "total_accounts": 5}`
+
+### `PUT /admin/accounts/{identifier}/proxy`
+
+Updates proxy binding for a specific account.
+
+- Request body: `{"proxy_id":"..."}`.
+- Use empty `proxy_id` to unbind proxy.
+- `identifier` supports email / mobile / token-only synthetic id.
 
 ### `GET /admin/queue/status`
 

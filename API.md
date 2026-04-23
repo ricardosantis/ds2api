@@ -31,13 +31,13 @@
 | Base URL | `http://localhost:5001` 或你的部署域名 |
 | 默认 Content-Type | `application/json` |
 | 健康检查 | `GET /healthz`、`GET /readyz` |
-| CORS | 已启用（`Access-Control-Allow-Origin: *`，允许 `Content-Type`, `Authorization`, `X-API-Key`, `X-Ds2-Target-Account`, `X-Vercel-Protection-Bypass`） |
+| CORS | 已启用（`Access-Control-Allow-Origin: *`，允许 `Content-Type`, `Authorization`, `X-API-Key`, `X-Ds2-Target-Account`, `X-Ds2-Source`, `X-Vercel-Protection-Bypass`） |
 
 ### 3.0 接口适配层说明
 
 - OpenAI / Claude / Gemini 三套协议已统一挂在同一 `chi` 路由树上，由 `internal/server/router.go` 负责装配。
 - 适配器层职责收敛为：**请求归一化 → DeepSeek 调用 → 协议形态渲染**，减少历史版本中“同能力多处实现”的分叉。
-- Tool Calling 的解析策略在 Go 与 Node Runtime 间保持一致：优先结构化解析（JSON/XML/invoke/markup），并在流式场景执行防泄漏筛分。
+- Tool Calling 的解析策略在 Go 与 Node Runtime 间保持一致：当前以 XML/Markup 家族解析为主（含 `<tool_call>` / `<function_call>` / `<invoke>` / `tool_use` / antml 变体），并在流式场景执行防泄漏筛分。
 - `Admin API` 将配置与运行时策略分开：`/admin/config*` 管静态配置，`/admin/settings*` 管运行时行为。
 
 ---
@@ -108,6 +108,7 @@ Gemini 兼容客户端还可以使用 `x-goog-api-key`、`?key=` 或 `?api_key=`
 | POST | `/v1/responses` | 业务 | OpenAI Responses 接口（流式/非流式） |
 | GET | `/v1/responses/{response_id}` | 业务 | 查询已生成 response（内存 TTL） |
 | POST | `/v1/embeddings` | 业务 | OpenAI Embeddings 接口 |
+| POST | `/v1/files` | 业务 | OpenAI Files 上传（multipart/form-data） |
 | GET | `/anthropic/v1/models` | 无 | Claude 模型列表 |
 | POST | `/anthropic/v1/messages` | 业务 | Claude 消息接口 |
 | POST | `/anthropic/v1/messages/count_tokens` | 业务 | Claude token 计数 |
@@ -129,11 +130,19 @@ Gemini 兼容客户端还可以使用 `x-goog-api-key`、`?key=` 或 `?api_key=`
 | POST | `/admin/settings/password` | Admin | 更新 Admin 密码并使旧 JWT 失效 |
 | POST | `/admin/config/import` | Admin | 导入配置（merge/replace） |
 | GET | `/admin/config/export` | Admin | 导出完整配置（含 `config`/`json`/`base64`） |
-| POST | `/admin/keys` | Admin | 添加 API key |
+| POST | `/admin/keys` | Admin | 添加 API key（可附 name/remark） |
+| PUT | `/admin/keys/{key}` | Admin | 更新 API key 备注信息 |
 | DELETE | `/admin/keys/{key}` | Admin | 删除 API key |
+| GET | `/admin/proxies` | Admin | 代理列表 |
+| POST | `/admin/proxies` | Admin | 添加代理 |
+| PUT | `/admin/proxies/{proxyID}` | Admin | 更新代理（留空 password 表示保留原密码） |
+| DELETE | `/admin/proxies/{proxyID}` | Admin | 删除代理（自动解绑引用该代理的账号） |
+| POST | `/admin/proxies/test` | Admin | 测试代理连通性 |
 | GET | `/admin/accounts` | Admin | 分页账号列表 |
 | POST | `/admin/accounts` | Admin | 添加账号 |
+| PUT | `/admin/accounts/{identifier}` | Admin | 更新账号 name/remark |
 | DELETE | `/admin/accounts/{identifier}` | Admin | 删除账号 |
+| PUT | `/admin/accounts/{identifier}/proxy` | Admin | 为账号绑定/解绑代理 |
 | GET | `/admin/queue/status` | Admin | 账号队列状态 |
 | POST | `/admin/accounts/test` | Admin | 测试单个账号 |
 | POST | `/admin/accounts/test-all` | Admin | 测试全部账号 |
@@ -149,6 +158,10 @@ Gemini 兼容客户端还可以使用 `x-goog-api-key`、`?key=` 或 `?api_key=`
 | GET | `/admin/export` | Admin | 导出配置 JSON/Base64 |
 | GET | `/admin/dev/captures` | Admin | 查看本地抓包记录 |
 | DELETE | `/admin/dev/captures` | Admin | 清空本地抓包记录 |
+| GET | `/admin/chat-history` | Admin | 查看服务器端对话记录 |
+| DELETE | `/admin/chat-history` | Admin | 清空服务器端对话记录 |
+| DELETE | `/admin/chat-history/{id}` | Admin | 删除单条服务器端对话记录 |
+| PUT | `/admin/chat-history/settings` | Admin | 更新对话记录保留条数 |
 | GET | `/admin/version` | Admin | 查询当前版本与最新 Release |
 
 ---
@@ -173,7 +186,7 @@ Gemini 兼容客户端还可以使用 `x-goog-api-key`、`?key=` 或 `?api_key=`
 
 ### `GET /v1/models`
 
-无需鉴权。返回当前支持的模型列表。
+无需鉴权。返回当前支持的 DeepSeek 原生模型列表。
 
 **响应示例**：
 
@@ -184,10 +197,20 @@ Gemini 兼容客户端还可以使用 `x-goog-api-key`、`?key=` 或 `?api_key=`
     {"id": "deepseek-chat", "object": "model", "created": 1677610602, "owned_by": "deepseek", "permission": []},
     {"id": "deepseek-reasoner", "object": "model", "created": 1677610602, "owned_by": "deepseek", "permission": []},
     {"id": "deepseek-chat-search", "object": "model", "created": 1677610602, "owned_by": "deepseek", "permission": []},
-    {"id": "deepseek-reasoner-search", "object": "model", "created": 1677610602, "owned_by": "deepseek", "permission": []}
+    {"id": "deepseek-reasoner-search", "object": "model", "created": 1677610602, "owned_by": "deepseek", "permission": []},
+    {"id": "deepseek-expert-chat", "object": "model", "created": 1677610602, "owned_by": "deepseek", "permission": []},
+    {"id": "deepseek-expert-reasoner", "object": "model", "created": 1677610602, "owned_by": "deepseek", "permission": []},
+    {"id": "deepseek-expert-chat-search", "object": "model", "created": 1677610602, "owned_by": "deepseek", "permission": []},
+    {"id": "deepseek-expert-reasoner-search", "object": "model", "created": 1677610602, "owned_by": "deepseek", "permission": []},
+    {"id": "deepseek-vision-chat", "object": "model", "created": 1677610602, "owned_by": "deepseek", "permission": []},
+    {"id": "deepseek-vision-reasoner", "object": "model", "created": 1677610602, "owned_by": "deepseek", "permission": []},
+    {"id": "deepseek-vision-chat-search", "object": "model", "created": 1677610602, "owned_by": "deepseek", "permission": []},
+    {"id": "deepseek-vision-reasoner-search", "object": "model", "created": 1677610602, "owned_by": "deepseek", "permission": []}
   ]
 }
 ```
+
+> 说明：`/v1/models` 返回的是规范化后的 DeepSeek 原生模型 ID；常见 alias 仅用于请求入参解析，不会在该接口中单独展开返回。
 
 ### 模型 alias 解析策略
 
@@ -197,6 +220,13 @@ Gemini 兼容客户端还可以使用 `x-goog-api-key`、`?key=` 或 `?api_key=`
 2. 再匹配 `model_aliases` 精确映射。
 3. 未命中时按模型家族规则回退（如 `o*`、`gpt-*`、`claude-*`）。
 4. 仍未命中则返回 `invalid_request_error`。
+
+当前内置默认 alias（节选）：
+
+- OpenAI：`gpt-4o`、`gpt-4.1`、`gpt-4.1-mini`、`gpt-4.1-nano`、`gpt-5`、`gpt-5-mini`、`gpt-5-codex`
+- OpenAI Reasoning：`o1`、`o1-mini`、`o3`、`o3-mini`
+- Claude：`claude-sonnet-4-5`、`claude-haiku-4-5`、`claude-opus-4-6`（及 `claude-3-5-sonnet` / `claude-3-5-haiku` / `claude-3-opus` 兼容别名）
+- Gemini：`gemini-2.5-pro`、`gemini-2.5-flash`
 
 ### `POST /v1/chat/completions`
 
@@ -211,7 +241,7 @@ Content-Type: application/json
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
-| `model` | string | ✅ | 支持 DeepSeek 原生模型 + 常见 alias（如 `gpt-4o`、`gpt-5-codex`、`o3`、`claude-sonnet-4-5`） |
+| `model` | string | ✅ | 支持 DeepSeek 原生模型 + 常见 alias（如 `gpt-5`、`gpt-5-mini`、`gpt-5-codex`、`o3`、`claude-opus-4-6`、`gemini-2.5-pro`、`gemini-2.5-flash` 等） |
 | `messages` | array | ✅ | OpenAI 风格消息数组 |
 | `stream` | boolean | ❌ | 默认 `false` |
 | `tools` | array | ❌ | Function Calling 定义 |
@@ -302,12 +332,12 @@ data: [DONE]
 }
 ```
 
-**流式**：命中高置信特征后立即输出 `delta.tool_calls`（不等待完整 JSON 闭合），并持续发送 arguments 增量；已确认的 toolcall 原始 JSON 不会回流到 `delta.content`。
+**流式**：命中高置信特征后立即输出 `delta.tool_calls`（不等待完整工具参数闭合），并持续发送 arguments 增量；已确认的工具调用片段不会回流到 `delta.content`。
 
 补充说明：
 
 - **非代码块上下文**下，工具负载即使与普通文本混合，也会按特征识别并产出可执行 tool call（前后普通文本仍可透传）。
-- 解析器以 XML/Markup 为最高优先级，并兼容 JSON、ANTML、text-kv 等格式输入；最终按客户端协议转译为对应 tool call 结构（OpenAI/Claude/Gemini）。
+- 解析器当前走 XML/Markup 家族（包含 `<tool_call>`、`<function_call>`、`<invoke>`、`tool_use`、antml 风格）；纯 JSON `tool_calls` 片段默认不会直接作为可执行调用解析。
 - Markdown fenced code block（例如 ```json ... ```）中的 `tool_calls` 仅视为示例文本，不会被执行。
 
 ---
@@ -387,6 +417,21 @@ data: [DONE]
 
 > 需配置 `embeddings.provider`。当前支持：`mock` / `deterministic` / `builtin`。未配置或不支持时返回标准错误结构（HTTP 501）。
 
+### `POST /v1/files`
+
+需要业务鉴权。兼容 OpenAI Files 上传接口，当前仅支持 `multipart/form-data`。
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `file` | file | ✅ | 上传文件二进制 |
+| `purpose` | string | ❌ | 透传到上游用途字段 |
+
+约束与行为：
+
+- 请求必须为 `multipart/form-data`，否则返回 `400`。
+- 请求体总大小上限 `100 MiB`（超限返回 `413`）。
+- 成功返回 OpenAI `file` 对象（`id/object/bytes/filename/purpose/status` 等字段），并附带 `account_id` 便于定位来源账号。
+
 ---
 
 ## Claude 兼容接口
@@ -414,7 +459,7 @@ data: [DONE]
 }
 ```
 
-> 说明：示例仅展示部分模型；实际返回包含 Claude 1.x/2.x/3.x/4.x 历史模型 ID 与常见别名。
+> 说明：示例仅展示部分模型；实际返回除当前主别名外，还包含 Claude 4.x snapshots，以及 3.x / 2.x / 1.x 历史模型 ID 与常见别名。
 
 ### `POST /anthropic/v1/messages`
 
@@ -605,11 +650,15 @@ data: {"type":"message_stop"}
 
 ### `GET /admin/config`
 
-返回脱敏后的配置。
+返回脱敏后的配置，包含 `keys` 与 `api_keys`。
 
 ```json
 {
   "keys": ["k1", "k2"],
+  "api_keys": [
+    {"key": "k1", "name": "主 Key", "remark": "生产流量"},
+    {"key": "k2", "name": "备用 Key", "remark": "压测"}
+  ],
   "env_backed": false,
   "env_source_present": true,
   "env_writeback_enabled": true,
@@ -633,13 +682,18 @@ data: {"type":"message_stop"}
 
 ### `POST /admin/config`
 
-只更新 `keys`、`accounts`、`claude_mapping`。
+只更新 `keys`、`api_keys`、`accounts`、`claude_mapping`。
+如果同时发送 `api_keys` 与 `keys`，优先保留 `api_keys` 中的结构化 `name` / `remark`；`keys` 仅作为旧格式兼容回退。
 
 **请求**：
 
 ```json
 {
   "keys": ["k1", "k2"],
+  "api_keys": [
+    {"key": "k1", "name": "主 Key", "remark": "生产流量"},
+    {"key": "k2", "name": "备用 Key", "remark": "压测"}
+  ],
   "accounts": [
     {"email": "user@example.com", "password": "pwd", "token": ""}
   ],
@@ -699,7 +753,7 @@ data: {"type":"message_stop"}
 
 请求可直接传配置对象，或使用 `{"config": {...}, "mode":"merge"}` 包裹格式。
 也支持在查询参数里传 `?mode=merge` / `?mode=replace`。
-导入时会接受 `keys`、`accounts`、`claude_mapping` / `claude_model_mapping`、`model_aliases`、`admin`、`runtime`、`responses`、`embeddings`、`auto_delete` 等字段；`toolcall` 相关字段会被忽略。
+导入时会接受 `keys`、`api_keys`、`accounts`、`claude_mapping` / `claude_model_mapping`、`model_aliases`、`admin`、`runtime`、`responses`、`embeddings`、`auto_delete` 等字段；`toolcall` 相关字段会被忽略。
 
 > `compat` 相关字段请通过 `/admin/settings` 或配置文件管理；该导入接口不会更新 `compat`。
 
@@ -707,10 +761,25 @@ data: {"type":"message_stop"}
 
 导出完整配置，返回 `config`、`json`、`base64` 三种格式。
 
+响应示例：
+
+
+> 注：`_vercel_sync_hash` 和 `_vercel_sync_time` 为内部同步元数据字段，用于 Vercel 配置漂移检测。
+
 ### `POST /admin/keys`
 
 ```json
-{"key": "new-api-key"}
+{"key": "new-api-key", "name": "主 Key", "remark": "生产流量"}
+```
+
+**响应**：`{"success": true, "total_keys": 3}`
+
+### `PUT /admin/keys/{key}`
+
+更新指定 API key 的 `name` / `remark`，路径参数中的 `key` 为只读标识，不可修改。
+
+```json
+{"name": "备用 Key", "remark": "压测"}
 ```
 
 **响应**：`{"success": true, "total_keys": 3}`
@@ -719,6 +788,26 @@ data: {"type":"message_stop"}
 
 **响应**：`{"success": true, "total_keys": 2}`
 
+### `GET /admin/proxies`
+
+列出代理配置（密码不回传，仅返回 `has_password` 标记）。
+
+### `POST /admin/proxies`
+
+新增代理。请求体支持 `id`（可选，未传则自动生成）、`name`、`type`（`http` / `socks5`）、`host`、`port`、`username`、`password`。
+
+### `PUT /admin/proxies/{proxyID}`
+
+更新指定代理。若请求中 `password` 为空字符串，则保留原密码。
+
+### `DELETE /admin/proxies/{proxyID}`
+
+删除代理，并自动清空所有引用该代理账号的 `proxy_id`。
+
+### `POST /admin/proxies/test`
+
+测试代理连通性：传 `proxy_id` 时测试已保存代理；不传时按请求体代理字段做临时连通性测试。
+
 ### `GET /admin/accounts`
 
 **查询参数**：
@@ -726,7 +815,7 @@ data: {"type":"message_stop"}
 | 参数 | 默认 | 范围 |
 | --- | --- | --- |
 | `page` | `1` | ≥ 1 |
-| `page_size` | `10` | 1–100 |
+| `page_size` | `10` | 1–5000 |
 | `q` | 空 | 按 identifier / email / mobile 过滤 |
 
 **响应**：
@@ -759,11 +848,29 @@ data: {"type":"message_stop"}
 
 **响应**：`{"success": true, "total_accounts": 6}`
 
+### `PUT /admin/accounts/{identifier}`
+
+更新指定账号的 `name` / `remark`。路径参数中的 `identifier` 可以是 email 或 mobile，且不可修改。
+
+```json
+{"name": "主账号", "remark": "团队共享"}
+```
+
+**响应**：`{"success": true, "total_accounts": 6}`
+
 ### `DELETE /admin/accounts/{identifier}`
 
 `identifier` 可为 email、mobile，或 token-only 账号的合成标识（`token:<hash>`）。
 
 **响应**：`{"success": true, "total_accounts": 5}`
+
+### `PUT /admin/accounts/{identifier}/proxy`
+
+更新指定账号绑定代理。
+
+- 请求体：`{"proxy_id":"..."}`；
+- `proxy_id` 传空字符串时表示解绑代理；
+- `identifier` 支持 email / mobile / token-only 合成标识。
 
 ### `GET /admin/queue/status`
 

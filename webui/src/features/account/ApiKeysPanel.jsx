@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Check, ChevronDown, Copy, Plus, Trash2 } from 'lucide-react'
+import { Check, ChevronDown, Copy, Pencil, Plus, Trash2 } from 'lucide-react'
 import clsx from 'clsx'
 
 function fallbackCopyText(text) {
@@ -31,12 +31,16 @@ export default function ApiKeysPanel({
     config,
     keysExpanded,
     setKeysExpanded,
-    setShowAddKey,
+    onAddKey,
+    onEditKey,
     copiedKey,
     setCopiedKey,
     onDeleteKey,
 }) {
     const [failedKey, setFailedKey] = useState(null)
+    const apiKeys = Array.isArray(config?.api_keys) && config.api_keys.length > 0
+        ? config.api_keys
+        : (config?.keys || []).map(key => ({ key, name: '', remark: '' }))
 
     const handleCopyKey = async (key) => {
         try {
@@ -74,11 +78,11 @@ export default function ApiKeysPanel({
                     )} />
                     <div>
                         <h2 className="text-lg font-semibold">{t('accountManager.apiKeysTitle')}</h2>
-                        <p className="text-sm text-muted-foreground">{t('accountManager.apiKeysDesc')} ({config.keys?.length || 0})</p>
+                        <p className="text-sm text-muted-foreground">{t('accountManager.apiKeysDesc')} ({apiKeys.length || 0})</p>
                     </div>
                 </div>
                 <button
-                    onClick={(e) => { e.stopPropagation(); setShowAddKey(true) }}
+                    onClick={(e) => { e.stopPropagation(); onAddKey() }}
                     className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium text-sm shadow-sm"
                 >
                     <Plus className="w-4 h-4" />
@@ -88,34 +92,43 @@ export default function ApiKeysPanel({
 
             {keysExpanded && (
                 <div className="divide-y divide-border border-t border-border">
-                    {config.keys?.length > 0 ? (
-                        config.keys.map((key, i) => (
+                    {apiKeys.length > 0 ? (
+                        apiKeys.map((item, i) => (
                             <div key={i} className="p-4 flex items-center justify-between hover:bg-muted/50 transition-colors group">
-                                <div className="flex items-center gap-2">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 flex-1">
+                                    <div className="text-sm">{item.name || '-'}</div>
                                     <button
-                                        onClick={() => handleCopyKey(key)}
+                                        onClick={() => handleCopyKey(item.key)}
                                         className="font-mono text-sm bg-muted/50 px-3 py-1 rounded inline-block hover:bg-muted transition-colors"
                                         title={t('accountManager.copyKeyTitle')}
                                     >
-                                        {key.slice(0, 16)}****
+                                        {(item.key || '').slice(0, 16)}****
                                     </button>
-                                    {copiedKey === key && (
+                                    <div className="text-sm text-muted-foreground truncate">{item.remark || '-'}</div>
+                                    {copiedKey === item.key && (
                                         <span className="text-xs text-green-500 animate-pulse">{t('accountManager.copied')}</span>
                                     )}
-                                    {failedKey === key && (
+                                    {failedKey === item.key && (
                                         <span className="text-xs text-destructive">{t('accountManager.copyFailed')}</span>
                                     )}
                                 </div>
                                 <div className="flex items-center gap-1">
                                     <button
-                                        onClick={() => handleCopyKey(key)}
+                                        onClick={() => onEditKey(item)}
+                                        className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-md transition-colors"
+                                        title={t('accountManager.editKeyTitle')}
+                                    >
+                                        <Pencil className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                        onClick={() => handleCopyKey(item.key)}
                                         className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-md transition-colors"
                                         title={t('accountManager.copyKeyTitle')}
                                     >
-                                        {copiedKey === key ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                                        {copiedKey === item.key ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
                                     </button>
                                     <button
-                                        onClick={() => onDeleteKey(key)}
+                                        onClick={() => onDeleteKey(item.key)}
                                         className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors"
                                         title={t('accountManager.deleteKeyTitle')}
                                     >

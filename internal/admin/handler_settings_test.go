@@ -47,6 +47,25 @@ func TestGetSettingsIncludesTokenRefreshInterval(t *testing.T) {
 	}
 }
 
+func TestGetSettingsIncludesHistorySplitDefaults(t *testing.T) {
+	h := newAdminTestHandler(t, `{"keys":["k1"]}`)
+	req := httptest.NewRequest(http.MethodGet, "/admin/settings", nil)
+	rec := httptest.NewRecorder()
+	h.getSettings(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var body map[string]any
+	_ = json.Unmarshal(rec.Body.Bytes(), &body)
+	historySplit, _ := body["history_split"].(map[string]any)
+	if got := boolFrom(historySplit["enabled"]); !got {
+		t.Fatalf("expected history_split.enabled=true, body=%v", body)
+	}
+	if got := intFrom(historySplit["trigger_after_turns"]); got != 1 {
+		t.Fatalf("expected history_split.trigger_after_turns=1, got %d body=%v", got, body)
+	}
+}
+
 func TestUpdateSettingsValidation(t *testing.T) {
 	h := newAdminTestHandler(t, `{"keys":["k1"]}`)
 	payload := map[string]any{
@@ -154,6 +173,30 @@ func TestUpdateSettingsWithoutRuntimeSkipsMergedRuntimeValidation(t *testing.T) 
 	}
 }
 
+func TestUpdateSettingsHistorySplit(t *testing.T) {
+	h := newAdminTestHandler(t, `{"keys":["k1"]}`)
+	payload := map[string]any{
+		"history_split": map[string]any{
+			"enabled":             false,
+			"trigger_after_turns": 3,
+		},
+	}
+	b, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPut, "/admin/settings", bytes.NewReader(b))
+	rec := httptest.NewRecorder()
+	h.updateSettings(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	snap := h.Store.Snapshot()
+	if snap.HistorySplit.Enabled == nil || *snap.HistorySplit.Enabled {
+		t.Fatalf("expected history_split.enabled=false, got %#v", snap.HistorySplit.Enabled)
+	}
+	if snap.HistorySplit.TriggerAfterTurns == nil || *snap.HistorySplit.TriggerAfterTurns != 3 {
+		t.Fatalf("expected history_split.trigger_after_turns=3, got %#v", snap.HistorySplit.TriggerAfterTurns)
+	}
+}
+
 func TestUpdateSettingsAutoDeleteMode(t *testing.T) {
 	h := newAdminTestHandler(t, `{"keys":["k1"],"auto_delete":{"sessions":true}}`)
 
@@ -231,6 +274,75 @@ func TestUpdateSettingsHotReloadTokenRefreshInterval(t *testing.T) {
 	}
 	if got := h.Store.RuntimeTokenRefreshIntervalHours(); got != 12 {
 		t.Fatalf("token_refresh_interval_hours=%d want=12", got)
+	}
+}
+
+func TestUpdateConfigPreservesStructuredAPIKeysWhenBothFieldsPresent(t *testing.T) {
+	h := newAdminTestHandler(t, `{
+		"keys":["legacy"],
+		"api_keys":[{"key":"legacy","name":"primary","remark":"prod"}],
+		"accounts":[]
+	}`)
+
+	payload := map[string]any{
+		"keys": []any{"legacy", "new-key"},
+		"api_keys": []any{
+			map[string]any{"key": "legacy", "name": "primary-updated", "remark": "prod-updated"},
+			map[string]any{"key": "new-key", "name": "secondary", "remark": "staging"},
+		},
+	}
+	b, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPost, "/admin/config", bytes.NewReader(b))
+	rec := httptest.NewRecorder()
+	h.updateConfig(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+
+	snap := h.Store.Snapshot()
+	if len(snap.Keys) != 2 || snap.Keys[0] != "legacy" || snap.Keys[1] != "new-key" {
+		t.Fatalf("unexpected keys after config update: %#v", snap.Keys)
+	}
+	if len(snap.APIKeys) != 2 {
+		t.Fatalf("unexpected api keys after config update: %#v", snap.APIKeys)
+	}
+	if snap.APIKeys[0].Name != "primary-updated" || snap.APIKeys[0].Remark != "prod-updated" {
+		t.Fatalf("structured metadata for existing key was not preserved: %#v", snap.APIKeys[0])
+	}
+	if snap.APIKeys[1].Name != "secondary" || snap.APIKeys[1].Remark != "staging" {
+		t.Fatalf("structured metadata for new key was not preserved: %#v", snap.APIKeys[1])
+	}
+}
+
+func TestUpdateConfigLegacyKeysPreserveStructuredMetadata(t *testing.T) {
+	h := newAdminTestHandler(t, `{
+		"api_keys":[{"key":"legacy","name":"primary","remark":"prod"}],
+		"accounts":[]
+	}`)
+
+	payload := map[string]any{
+		"keys": []any{"legacy", "new-key"},
+	}
+	b, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPost, "/admin/config", bytes.NewReader(b))
+	rec := httptest.NewRecorder()
+	h.updateConfig(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+
+	snap := h.Store.Snapshot()
+	if len(snap.Keys) != 2 || snap.Keys[0] != "legacy" || snap.Keys[1] != "new-key" {
+		t.Fatalf("unexpected keys after legacy config update: %#v", snap.Keys)
+	}
+	if len(snap.APIKeys) != 2 {
+		t.Fatalf("unexpected api keys after legacy config update: %#v", snap.APIKeys)
+	}
+	if snap.APIKeys[0].Name != "primary" || snap.APIKeys[0].Remark != "prod" {
+		t.Fatalf("existing structured metadata was lost: %#v", snap.APIKeys[0])
+	}
+	if snap.APIKeys[1].Key != "new-key" || snap.APIKeys[1].Name != "" || snap.APIKeys[1].Remark != "" {
+		t.Fatalf("new legacy key should remain metadata-free: %#v", snap.APIKeys[1])
 	}
 }
 
@@ -312,6 +424,113 @@ func TestConfigImportMergeAndReplace(t *testing.T) {
 	}
 	if got := len(h.Store.Accounts()); got != 0 {
 		t.Fatalf("accounts after replace=%d want=0", got)
+	}
+}
+
+func TestConfigImportMergePreservesStructuredAPIKeys(t *testing.T) {
+	h := newAdminTestHandler(t, `{
+		"api_keys":[{"key":"k1","name":"primary","remark":"prod"}]
+	}`)
+
+	merge := map[string]any{
+		"mode": "merge",
+		"config": map[string]any{
+			"api_keys": []any{
+				map[string]any{"key": "k1", "name": "should-not-overwrite", "remark": "ignored"},
+				map[string]any{"key": "k2", "name": "secondary", "remark": "staging"},
+			},
+		},
+	}
+	mergeBytes, _ := json.Marshal(merge)
+	mergeReq := httptest.NewRequest(http.MethodPost, "/admin/config/import?mode=merge", bytes.NewReader(mergeBytes))
+	mergeRec := httptest.NewRecorder()
+	h.configImport(mergeRec, mergeReq)
+	if mergeRec.Code != http.StatusOK {
+		t.Fatalf("merge status=%d body=%s", mergeRec.Code, mergeRec.Body.String())
+	}
+
+	snap := h.Store.Snapshot()
+	if len(snap.APIKeys) != 2 {
+		t.Fatalf("unexpected api keys after structured merge: %#v", snap.APIKeys)
+	}
+	if snap.APIKeys[0].Name != "primary" || snap.APIKeys[0].Remark != "prod" {
+		t.Fatalf("existing structured metadata was overwritten: %#v", snap.APIKeys[0])
+	}
+	if snap.APIKeys[1].Name != "secondary" || snap.APIKeys[1].Remark != "staging" {
+		t.Fatalf("new structured metadata was lost: %#v", snap.APIKeys[1])
+	}
+}
+
+func TestConfigImportMergeUpgradesLegacyAPIKeys(t *testing.T) {
+	h := newAdminTestHandler(t, `{
+		"keys":["legacy"],
+		"accounts":[]
+	}`)
+
+	merge := map[string]any{
+		"mode": "merge",
+		"config": map[string]any{
+			"api_keys": []any{
+				map[string]any{"key": "legacy", "name": "primary", "remark": "prod"},
+				map[string]any{"key": "new-key", "name": "secondary", "remark": "staging"},
+			},
+		},
+	}
+	mergeBytes, _ := json.Marshal(merge)
+	mergeReq := httptest.NewRequest(http.MethodPost, "/admin/config/import?mode=merge", bytes.NewReader(mergeBytes))
+	mergeRec := httptest.NewRecorder()
+	h.configImport(mergeRec, mergeReq)
+	if mergeRec.Code != http.StatusOK {
+		t.Fatalf("merge status=%d body=%s", mergeRec.Code, mergeRec.Body.String())
+	}
+
+	snap := h.Store.Snapshot()
+	if len(snap.Keys) != 2 || snap.Keys[0] != "legacy" || snap.Keys[1] != "new-key" {
+		t.Fatalf("unexpected keys after legacy import merge: %#v", snap.Keys)
+	}
+	if len(snap.APIKeys) != 2 {
+		t.Fatalf("unexpected api keys after legacy import merge: %#v", snap.APIKeys)
+	}
+	if snap.APIKeys[0].Name != "primary" || snap.APIKeys[0].Remark != "prod" {
+		t.Fatalf("legacy key metadata was not upgraded: %#v", snap.APIKeys[0])
+	}
+	if snap.APIKeys[1].Name != "secondary" || snap.APIKeys[1].Remark != "staging" {
+		t.Fatalf("new structured metadata was not preserved: %#v", snap.APIKeys[1])
+	}
+}
+
+func TestBatchImportUpgradesLegacyAPIKeys(t *testing.T) {
+	h := newAdminTestHandler(t, `{
+		"keys":["legacy"],
+		"accounts":[]
+	}`)
+
+	payload := map[string]any{
+		"keys": []any{"legacy", "new-key"},
+		"api_keys": []any{
+			map[string]any{"key": "legacy", "name": "primary", "remark": "prod"},
+		},
+	}
+	b, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPost, "/admin/import", bytes.NewReader(b))
+	rec := httptest.NewRecorder()
+	h.batchImport(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+
+	snap := h.Store.Snapshot()
+	if len(snap.Keys) != 2 || snap.Keys[0] != "legacy" || snap.Keys[1] != "new-key" {
+		t.Fatalf("unexpected keys after batch import: %#v", snap.Keys)
+	}
+	if len(snap.APIKeys) != 2 {
+		t.Fatalf("unexpected api keys after batch import: %#v", snap.APIKeys)
+	}
+	if snap.APIKeys[0].Name != "primary" || snap.APIKeys[0].Remark != "prod" {
+		t.Fatalf("legacy key metadata was not upgraded: %#v", snap.APIKeys[0])
+	}
+	if snap.APIKeys[1].Name != "" || snap.APIKeys[1].Remark != "" {
+		t.Fatalf("new batch-imported key should stay metadata-free: %#v", snap.APIKeys[1])
 	}
 }
 

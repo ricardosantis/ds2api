@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight, Check, Copy, Play, Plus, Trash2, FolderX } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Check, Copy, Pencil, Play, Plus, Trash2, FolderX } from 'lucide-react'
 import clsx from 'clsx'
 
 export default function AccountsTable({
@@ -20,6 +20,7 @@ export default function AccountsTable({
     proxies,
     onTestAll,
     onShowAddAccount,
+    onEditAccount,
     onTestAccount,
     onDeleteAccount,
     onDeleteAllSessions,
@@ -118,6 +119,7 @@ export default function AccountsTable({
                                         runtimeUnknown ? "bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" : "bg-amber-500"
                                     )} />
                                     <div className="min-w-0">
+                                        <div className="text-sm font-medium truncate">{acc.name || '-'}</div>
                                         <div
                                             className="font-medium truncate flex items-center gap-1.5 cursor-pointer hover:text-primary transition-colors group"
                                             onClick={() => copyId(id)}
@@ -128,6 +130,9 @@ export default function AccountsTable({
                                                 : <Copy className="w-3 h-3 opacity-0 group-hover:opacity-50 shrink-0 transition-opacity" />
                                             }
                                         </div>
+                                        {acc.remark && (
+                                            <div className="text-xs text-muted-foreground truncate mt-0.5">{acc.remark}</div>
+                                        )}
                                         <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
                                             <span>{acc.test_status === 'failed' ? t('accountManager.testStatusFailed') : isActive ? t('accountManager.sessionActive') : runtimeUnknown ? t('accountManager.runtimeStatusUnknown') : t('accountManager.reauthRequired')}</span>
                                             {acc.token_preview && (
@@ -176,6 +181,14 @@ export default function AccountsTable({
                                             </option>
                                         ))}
                                     </select>
+                                    <button
+                                        onClick={() => onEditAccount(acc)}
+                                        disabled={!id}
+                                        className="p-1 lg:p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                        title={id ? t('accountManager.editAccountTitle') : t('accountManager.invalidIdentifier')}
+                                    >
+                                        <Pencil className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
+                                    </button>
                                     <button
                                         onClick={() => onTestAccount(id)}
                                         disabled={testing[id]}

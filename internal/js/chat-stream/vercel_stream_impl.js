@@ -18,6 +18,7 @@ const {
   formatIncrementalToolCallDeltas,
   filterIncrementalToolCallDeltasByAllowed,
   boolDefaultTrue,
+  resetStreamToolCallState,
 } = require('./toolcall_policy');
 const { createChatCompletionEmitter } = require('./stream_emitter');
 const {
@@ -161,6 +162,7 @@ async function handleVercelStream(req, res, rawBody, payload) {
           if (evt.type === 'tool_calls' && Array.isArray(evt.calls) && evt.calls.length > 0) {
             toolCallsEmitted = true;
             sendDeltaFrame({ tool_calls: formatOpenAIStreamToolCalls(evt.calls, streamToolCallIDs) });
+            resetStreamToolCallState(streamToolCallIDs, streamToolNames);
             continue;
           }
           if (evt.text) {
@@ -283,6 +285,7 @@ async function handleVercelStream(req, res, rawBody, payload) {
                 if (evt.type === 'tool_calls') {
                   toolCallsEmitted = true;
                   sendDeltaFrame({ tool_calls: formatOpenAIStreamToolCalls(evt.calls, streamToolCallIDs) });
+                  resetStreamToolCallState(streamToolCallIDs, streamToolNames);
                   continue;
                 }
                 if (evt.text) {
