@@ -3,6 +3,7 @@ FROM node:24 AS webui-builder
 WORKDIR /app/webui
 COPY webui/package.json webui/package-lock.json ./
 RUN npm ci
+COPY config.example.json /app/config.example.json
 COPY webui ./
 RUN npm run build
 
