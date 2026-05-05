@@ -87,7 +87,7 @@ for d in tests/raw_stream_samples/*; do
 done
 ```
 
-回放输出会显示 `tokens=<parsed>/<expected>`，并在不一致时判定失败；`report.json` 中也会包含：
+回放输出会显示 `tokens=<parsed>/<expected>`；默认只记录 token 差异，不因 token 不一致失败。如需把 token 差异作为失败条件，给模拟器增加 `--fail-on-token-mismatch`。`report.json` 中也会包含：
 
 - `raw_expected_output_tokens`
 - `raw_parsed_output_tokens`

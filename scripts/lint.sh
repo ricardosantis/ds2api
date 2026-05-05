@@ -8,6 +8,10 @@ LINT_BIN="${GOLANGCI_LINT_BIN:-golangci-lint}"
 BOOTSTRAP_VERSION="${GOLANGCI_LINT_VERSION:-v2.11.4}"
 BOOTSTRAP_BIN="${ROOT_DIR}/.tmp/golangci-lint-${BOOTSTRAP_VERSION}"
 
+export GOCACHE="${GOCACHE:-${ROOT_DIR}/.tmp/go-build-cache}"
+export GOLANGCI_LINT_CACHE="${GOLANGCI_LINT_CACHE:-${ROOT_DIR}/.tmp/golangci-lint-cache}"
+mkdir -p "$GOCACHE" "$GOLANGCI_LINT_CACHE"
+
 bootstrap_golangci_lint() {
   local version_no_v os arch artifact archive_url tmp_dir
   version_no_v="${BOOTSTRAP_VERSION#v}"
@@ -49,9 +53,9 @@ bootstrap_golangci_lint() {
 run_lint() {
   local bin="$1"
   if [[ "$bin" == *" "* ]]; then
-    eval "$bin fmt --diff -c .golangci.yml" && eval "$bin run -c .golangci.yml"
+    eval "$bin fmt --diff -c .golangci.yml" && eval "$bin run -c .golangci.yml ./..."
   else
-    "$bin" fmt --diff -c .golangci.yml && "$bin" run -c .golangci.yml
+    "$bin" fmt --diff -c .golangci.yml && "$bin" run -c .golangci.yml ./...
   fi
 }
 

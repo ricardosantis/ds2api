@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"ds2api/internal/deepseek"
+	dsprotocol "ds2api/internal/deepseek/protocol"
 )
 
 type ContentPart struct {
@@ -34,10 +34,10 @@ func shouldSkipPath(path string) bool {
 	if isFragmentStatusPath(path) {
 		return true
 	}
-	if _, ok := deepseek.SkipExactPathSet[path]; ok {
+	if _, ok := dsprotocol.SkipExactPathSet[path]; ok {
 		return true
 	}
-	for _, p := range deepseek.SkipContainsPatterns {
+	for _, p := range dsprotocol.SkipContainsPatterns {
 		if strings.Contains(path, p) {
 			return true
 		}
@@ -69,37 +69,74 @@ func isFragmentStatusPath(path string) bool {
 }
 
 func ParseSSEChunkForContent(chunk map[string]any, thinkingEnabled bool, currentFragmentType string) ([]ContentPart, bool, string) {
+	parts, _, finished, nextType := ParseSSEChunkForContentDetailed(chunk, thinkingEnabled, currentFragmentType)
+	return parts, finished, nextType
+}
+
+func ParseSSEChunkForContentDetailed(chunk map[string]any, thinkingEnabled bool, currentFragmentType string) ([]ContentPart, []ContentPart, bool, string) {
 	v, ok := chunk["v"]
 	if !ok {
-		return nil, false, currentFragmentType
+		return nil, nil, false, currentFragmentType
 	}
 	path, _ := chunk["p"].(string)
 	if shouldSkipPath(path) {
-		return nil, false, currentFragmentType
+		return nil, nil, false, currentFragmentType
 	}
 	if isStatusPath(path) {
 		if s, ok := v.(string); ok {
 			if strings.EqualFold(strings.TrimSpace(s), "FINISHED") {
-				return nil, true, currentFragmentType
+				return nil, nil, true, currentFragmentType
 			}
-			return nil, false, currentFragmentType
+			return nil, nil, false, currentFragmentType
 		}
 	}
 	newType := currentFragmentType
 	parts := make([]ContentPart, 0, 8)
+	updateTypeFromExplicitPath(path, thinkingEnabled, &newType)
 	collectDirectFragments(path, chunk, v, &newType, &parts)
 	updateTypeFromNestedResponse(path, v, &newType)
 	partType := resolvePartType(path, thinkingEnabled, newType)
 	finished := appendChunkValueContent(v, partType, &newType, &parts, path)
 	if finished {
-		return nil, true, newType
+		return nil, nil, true, newType
 	}
 	var transitioned bool
 	parts, transitioned = splitThinkingParts(parts)
 	if transitioned {
 		newType = "text"
 	}
-	return parts, false, newType
+	detectionThinkingParts := selectThinkingParts(parts)
+	if !thinkingEnabled {
+		parts = dropThinkingParts(parts)
+	}
+	return parts, detectionThinkingParts, false, newType
+}
+
+func updateTypeFromExplicitPath(path string, thinkingEnabled bool, newType *string) {
+	if newType == nil {
+		return
+	}
+	switch path {
+	case "response/content":
+		*newType = "text"
+	case "response/thinking_content":
+		if !thinkingEnabled || *newType != "text" {
+			*newType = "thinking"
+		}
+	}
+}
+
+func selectThinkingParts(parts []ContentPart) []ContentPart {
+	if len(parts) == 0 {
+		return nil
+	}
+	out := make([]ContentPart, 0, len(parts))
+	for _, p := range parts {
+		if p.Type == "thinking" {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 func collectDirectFragments(path string, chunk map[string]any, v any, newType *string, parts *[]ContentPart) {
@@ -172,6 +209,9 @@ func updateTypeFromNestedResponse(path string, v any, newType *string) {
 func resolvePartType(path string, thinkingEnabled bool, newType string) string {
 	switch {
 	case path == "response/thinking_content":
+		if !thinkingEnabled {
+			return "thinking"
+		}
 		if newType == "text" {
 			return "text"
 		}
@@ -180,11 +220,28 @@ func resolvePartType(path string, thinkingEnabled bool, newType string) string {
 		return "text"
 	case strings.Contains(path, "response/fragments") && strings.Contains(path, "/content"):
 		return newType
-	case path == "" && thinkingEnabled:
-		return newType
+	case path == "":
+		if newType != "" {
+			return newType
+		}
+		return "text"
 	default:
 		return "text"
 	}
+}
+
+func dropThinkingParts(parts []ContentPart) []ContentPart {
+	if len(parts) == 0 {
+		return parts
+	}
+	out := parts[:0]
+	for _, p := range parts {
+		if p.Type == "thinking" {
+			continue
+		}
+		out = append(out, p)
+	}
+	return out
 }
 
 func appendChunkValueContent(v any, partType string, newType *string, parts *[]ContentPart, path string) bool {
@@ -204,9 +261,27 @@ func appendChunkValueContent(v any, partType string, newType *string, parts *[]C
 		}
 		*parts = append(*parts, pp...)
 	case map[string]any:
+		if appendObjectContentByPath(path, val, partType, parts) {
+			return false
+		}
 		appendWrappedFragments(val, partType, newType, parts)
 	}
 	return false
+}
+
+func appendObjectContentByPath(path string, val map[string]any, partType string, parts *[]ContentPart) bool {
+	if path != "response/content" && path != "response/thinking_content" && path != "" {
+		return false
+	}
+	text, _ := val["text"].(string)
+	if text == "" {
+		text, _ = val["content"].(string)
+	}
+	if text == "" {
+		return false
+	}
+	appendContentPart(parts, text, partType)
+	return true
 }
 
 func appendWrappedFragments(val map[string]any, partType string, newType *string, parts *[]ContentPart) {

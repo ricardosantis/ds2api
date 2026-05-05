@@ -6,7 +6,7 @@ import (
 	"ds2api/internal/prompt"
 )
 
-const ClaudeDefaultModel = "claude-sonnet-4-5"
+const ClaudeDefaultModel = "claude-sonnet-4-6"
 
 type Message struct {
 	Role    string `json:"role"`

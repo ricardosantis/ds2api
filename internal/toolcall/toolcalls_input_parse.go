@@ -2,6 +2,7 @@ package toolcall
 
 import (
 	"encoding/json"
+	"html"
 	"strings"
 	"unicode"
 )
@@ -13,7 +14,7 @@ func parseToolCallInput(v any) map[string]any {
 	case map[string]any:
 		return x
 	case string:
-		raw := strings.TrimSpace(x)
+		raw := strings.TrimSpace(html.UnescapeString(x))
 		if raw == "" {
 			return map[string]any{}
 		}

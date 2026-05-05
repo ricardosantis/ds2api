@@ -1,6 +1,6 @@
 # DeepSeek PoW 纯算实现
 
-替代 `internal/deepseek/assets/sha3_wasm_bg.*.wasm` + wazero 运行时。
+当前服务端 PoW 已走纯 Go 实现：`internal/deepseek/pow.go` 负责从上游 challenge map 中取字段，调用 `ds2api/pow` 求解 nonce，并组装 `x-ds-pow-response` header。
 
 ## 算法
 
@@ -17,48 +17,14 @@ hash   = DeepSeekHashV1(input)      → 32 bytes
 header = base64(json({algorithm, challenge, salt, answer, signature, target_path}))
 ```
 
-## 性能 (Apple M4, Go 1.25)
+## 主要入口
 
-```
-BenchmarkHash    187.5 ns/op    0 alloc    → 5.33M hash/s
-BenchmarkSolve   13.4 ms/op    2 alloc    → 75 道/秒/核 (difficulty=144000)
-```
-
-对比 wazero 调 WASM: hash 快 **5×**, solve 快 **2.8×**。
+- `pow/deepseek_hash.go`：DeepSeekHashV1 / Keccak-f[1600] rounds 1..23。
+- `pow/deepseek_pow.go`：`SolvePow`、`BuildPowHeader`、`SolveAndBuildHeader`。
+- `internal/deepseek/pow.go`：服务侧适配层，校验 `algorithm == DeepSeekHashV1` 并调用 `pow.SolvePow`。
 
 ## 测试
 
 ```bash
 cd pow && go test -v ./... && go test -bench=. -benchmem
 ```
-
-## 替换 WASM
-
-替换 `internal/deepseek/pow.go` 中 `PowSolver.Compute`:
-
-```go
-// 原: 调 wasm_solve(retptr, chPtr, chLen, prefixPtr, prefixLen, difficulty)
-// 新:
-import "ds2api/pow"
-
-func (c *Client) GetPow(ctx context.Context, a *auth.RequestAuth, ...) (string, error) {
-    // ... 省略 token/retry 逻辑,只改 compute 部分 ...
-    challenge, _ := bizData["challenge"].(map[string]any)
-    ch := &pow.Challenge{
-        Algorithm:  challenge["algorithm"].(string),
-        Challenge:  challenge["challenge"].(string),
-        Salt:       challenge["salt"].(string),
-        ExpireAt:   int64(challenge["expire_at"].(float64)),
-        Difficulty: int64(challenge["difficulty"].(float64)),
-        Signature:  challenge["signature"].(string),
-        TargetPath: challenge["target_path"].(string),
-    }
-    return pow.SolveAndBuildHeader(ch)
-}
-```
-
-可删除:
-- `internal/deepseek/assets/sha3_wasm_bg.*.wasm`
-- `internal/deepseek/embedded_pow.go`
-- `internal/deepseek/pow.go` 中 `PowSolver` 结构体、wazero 相关池化代码
-- `go.mod` 中 `github.com/tetratelabs/wazero` 依赖

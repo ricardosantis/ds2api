@@ -13,10 +13,31 @@ DS2API 提供两个层级的测试：
 | 单元测试（Go） | `./tests/scripts/run-unit-go.sh` | 不需要真实账号 |
 | 单元测试（Node） | `./tests/scripts/run-unit-node.sh` | 不需要真实账号 |
 | 单元测试（全部） | `./tests/scripts/run-unit-all.sh` | 不需要真实账号 |
+| Release 目标交叉编译 | `./tests/scripts/check-cross-build.sh` | 覆盖发布包支持的 GOOS/GOARCH |
 | 端到端测试 | `./tests/scripts/run-live.sh` | 使用真实账号执行全链路测试 |
 
 端到端测试集会录制完整的请求/响应日志，用于故障排查。
 Node 单元测试脚本会先做 `node --check` 语法门禁，再以 `--test-concurrency=1` 串行执行测试文件，减少模块级共享状态带来的干扰。
+
+---
+
+## PR 门禁 | PR Gates
+
+打开或更新 PR 前，按 `.github/workflows/quality-gates.yml` 的同等本地门禁执行：
+
+```bash
+./scripts/lint.sh
+./tests/scripts/check-refactor-line-gate.sh
+./tests/scripts/run-unit-all.sh
+npm run build --prefix webui
+```
+
+说明：
+
+- `./scripts/lint.sh` 会运行 Go 格式化检查和 `golangci-lint`；修改 Go 文件后仍建议先执行 `gofmt -w <files>`。
+- `run-unit-all.sh` 串行调用 Go 与 Node 单元测试入口。
+- CI 还会额外在 macOS/Windows 跑 Go 单测，并执行 release 目标交叉编译检查。
+- `run-live.sh` 是真实账号端到端测试，适合作为发布或高风险改动后的补充验证，不属于每次 PR 的固定本地门禁。
 
 ---
 
@@ -38,10 +59,10 @@ Node 单元测试脚本会先做 `node --check` 语法门禁，再以 `--test-co
 # 结构与流程门禁
 ./tests/scripts/check-refactor-line-gate.sh
 ./tests/scripts/check-node-split-syntax.sh
-
-# 发布阻断：阶段 6 手工烟测签字检查（默认读取 plans/stage6-manual-smoke.md）
-./tests/scripts/check-stage6-manual-smoke.sh
+./tests/scripts/check-cross-build.sh
 ```
+
+说明：`plans/stage6-manual-smoke.md` 已移除，阶段 6 手工烟测不再作为当前 CI 或发布门禁。
 
 ### 端到端测试 | End-to-End Tests
 
@@ -190,8 +211,8 @@ go test -v -run TestParseToolCallsWithDeepSeekHallucination ./internal/toolcall/
 # 运行 format 相关测试
 go test -v ./internal/format/...
 
-# 运行 adapter 相关测试
-go test -v ./internal/adapter/openai/...
+# 运行 HTTP API 相关测试
+go test -v ./internal/httpapi/openai/...
 ```
 
 ### 调试 Tool Call 问题 | Debugging Tool Call Issues

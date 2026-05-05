@@ -24,7 +24,7 @@ func ValidateConfig(c Config) error {
 	if err := ValidateAutoDeleteConfig(c.AutoDelete); err != nil {
 		return err
 	}
-	if err := ValidateHistorySplitConfig(c.HistorySplit); err != nil {
+	if err := ValidateCurrentInputFileConfig(c.CurrentInputFile); err != nil {
 		return err
 	}
 	if err := ValidateAccountProxyReferences(c.Accounts, c.Proxies); err != nil {
@@ -114,11 +114,9 @@ func ValidateAutoDeleteConfig(autoDelete AutoDeleteConfig) error {
 	return ValidateAutoDeleteMode(autoDelete.Mode)
 }
 
-func ValidateHistorySplitConfig(historySplit HistorySplitConfig) error {
-	if historySplit.TriggerAfterTurns != nil {
-		if err := ValidateIntRange("history_split.trigger_after_turns", *historySplit.TriggerAfterTurns, 1, 1000, true); err != nil {
-			return err
-		}
+func ValidateCurrentInputFileConfig(currentInputFile CurrentInputFileConfig) error {
+	if currentInputFile.MinChars != 0 {
+		return ValidateIntRange("current_input_file.min_chars", currentInputFile.MinChars, 1, 100000000, true)
 	}
 	return nil
 }

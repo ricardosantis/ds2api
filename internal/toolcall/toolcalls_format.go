@@ -7,9 +7,10 @@ import (
 	"github.com/google/uuid"
 )
 
-func FormatOpenAIToolCalls(calls []ParsedToolCall) []map[string]any {
+func FormatOpenAIToolCalls(calls []ParsedToolCall, toolsRaw any) []map[string]any {
+	normalized := NormalizeParsedToolCallsForSchemas(calls, toolsRaw)
 	out := make([]map[string]any, 0, len(calls))
-	for _, c := range calls {
+	for _, c := range normalized {
 		args, _ := json.Marshal(c.Input)
 		out = append(out, map[string]any{
 			"id":   "call_" + strings.ReplaceAll(uuid.NewString(), "-", ""),
@@ -23,9 +24,10 @@ func FormatOpenAIToolCalls(calls []ParsedToolCall) []map[string]any {
 	return out
 }
 
-func FormatOpenAIStreamToolCalls(calls []ParsedToolCall) []map[string]any {
+func FormatOpenAIStreamToolCalls(calls []ParsedToolCall, toolsRaw any) []map[string]any {
+	normalized := NormalizeParsedToolCallsForSchemas(calls, toolsRaw)
 	out := make([]map[string]any, 0, len(calls))
-	for i, c := range calls {
+	for i, c := range normalized {
 		args, _ := json.Marshal(c.Input)
 		out = append(out, map[string]any{
 			"index": i,

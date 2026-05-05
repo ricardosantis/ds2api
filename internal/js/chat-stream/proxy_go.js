@@ -53,7 +53,8 @@ async function proxyToGo(req, res, rawBody) {
 
     res.statusCode = upstream.status;
     upstream.headers.forEach((value, key) => {
-      if (key.toLowerCase() === 'content-length') {
+      const lower = key.toLowerCase();
+      if (lower === 'content-length' || lower === 'content-encoding') {
         return;
       }
       res.setHeader(key, value);

@@ -6,18 +6,6 @@ import (
 	"strings"
 )
 
-func (s *Store) ClaudeMapping() map[string]string {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	if len(s.cfg.ClaudeModelMap) > 0 {
-		return cloneStringMap(s.cfg.ClaudeModelMap)
-	}
-	if len(s.cfg.ClaudeMapping) > 0 {
-		return cloneStringMap(s.cfg.ClaudeMapping)
-	}
-	return map[string]string{"fast": "deepseek-chat", "slow": "deepseek-reasoner"}
-}
-
 func (s *Store) ModelAliases() map[string]string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -31,24 +19,6 @@ func (s *Store) ModelAliases() map[string]string {
 		out[key] = val
 	}
 	return out
-}
-
-func (s *Store) CompatWideInputStrictOutput() bool {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	if s.cfg.Compat.WideInputStrictOutput == nil {
-		return true
-	}
-	return *s.cfg.Compat.WideInputStrictOutput
-}
-
-func (s *Store) CompatStripReferenceMarkers() bool {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	if s.cfg.Compat.StripReferenceMarkers == nil {
-		return true
-	}
-	return *s.cfg.Compat.StripReferenceMarkers
 }
 
 func (s *Store) ToolcallMode() string {
@@ -175,20 +145,32 @@ func (s *Store) AutoDeleteSessions() bool {
 	return s.AutoDeleteMode() != "none"
 }
 
-func (s *Store) HistorySplitEnabled() bool {
+func (s *Store) CurrentInputFileEnabled() bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	if s.cfg.HistorySplit.Enabled == nil {
+	if s.cfg.CurrentInputFile.Enabled == nil {
 		return true
 	}
-	return *s.cfg.HistorySplit.Enabled
+	return *s.cfg.CurrentInputFile.Enabled
 }
 
-func (s *Store) HistorySplitTriggerAfterTurns() int {
+func (s *Store) CurrentInputFileMinChars() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	if s.cfg.HistorySplit.TriggerAfterTurns == nil || *s.cfg.HistorySplit.TriggerAfterTurns <= 0 {
-		return 1
+	return s.cfg.CurrentInputFile.MinChars
+}
+
+func (s *Store) ThinkingInjectionEnabled() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.cfg.ThinkingInjection.Enabled == nil {
+		return true
 	}
-	return *s.cfg.HistorySplit.TriggerAfterTurns
+	return *s.cfg.ThinkingInjection.Enabled
+}
+
+func (s *Store) ThinkingInjectionPrompt() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return strings.TrimSpace(s.cfg.ThinkingInjection.Prompt)
 }

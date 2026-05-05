@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const chatStream = require('../../api/chat-stream.js');
+const deepseekConstants = require('../../internal/js/shared/deepseek-constants.js');
 const { parseToolCallsDetailed, parseStandaloneToolCallsDetailed } = require('../../internal/js/helpers/stream-tool-sieve.js');
 
 const { parseChunkForContent, estimateTokens } = chatStream.__test;
@@ -15,6 +16,15 @@ const compatRoot = path.resolve(__dirname, '../../tests/compat');
 function readJSON(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
+
+test('js shared constants derive client headers from shared json', () => {
+  const shared = readJSON(path.resolve(__dirname, '../../internal/deepseek/protocol/constants_shared.json'));
+  const client = shared.client;
+  assert.equal(deepseekConstants.CLIENT_VERSION, client.version);
+  assert.equal(deepseekConstants.BASE_HEADERS['x-client-version'], client.version);
+  assert.equal(deepseekConstants.BASE_HEADERS['User-Agent'], `${client.name}/${client.version} Android/${client.android_api_level}`);
+  assert.equal(deepseekConstants.BASE_HEADERS['Content-Type'], 'application/json');
+});
 
 test('js compat: sse fixtures', () => {
   const fixtureDir = path.join(compatRoot, 'fixtures', 'sse_chunks');

@@ -32,6 +32,21 @@ func ParseStandaloneToolCallsDetailed(text string, availableToolNames []string) 
 	return parseToolCallsDetailedXMLOnly(text)
 }
 
+func ParseAssistantToolCallsDetailed(text, thinking string, availableToolNames []string) ToolCallParseResult {
+	textParsed := ParseStandaloneToolCallsDetailed(text, availableToolNames)
+	if len(textParsed.Calls) > 0 {
+		return textParsed
+	}
+	if strings.TrimSpace(text) != "" {
+		return textParsed
+	}
+	thinkingParsed := ParseStandaloneToolCallsDetailed(thinking, availableToolNames)
+	if len(thinkingParsed.Calls) > 0 {
+		return thinkingParsed
+	}
+	return textParsed
+}
+
 func parseToolCallsDetailedXMLOnly(text string) ToolCallParseResult {
 	result := ToolCallParseResult{}
 	trimmed := strings.TrimSpace(text)
@@ -45,9 +60,16 @@ func parseToolCallsDetailedXMLOnly(text string) ToolCallParseResult {
 		return result
 	}
 
-	parsed := parseXMLToolCalls(trimmed)
-	if len(parsed) == 0 {
-		parsed = parseMarkupToolCalls(trimmed)
+	normalized, ok := normalizeDSMLToolCallMarkup(trimmed)
+	if !ok {
+		return result
+	}
+	parsed := parseXMLToolCalls(normalized)
+	if len(parsed) == 0 && strings.Contains(strings.ToLower(normalized), "<![cdata[") {
+		recovered := SanitizeLooseCDATA(normalized)
+		if recovered != normalized {
+			parsed = parseXMLToolCalls(recovered)
+		}
 	}
 	if len(parsed) == 0 {
 		return result
@@ -70,23 +92,48 @@ func filterToolCallsDetailed(parsed []ParsedToolCall) ([]ParsedToolCall, []strin
 		if tc.Input == nil {
 			tc.Input = map[string]any{}
 		}
+		if len(tc.Input) > 0 && !toolCallInputHasMeaningfulValue(tc.Input) {
+			continue
+		}
 		out = append(out, tc)
 	}
 	return out, nil
 }
 
+func toolCallInputHasMeaningfulValue(v any) bool {
+	switch x := v.(type) {
+	case nil:
+		return false
+	case string:
+		return strings.TrimSpace(x) != ""
+	case map[string]any:
+		if len(x) == 0 {
+			return false
+		}
+		for _, child := range x {
+			if toolCallInputHasMeaningfulValue(child) {
+				return true
+			}
+		}
+		return false
+	case []any:
+		if len(x) == 0 {
+			return false
+		}
+		for _, child := range x {
+			if toolCallInputHasMeaningfulValue(child) {
+				return true
+			}
+		}
+		return false
+	default:
+		return true
+	}
+}
+
 func looksLikeToolCallSyntax(text string) bool {
-	lower := strings.ToLower(text)
-	return strings.Contains(lower, "<tool_calls") ||
-		strings.Contains(lower, "<tool_call") ||
-		strings.Contains(lower, "<function_calls") ||
-		strings.Contains(lower, "<function_call") ||
-		strings.Contains(lower, "<invoke") ||
-		strings.Contains(lower, "<tool_use") ||
-		strings.Contains(lower, "<attempt_completion") ||
-		strings.Contains(lower, "<ask_followup_question") ||
-		strings.Contains(lower, "<new_task") ||
-		strings.Contains(lower, "<result")
+	hasDSML, hasCanonical := ContainsToolCallWrapperSyntaxOutsideIgnored(text)
+	return hasDSML || hasCanonical
 }
 
 func stripFencedCodeBlocks(text string) string {
@@ -99,12 +146,23 @@ func stripFencedCodeBlocks(text string) string {
 	lines := strings.SplitAfter(text, "\n")
 	inFence := false
 	fenceMarker := ""
+	inCDATA := false
+	cdataFenceMarker := ""
+	// Track builder length when a fence opens so we can preserve content
+	// collected before the unclosed fence.
+	beforeFenceLen := 0
 	for _, line := range lines {
+		if inCDATA || cdataStartsBeforeFence(line) {
+			b.WriteString(line)
+			inCDATA, cdataFenceMarker = updateCDATAStateForStrip(inCDATA, cdataFenceMarker, line)
+			continue
+		}
 		trimmed := strings.TrimLeft(line, " \t")
 		if !inFence {
 			if marker, ok := parseFenceOpen(trimmed); ok {
 				inFence = true
 				fenceMarker = marker
+				beforeFenceLen = b.Len()
 				continue
 			}
 			b.WriteString(line)
@@ -118,9 +176,100 @@ func stripFencedCodeBlocks(text string) string {
 	}
 
 	if inFence {
+		// Unclosed fence: preserve content that was collected before the
+		// fence started rather than dropping everything.
+		result := b.String()
+		if beforeFenceLen > 0 && beforeFenceLen <= len(result) {
+			return result[:beforeFenceLen]
+		}
 		return ""
 	}
 	return b.String()
+}
+
+func cdataStartsBeforeFence(line string) bool {
+	cdataIdx := strings.Index(strings.ToLower(line), "<![cdata[")
+	if cdataIdx < 0 {
+		return false
+	}
+	fenceIdx := firstFenceMarkerIndex(line)
+	return fenceIdx < 0 || cdataIdx < fenceIdx
+}
+
+func firstFenceMarkerIndex(line string) int {
+	idxBacktick := strings.Index(line, "```")
+	idxTilde := strings.Index(line, "~~~")
+	switch {
+	case idxBacktick < 0:
+		return idxTilde
+	case idxTilde < 0:
+		return idxBacktick
+	case idxBacktick < idxTilde:
+		return idxBacktick
+	default:
+		return idxTilde
+	}
+}
+
+func updateCDATAStateForStrip(inCDATA bool, cdataFenceMarker, line string) (bool, string) {
+	lower := strings.ToLower(line)
+	pos := 0
+	state := inCDATA
+	fenceMarker := cdataFenceMarker
+	lineForFence := line
+	if !state {
+		start := strings.Index(lower[pos:], "<![cdata[")
+		if start < 0 {
+			return false, ""
+		}
+		pos += start + len("<![cdata[")
+		state = true
+		lineForFence = line[pos:]
+	}
+	if !state {
+		return false, ""
+	}
+
+	trimmed := strings.TrimLeft(lineForFence, " \t")
+	if fenceMarker == "" {
+		if marker, ok := parseFenceOpen(trimmed); ok {
+			fenceMarker = marker
+		}
+	} else if isFenceClose(trimmed, fenceMarker) {
+		fenceMarker = ""
+	}
+
+	for pos < len(lower) {
+		end := strings.Index(lower[pos:], "]]>")
+		if end < 0 {
+			return true, fenceMarker
+		}
+		endPos := pos + end
+		pos = endPos + len("]]>")
+		if fenceMarker != "" {
+			continue
+		}
+		if cdataEndLooksStructural(lower, pos) || strings.TrimSpace(lower[pos:]) == "" {
+			state = false
+			for pos < len(lower) {
+				start := strings.Index(lower[pos:], "<![cdata[")
+				if start < 0 {
+					return false, ""
+				}
+				pos += start + len("<![cdata[")
+				state = true
+				trimmedTail := strings.TrimLeft(line[pos:], " \t")
+				if marker, ok := parseFenceOpen(trimmedTail); ok {
+					fenceMarker = marker
+				} else {
+					fenceMarker = ""
+				}
+				break
+			}
+			continue
+		}
+	}
+	return state, fenceMarker
 }
 
 func parseFenceOpen(line string) (string, bool) {

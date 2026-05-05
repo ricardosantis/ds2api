@@ -3,15 +3,9 @@
 const {
   writeOpenAIError,
 } = require('./error_shape');
-
-function setCorsHeaders(res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'Content-Type, Authorization, X-API-Key, X-Ds2-Target-Account, X-Vercel-Protection-Bypass',
-  );
-}
+const {
+  setCorsHeaders,
+} = require('./cors');
 
 function header(req, key) {
   if (!req || !req.headers) {
@@ -45,6 +39,33 @@ async function fetchStreamPrepare(req, rawBody) {
     method: 'POST',
     headers: buildInternalGoHeaders(req, { withInternalToken: true, withContentType: true }),
     body: rawBody,
+  });
+
+  const text = await upstream.text();
+  let body = {};
+  try {
+    body = JSON.parse(text || '{}');
+  } catch (_err) {
+    body = {};
+  }
+
+  return {
+    ok: upstream.ok,
+    status: upstream.status,
+    contentType: upstream.headers.get('content-type') || 'application/json',
+    text,
+    body,
+  };
+}
+
+async function fetchStreamPow(req, leaseID) {
+  const url = buildInternalGoURL(req);
+  url.searchParams.set('__stream_pow', '1');
+
+  const upstream = await fetch(url.toString(), {
+    method: 'POST',
+    headers: buildInternalGoHeaders(req, { withInternalToken: true, withContentType: true }),
+    body: Buffer.from(JSON.stringify({ lease_id: leaseID })),
   });
 
   const text = await upstream.text();
@@ -201,6 +222,7 @@ module.exports = {
   header,
   readRawBody,
   fetchStreamPrepare,
+  fetchStreamPow,
   relayPreparedFailure,
   safeReadText,
   buildInternalGoURL,

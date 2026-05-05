@@ -16,6 +16,14 @@ func TestToOpenAIClaude(t *testing.T) {
 	}
 }
 
+func TestToOpenAIGeminiThinkingBudgetZeroDisablesReasoning(t *testing.T) {
+	raw := []byte(`{"contents":[{"role":"user","parts":[{"text":"hi"}]}],"generationConfig":{"thinkingConfig":{"thinkingBudget":0}}}`)
+	got := string(ToOpenAI(sdktranslator.FormatGemini, "gemini-2.5-flash", raw, false))
+	if !strings.Contains(got, `"reasoning_effort":"none"`) {
+		t.Fatalf("expected Gemini thinkingBudget=0 to translate to reasoning_effort none, got: %s", got)
+	}
+}
+
 func TestFromOpenAINonStreamClaude(t *testing.T) {
 	original := []byte(`{"model":"claude-sonnet-4-5","messages":[{"role":"user","content":"hi"}],"stream":false}`)
 	translatedReq := []byte(`{"model":"claude-sonnet-4-5","messages":[{"role":"user","content":"hi"}],"stream":false}`)

@@ -144,6 +144,44 @@ func TestLoadStoreIgnoresLegacyConfigJSONEnv(t *testing.T) {
 	}
 }
 
+func TestExplicitMissingConfigPathBootstrapsEmptyFileBackedStore(t *testing.T) {
+	path := t.TempDir() + "/config.json"
+
+	t.Setenv("DS2API_CONFIG_JSON", "")
+	t.Setenv("DS2API_CONFIG_PATH", path)
+
+	store, err := LoadStoreWithError()
+	if err != nil {
+		t.Fatalf("expected missing explicit config path to bootstrap, got: %v", err)
+	}
+	if store.IsEnvBacked() {
+		t.Fatal("expected bootstrap store to be file-backed")
+	}
+	if store.ConfigPath() != path {
+		t.Fatalf("ConfigPath() = %q, want %q", store.ConfigPath(), path)
+	}
+	if len(store.Keys()) != 0 || len(store.Accounts()) != 0 {
+		t.Fatalf("expected empty bootstrap config, got keys=%d accounts=%d", len(store.Keys()), len(store.Accounts()))
+	}
+	if _, statErr := os.Stat(path); !errors.Is(statErr, os.ErrNotExist) {
+		t.Fatalf("expected bootstrap not to create config until first save, stat err=%v", statErr)
+	}
+
+	if err := store.Update(func(c *Config) error {
+		c.Keys = []string{"first-key"}
+		return nil
+	}); err != nil {
+		t.Fatalf("update should persist bootstrap config: %v", err)
+	}
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("expected first update to write config: %v", err)
+	}
+	if !strings.Contains(string(content), "first-key") {
+		t.Fatalf("expected saved config to contain first key, got: %s", content)
+	}
+}
+
 func TestEnvBackedStoreWritebackBootstrapsMissingConfigFile(t *testing.T) {
 	tmp, err := os.CreateTemp(t.TempDir(), "config-*.json")
 	if err != nil {

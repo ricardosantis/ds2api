@@ -1,6 +1,9 @@
 package sse
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestTrimContinuationOverlapReturnsSuffixForSnapshotReplay(t *testing.T) {
 	existing := "我们被问到：这是一个很长的续答快照前缀，用来验证去重逻辑不会误伤正常 token。"
@@ -35,5 +38,14 @@ func TestTrimContinuationOverlapKeepsShortPrefixLikeNormalToken(t *testing.T) {
 	got := TrimContinuationOverlap(existing, incoming)
 	if got != "我们" {
 		t.Fatalf("expected short token preserved, got %q", got)
+	}
+}
+
+func TestTrimContinuationOverlapKeepsShortMultibyteChunk(t *testing.T) {
+	existing := strings.Repeat("字", 36)
+	incoming := strings.Repeat("字", 16)
+	got := TrimContinuationOverlap(existing, incoming)
+	if got != incoming {
+		t.Fatalf("expected short multibyte chunk preserved, got %q", got)
 	}
 }

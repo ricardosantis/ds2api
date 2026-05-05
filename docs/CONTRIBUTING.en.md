@@ -36,7 +36,7 @@ go run ./cmd/ds2api
 cd webui
 
 # 2. Install dependencies
-npm install
+npm ci
 
 # 3. Start dev server (hot reload)
 npm run dev
@@ -59,9 +59,11 @@ docker-compose -f docker-compose.dev.yml up
 
 | Language | Standards |
 | --- | --- |
-| **Go** | Run `./scripts/lint.sh` (gofmt + golangci-lint) and ensure `go test ./...` passes before committing |
+| **Go** | Run `gofmt -w` after editing Go files; before committing, run `./scripts/lint.sh` (format check + golangci-lint) |
 | **JavaScript/React** | Follow existing project style (functional components) |
 | **Commit messages** | Use semantic prefixes: `feat:`, `fix:`, `docs:`, `refactor:`, `style:`, `perf:`, `chore:` |
+
+Do not silently ignore cleanup errors from I/O-style calls such as `Close`, `Flush`, or `Sync`; return them when possible, otherwise log them explicitly.
 
 ## Submitting a PR
 
@@ -85,10 +87,13 @@ Manually build WebUI to `static/admin/`:
 ## Running Tests
 
 ```bash
-# Go + Node unit tests (recommended)
+# Local PR gates (kept aligned with the quality-gates workflow)
+./scripts/lint.sh
+./tests/scripts/check-refactor-line-gate.sh
 ./tests/scripts/run-unit-all.sh
+npm run build --prefix webui
 
-# End-to-end live tests (real accounts)
+# End-to-end live tests (real accounts; recommended for releases or high-risk changes)
 ./tests/scripts/run-live.sh
 ```
 

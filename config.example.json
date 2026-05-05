@@ -38,27 +38,24 @@
     }
   ],
   "model_aliases": {
-    "gpt-4o": "deepseek-chat",
-    "gpt-5-codex": "deepseek-reasoner",
-    "o3": "deepseek-reasoner"
-  },
-  "compat": {
-    "wide_input_strict_output": true,
-    "strip_reference_markers": true
+    "gpt-4o": "deepseek-v4-flash",
+    "gpt-5.5": "deepseek-v4-flash",
+    "gpt-5.3-codex": "deepseek-v4-pro",
+    "o3": "deepseek-v4-pro"
   },
   "responses": {
     "store_ttl_seconds": 900
   },
-  "history_split": {
+  "current_input_file": {
     "enabled": true,
-    "trigger_after_turns": 1
+    "min_chars": 0
+  },
+  "thinking_injection": {
+    "enabled": true,
+    "prompt": ""
   },
   "embeddings": {
     "provider": "deterministic"
-  },
-  "claude_mapping": {
-    "fast": "deepseek-chat",
-    "slow": "deepseek-reasoner"
   },
   "admin": {
     "jwt_expire_hours": 24

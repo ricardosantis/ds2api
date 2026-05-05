@@ -8,23 +8,22 @@ import (
 )
 
 type Config struct {
-	Keys             []string           `json:"keys,omitempty"`
-	APIKeys          []APIKey           `json:"api_keys,omitempty"`
-	Accounts         []Account          `json:"accounts,omitempty"`
-	Proxies          []Proxy            `json:"proxies,omitempty"`
-	ClaudeMapping    map[string]string  `json:"claude_mapping,omitempty"`
-	ClaudeModelMap   map[string]string  `json:"claude_model_mapping,omitempty"`
-	ModelAliases     map[string]string  `json:"model_aliases,omitempty"`
-	Admin            AdminConfig        `json:"admin,omitempty"`
-	Runtime          RuntimeConfig      `json:"runtime,omitempty"`
-	Compat           CompatConfig       `json:"compat,omitempty"`
-	Responses        ResponsesConfig    `json:"responses,omitempty"`
-	Embeddings       EmbeddingsConfig   `json:"embeddings,omitempty"`
-	AutoDelete       AutoDeleteConfig   `json:"auto_delete"`
-	HistorySplit     HistorySplitConfig `json:"history_split"`
-	VercelSyncHash   string             `json:"_vercel_sync_hash,omitempty"`
-	VercelSyncTime   int64              `json:"_vercel_sync_time,omitempty"`
-	AdditionalFields map[string]any     `json:"-"`
+	Keys              []string                `json:"keys,omitempty"`
+	APIKeys           []APIKey                `json:"api_keys,omitempty"`
+	Accounts          []Account               `json:"accounts,omitempty"`
+	Proxies           []Proxy                 `json:"proxies,omitempty"`
+	ModelAliases      map[string]string       `json:"model_aliases,omitempty"`
+	Admin             AdminConfig             `json:"admin,omitempty"`
+	Runtime           RuntimeConfig           `json:"runtime,omitempty"`
+	Responses         ResponsesConfig         `json:"responses,omitempty"`
+	Embeddings        EmbeddingsConfig        `json:"embeddings,omitempty"`
+	AutoDelete        AutoDeleteConfig        `json:"auto_delete"`
+	CurrentInputFile  CurrentInputFileConfig  `json:"current_input_file,omitempty"`
+	ThinkingInjection ThinkingInjectionConfig `json:"thinking_injection,omitempty"`
+	Vercel            VercelConfig            `json:"vercel,omitempty"`
+	VercelSyncHash    string                  `json:"_vercel_sync_hash,omitempty"`
+	VercelSyncTime    int64                   `json:"_vercel_sync_time,omitempty"`
+	AdditionalFields  map[string]any          `json:"-"`
 }
 
 type Account struct {
@@ -100,6 +99,9 @@ func (c *Config) NormalizeCredentials() {
 		c.Accounts[i].Name = strings.TrimSpace(c.Accounts[i].Name)
 		c.Accounts[i].Remark = strings.TrimSpace(c.Accounts[i].Remark)
 	}
+
+	c.Vercel = NormalizeVercelConfig(c.Vercel)
+	c.normalizeModelAliases()
 }
 
 // DropInvalidAccounts removes accounts that cannot be addressed by admin APIs
@@ -119,9 +121,25 @@ func (c *Config) DropInvalidAccounts() {
 	c.Accounts = kept
 }
 
-type CompatConfig struct {
-	WideInputStrictOutput *bool `json:"wide_input_strict_output,omitempty"`
-	StripReferenceMarkers *bool `json:"strip_reference_markers,omitempty"`
+func (c *Config) normalizeModelAliases() {
+	if c == nil {
+		return
+	}
+
+	aliases := map[string]string{}
+	for k, v := range c.ModelAliases {
+		key := strings.TrimSpace(lower(k))
+		val := strings.TrimSpace(lower(v))
+		if key == "" || val == "" {
+			continue
+		}
+		aliases[key] = val
+	}
+	if len(aliases) == 0 {
+		c.ModelAliases = nil
+	} else {
+		c.ModelAliases = aliases
+	}
 }
 
 type AdminConfig struct {
@@ -150,7 +168,33 @@ type AutoDeleteConfig struct {
 	Sessions bool   `json:"sessions,omitempty"`
 }
 
-type HistorySplitConfig struct {
-	Enabled           *bool `json:"enabled,omitempty"`
-	TriggerAfterTurns *int  `json:"trigger_after_turns,omitempty"`
+type CurrentInputFileConfig struct {
+	Enabled  *bool `json:"enabled,omitempty"`
+	MinChars int   `json:"min_chars,omitempty"`
+}
+
+type ThinkingInjectionConfig struct {
+	Enabled *bool  `json:"enabled,omitempty"`
+	Prompt  string `json:"prompt,omitempty"`
+}
+
+type VercelConfig struct {
+	Token     string `json:"token,omitempty"`
+	ProjectID string `json:"project_id,omitempty"`
+	TeamID    string `json:"team_id,omitempty"`
+}
+
+func NormalizeVercelConfig(v VercelConfig) VercelConfig {
+	return VercelConfig{
+		Token:     strings.TrimSpace(v.Token),
+		ProjectID: strings.TrimSpace(v.ProjectID),
+		TeamID:    strings.TrimSpace(v.TeamID),
+	}
+}
+
+func (c *Config) ClearVercelCredentials() {
+	if c == nil {
+		return
+	}
+	c.Vercel = VercelConfig{}
 }

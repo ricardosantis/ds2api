@@ -6,9 +6,9 @@ const {
 const {
   parseMarkupToolCalls,
   stripFencedCodeBlocks,
+  containsToolCallWrapperSyntaxOutsideIgnored,
+  sanitizeLooseCDATA,
 } = require('./parse_payload');
-
-const TOOL_MARKUP_PREFIXES = ['<tool_call', '<function_call', '<invoke'];
 
 function extractToolNames(tools) {
   if (!Array.isArray(tools) || tools.length === 0) {
@@ -45,9 +45,14 @@ function parseToolCallsDetailed(text, toolNames) {
   if (shouldSkipToolCallParsingForCodeFenceExample(normalized)) {
     return result;
   }
-
   // XML markup parsing only.
-  const parsed = parseMarkupToolCalls(normalized);
+  let parsed = parseMarkupToolCalls(normalized);
+  if (parsed.length === 0 && normalized.toLowerCase().includes('<![cdata[')) {
+    const recovered = sanitizeLooseCDATA(normalized);
+    if (recovered !== normalized) {
+      parsed = parseMarkupToolCalls(recovered);
+    }
+  }
   if (parsed.length === 0) {
     return result;
   }
@@ -73,9 +78,14 @@ function parseStandaloneToolCallsDetailed(text, toolNames) {
   if (shouldSkipToolCallParsingForCodeFenceExample(trimmed)) {
     return result;
   }
-
   // XML markup parsing only.
-  const parsed = parseMarkupToolCalls(trimmed);
+  let parsed = parseMarkupToolCalls(trimmed);
+  if (parsed.length === 0 && trimmed.toLowerCase().includes('<![cdata[')) {
+    const recovered = sanitizeLooseCDATA(trimmed);
+    if (recovered !== trimmed) {
+      parsed = parseMarkupToolCalls(recovered);
+    }
+  }
   if (parsed.length === 0) {
     return result;
   }
@@ -112,8 +122,8 @@ function filterToolCallsDetailed(parsed, toolNames) {
 }
 
 function looksLikeToolCallSyntax(text) {
-  const lower = toStringSafe(text).toLowerCase();
-  return TOOL_MARKUP_PREFIXES.some((prefix) => lower.includes(prefix));
+  const styles = containsToolCallWrapperSyntaxOutsideIgnored(text);
+  return styles.dsml || styles.canonical;
 }
 
 function shouldSkipToolCallParsingForCodeFenceExample(text) {

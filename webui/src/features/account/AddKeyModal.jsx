@@ -1,4 +1,7 @@
 import { X } from 'lucide-react'
+import { v4 as uuidv4 } from 'uuid'
+
+import { maskSecret } from '../../utils/maskSecret'
 
 export default function AddKeyModal({ show, t, editingKey, newKey, setNewKey, loading, onClose, onAdd }) {
     if (!show) {
@@ -6,6 +9,7 @@ export default function AddKeyModal({ show, t, editingKey, newKey, setNewKey, lo
     }
 
     const isEditing = Boolean(editingKey?.key)
+    const displayKey = isEditing ? maskSecret(editingKey?.key || newKey.key) : newKey.key
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
@@ -24,7 +28,7 @@ export default function AddKeyModal({ show, t, editingKey, newKey, setNewKey, lo
                                 type="text"
                                 className={isEditing ? "input-field bg-muted/30 flex-1 cursor-not-allowed" : "input-field bg-[#09090b] flex-1"}
                                 placeholder={isEditing ? t('accountManager.keyReadonlyPlaceholder') : t('accountManager.newKeyPlaceholder')}
-                                value={newKey.key}
+                                value={displayKey}
                                 onChange={e => setNewKey({ ...newKey, key: e.target.value })}
                                 autoFocus={!isEditing}
                                 readOnly={isEditing}
@@ -32,7 +36,7 @@ export default function AddKeyModal({ show, t, editingKey, newKey, setNewKey, lo
                             {!isEditing && (
                                 <button
                                     type="button"
-                                    onClick={() => setNewKey({ ...newKey, key: 'sk-' + crypto.randomUUID().replace(/-/g, '') })}
+                                    onClick={() => setNewKey({ ...newKey, key: 'sk-' + uuidv4().replace(/-/g, '') })}
                                     className="px-3 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors text-sm font-medium border border-border whitespace-nowrap"
                                 >
                                     {t('accountManager.generate')}

@@ -11,7 +11,7 @@ cd "$(dirname "$0")/../webui"
 # 检查 node_modules
 if [ ! -d "node_modules" ]; then
     echo "📦 Installing dependencies..."
-    npm install
+    npm ci --prefer-offline --no-audit
 fi
 
 # 构建

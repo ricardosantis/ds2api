@@ -40,7 +40,7 @@ const {
 } = require('./dedupe');
 
 async function handler(req, res) {
-  setCorsHeaders(res);
+  setCorsHeaders(res, req);
   if (req.method === 'OPTIONS') {
     res.statusCode = 204;
     res.end();

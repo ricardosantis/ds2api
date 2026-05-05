@@ -20,12 +20,12 @@ func BuildOpenAIChatCompletion(completionID, model, finalPrompt, finalThinking, 
 	}
 	if len(detected) > 0 {
 		finishReason = "tool_calls"
-		messageObj["tool_calls"] = toolcall.FormatOpenAIToolCalls(detected)
+		messageObj["tool_calls"] = toolcall.FormatOpenAIToolCalls(detected, nil)
 		messageObj["content"] = nil
 	}
-	promptTokens := EstimateTokens(finalPrompt)
-	reasoningTokens := EstimateTokens(finalThinking)
-	completionTokens := EstimateTokens(finalText)
+	promptTokens := CountPromptTokens(finalPrompt, model)
+	reasoningTokens := CountOutputTokens(finalThinking, model)
+	completionTokens := CountOutputTokens(finalText, model)
 
 	return map[string]any{
 		"id":      completionID,
@@ -86,9 +86,9 @@ func BuildOpenAIResponseObject(responseID, model, finalPrompt, finalThinking, fi
 			"content": content,
 		})
 	}
-	promptTokens := EstimateTokens(finalPrompt)
-	reasoningTokens := EstimateTokens(finalThinking)
-	completionTokens := EstimateTokens(finalText)
+	promptTokens := CountPromptTokens(finalPrompt, model)
+	reasoningTokens := CountOutputTokens(finalThinking, model)
+	completionTokens := CountOutputTokens(finalText, model)
 	return map[string]any{
 		"id":          responseID,
 		"type":        "response",
@@ -140,8 +140,8 @@ func BuildClaudeMessageResponse(messageID, model string, normalizedMessages []an
 		"stop_reason":   stopReason,
 		"stop_sequence": nil,
 		"usage": map[string]any{
-			"input_tokens":  EstimateTokens(fmt.Sprintf("%v", normalizedMessages)),
-			"output_tokens": EstimateTokens(finalThinking) + EstimateTokens(finalText),
+			"input_tokens":  CountPromptTokens(fmt.Sprintf("%v", normalizedMessages), model),
+			"output_tokens": CountOutputTokens(finalThinking, model) + CountOutputTokens(finalText, model),
 		},
 	}
 }

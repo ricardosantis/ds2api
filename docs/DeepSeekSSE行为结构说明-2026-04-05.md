@@ -1,7 +1,7 @@
 # DeepSeek SSE 行为结构说明（第三方逆向版）
 
 > 说明：本文基于当前仓库 `tests/raw_stream_samples/` 下全部 `upstream.stream.sse` 原始流样本整理而成，属于第三方逆向观察文档，不是官方协议。
-> 当前 corpus 由 4 份原始流组成，覆盖搜索+引用、风控终态、Markdown 输出和空格敏感输出等行为。
+> 当前 corpus 由 5 份原始流组成，覆盖长文本生成、文件上传上下文、continue 接续、Markdown 输出和空格敏感输出等行为。
 > 补充：文末还会注明少量“当前实现已确认、但 corpus 尚未完整覆盖”的行为，例如长思考场景下的自动续写状态。
 
 文档导航：[文档总索引](./README.md) / [测试指南](./TESTING.md) / [样本目录说明](../tests/raw_stream_samples/README.md)
@@ -12,8 +12,9 @@
 
 | 样本 | 观察重点 |
 | --- | --- |
-| [guangzhou-weather-reasoner-search-20260404](../tests/raw_stream_samples/guangzhou-weather-reasoner-search-20260404/upstream.stream.sse) | 搜索+思考流程，包含 `reference:N` 引用标记与工具片段 |
-| [content-filter-trigger-20260405-jwt3](../tests/raw_stream_samples/content-filter-trigger-20260405-jwt3/upstream.stream.sse) | `CONTENT_FILTER` 终态分支，包含拒答模板与 `ban_regenerate` |
+| [longtext-deepseek-v4-flash-20260429](../tests/raw_stream_samples/longtext-deepseek-v4-flash-20260429/upstream.stream.sse) | DeepSeek V4 flash 长文本流，包含 current input file 上传后的 completion 样本 |
+| [longtext-deepseek-v4-pro-20260429](../tests/raw_stream_samples/longtext-deepseek-v4-pro-20260429/upstream.stream.sse) | DeepSeek V4 pro 长文本流，包含文件上传上下文和较长 reasoning/content 输出 |
+| [continue-thinking-snapshot-replay-20260405](../tests/raw_stream_samples/continue-thinking-snapshot-replay-20260405/upstream.stream.sse) | 多轮 `completion + continue` 原始流，用于验证接续思考去重 |
 | [markdown-format-example-20260405](../tests/raw_stream_samples/markdown-format-example-20260405/upstream.stream.sse) | Markdown 输出的早期样本，用于观察 token 级输出形态 |
 | [markdown-format-example-20260405-spacefix](../tests/raw_stream_samples/markdown-format-example-20260405-spacefix/upstream.stream.sse) | Markdown 输出修正样本，用于验证空格 chunk 必须保留 |
 
@@ -194,7 +195,7 @@ close
 
 ## 8. 终态行为
 
-当前 corpus 里有两条很重要的终态分支。
+当前 corpus 直接覆盖正常完成和 continue 接续；当前实现还兼容 `CONTENT_FILTER` 风控终态，相关分支由协议观察与兼容性 fixture 继续守护。
 
 ### 8.1 正常完成
 
@@ -208,7 +209,7 @@ close
 
 ### 8.2 风控终态
 
-`content-filter-trigger-20260405-jwt3` 展示了另一种终态路径：
+`CONTENT_FILTER` 不在当前 raw stream corpus 的目录样本中，但代码和兼容性测试仍按下面这种终态路径处理：
 
 1. 先继续输出一段正常正文。
 2. 出现提示类 fragment，例如 `TIP`。
@@ -309,7 +310,18 @@ parse SSE block
 - 新模型可能增加新的 `p` 路径。
 - 新版本可能增加新的 fragment.type。
 - `CONTENT_FILTER` 的终态模板内容可能变化。
-- 自动续写相关状态（如 `INCOMPLETE` / `AUTO_CONTINUE`）当前主要来自实测与实现兼容逻辑，后续字段形态仍可能变化。
+- 自动续写相关状态（如 `INCOMPLETE` / `AUTO_CONTINUE`）当前主要来自实测与实现兼容逻辑，后续字段形态仍可能变化。当前实现不会仅因早期 `WIP` 状态就自动继续；只有显式 `INCOMPLETE` 或 `auto_continue` 信号才会触发 continue。
 - 解析器应当对未知字段、未知路径、未知事件保持容忍。
 
 如果你要把这份说明用于实际开发，建议同时保留原始流样本、回放脚本和回归测试，不要只依赖本文。
+
+## 2026-04-29 最近线上样本增量观察
+
+基于 `longtext-deepseek-v4-flash-20260429` 与 `longtext-deepseek-v4-pro-20260429` 两个真实账号长文本样本，近期格式变化要点如下：
+
+1. `data:` 事件中仍大量出现 `{"v":"..."}` 的无路径增量（`p` 缺失），解析器必须把空路径视为可见正文候选，而不能只依赖 `response/content`。
+2. 对象形态 `v`（如 `{"text":"..."}` / `{"content":"..."}`）仍会出现，且可能与无路径 chunk 混用；仅按字符串处理会导致正文丢块。
+3. 多轮 continuation 场景下，后续 chunk 可能不再重复显式 `status`，状态机需要保留上一轮 `INCOMPLETE` 语义直到出现终态。
+4. 2026-04-29 起客户端头部版本基线上调到 `x-client-version: 2.0.3`，否则部分账号会出现上游行为不一致（包括空输出与补轮异常）。
+
+建议：新增样本默认回放应优先覆盖「长文本 + 多轮 + 无路径 chunk」组合，避免只用短样本导致回归漏检。

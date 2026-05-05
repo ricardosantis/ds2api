@@ -9,7 +9,7 @@
         "role": "user"
       }
     ],
-    "model": "deepseek-reasoner-search",
+    "model": "deepseek-v4-pro-search",
     "stream": true
   },
   "capture": {

@@ -35,8 +35,8 @@ func TestMessagesPrepareUsesTurnSuffixes(t *testing.T) {
 	if !strings.HasPrefix(got, "<｜begin▁of▁sentence｜>") {
 		t.Fatalf("expected begin-of-sentence marker, got %q", got)
 	}
-	if !strings.Contains(got, "<｜System｜>System rule<｜end▁of▁instructions｜>") {
-		t.Fatalf("expected system instructions suffix, got %q", got)
+	if !strings.Contains(got, "<｜System｜>") || !strings.Contains(got, "<｜end▁of▁instructions｜>") || !strings.Contains(got, "System rule") {
+		t.Fatalf("expected system instructions to remain present, got %q", got)
 	}
 	if !strings.Contains(got, "<｜User｜>Question") {
 		t.Fatalf("expected user question, got %q", got)
@@ -49,6 +49,23 @@ func TestMessagesPrepareUsesTurnSuffixes(t *testing.T) {
 	}
 }
 
+func TestMessagesPreparePrependsOutputIntegrityGuard(t *testing.T) {
+	messages := []map[string]any{
+		{"role": "system", "content": "System rule"},
+		{"role": "user", "content": "Question"},
+	}
+	got := MessagesPrepare(messages)
+	if !strings.HasPrefix(got, beginSentenceMarker+systemMarker+outputIntegrityGuardPrompt) {
+		t.Fatalf("expected output integrity guard to be prepended, got %q", got)
+	}
+	if !strings.Contains(got, outputIntegrityGuardPrompt+"\n\nSystem rule") {
+		t.Fatalf("expected output integrity guard to precede system prompt content, got %q", got)
+	}
+	if !strings.Contains(got, "<｜User｜>Question") {
+		t.Fatalf("expected user question after guard, got %q", got)
+	}
+}
+
 func TestNormalizeContentArrayFallsBackToContentWhenTextEmpty(t *testing.T) {
 	got := NormalizeContent([]any{
 		map[string]any{"type": "text", "text": "", "content": "from-content"},
@@ -58,23 +75,14 @@ func TestNormalizeContentArrayFallsBackToContentWhenTextEmpty(t *testing.T) {
 	}
 }
 
-func TestMessagesPrepareWithThinkingAddsContinuityContract(t *testing.T) {
+func TestMessagesPrepareWithThinkingPreservesPromptShape(t *testing.T) {
 	messages := []map[string]any{{"role": "user", "content": "Question"}}
 	gotThinking := MessagesPrepareWithThinking(messages, true)
 	gotPlain := MessagesPrepareWithThinking(messages, false)
-	if gotThinking == gotPlain {
-		t.Fatalf("expected thinking-enabled prompt to include extra continuity instructions")
+	if gotThinking != gotPlain {
+		t.Fatalf("expected thinking flag not to add extra continuity instructions, got thinking=%q plain=%q", gotThinking, gotPlain)
 	}
 	if !strings.HasSuffix(gotThinking, "<｜Assistant｜>") {
 		t.Fatalf("expected assistant suffix, got %q", gotThinking)
-	}
-	if !strings.Contains(gotThinking, "Continue the conversation from the full prior context") {
-		t.Fatalf("expected continuity instruction in thinking prompt, got %q", gotThinking)
-	}
-	if !strings.Contains(gotThinking, "final user-facing answer only in reasoning") {
-		t.Fatalf("expected visible-answer instruction in thinking prompt, got %q", gotThinking)
-	}
-	if strings.Contains(gotPlain, "Continue the conversation from the full prior context") {
-		t.Fatalf("did not expect thinking-only instruction in plain prompt, got %q", gotPlain)
 	}
 }

@@ -117,7 +117,7 @@ func BuildResponsesFunctionCallArgumentsDonePayload(responseID, itemID string, o
 	}
 }
 
-func BuildResponsesFailedPayload(responseID, model, message, code string) map[string]any {
+func BuildResponsesFailedPayload(responseID, model string, status int, message, code string) map[string]any {
 	code = strings.TrimSpace(code)
 	if code == "" {
 		code = "api_error"
@@ -129,12 +129,33 @@ func BuildResponsesFailedPayload(responseID, model, message, code string) map[st
 		"object":      "response",
 		"model":       model,
 		"status":      "failed",
+		"status_code": status,
 		"error": map[string]any{
 			"message": message,
-			"type":    "invalid_request_error",
+			"type":    responsesErrorType(status),
 			"code":    code,
 			"param":   nil,
 		},
+	}
+}
+
+func responsesErrorType(status int) string {
+	switch status {
+	case 400, 404, 422:
+		return "invalid_request_error"
+	case 401:
+		return "authentication_error"
+	case 403:
+		return "permission_error"
+	case 429:
+		return "rate_limit_error"
+	case 503:
+		return "service_unavailable_error"
+	default:
+		if status >= 500 {
+			return "api_error"
+		}
+		return "invalid_request_error"
 	}
 }
 

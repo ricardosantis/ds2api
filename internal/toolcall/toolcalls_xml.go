@@ -107,10 +107,27 @@ func parseXMLNodeValue(dec *xml.Decoder, start xml.StartElement) (any, error) {
 				return nil, errXMLMismatch(start.Name.Local, t.Name.Local)
 			}
 			if len(children) == 0 {
+				if parsed, ok := parseJSONLiteralValue(text.String()); ok {
+					return parsed, nil
+				}
 				return text.String(), nil
 			}
 			if txt := text.String(); strings.TrimSpace(txt) != "" {
-				children["_text"] = txt
+				if parsed, ok := parseJSONLiteralValue(txt); ok {
+					children["_text"] = parsed
+				} else {
+					children["_text"] = txt
+				}
+			}
+			if len(children) == 1 {
+				if items, ok := children["item"]; ok {
+					switch v := items.(type) {
+					case []any:
+						return v, nil
+					default:
+						return []any{v}, nil
+					}
+				}
 			}
 			return children, nil
 		}

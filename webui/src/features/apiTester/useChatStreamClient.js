@@ -123,7 +123,6 @@ export function useChatStreamClient({
             const headers = {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${effectiveKey}`,
-                'X-Ds2-Source': 'admin-webui-api-tester',
             }
             if (requestAccount) {
                 headers['X-Ds2-Target-Account'] = requestAccount

@@ -10,6 +10,8 @@ import {
 } from 'lucide-react'
 import clsx from 'clsx'
 
+import { maskSecret } from '../../utils/maskSecret'
+
 export default function ConfigPanel({
     t,
     configExpanded,
@@ -17,6 +19,7 @@ export default function ConfigPanel({
     models,
     model,
     setModel,
+    modelsLoaded,
     streamingMode,
     setStreamingMode,
     selectedAccount,
@@ -40,6 +43,8 @@ export default function ConfigPanel({
     }
     const selectedModel = models.find(m => m.id === model) || models[0]
     const SelectedModelIcon = selectedModel ? (iconMap[selectedModel.icon] || MessageSquare) : MessageSquare
+    const defaultKeyPreview = maskSecret(config.keys?.[0])
+    const hasModels = models.length > 0
 
     return (
         <div className={clsx(
@@ -70,19 +75,24 @@ export default function ConfigPanel({
                         <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider ml-0.5">{t('apiTester.modelLabel')}</label>
                         <div className="relative">
                             <select
-                                className="w-full h-11 pl-3 pr-9 bg-secondary border border-border rounded-lg text-sm appearance-none focus:outline-none focus:ring-1 focus:ring-ring focus:border-ring transition-all cursor-pointer hover:bg-muted/70 text-foreground"
+                                className="w-full h-11 pl-3 pr-9 bg-secondary border border-border rounded-lg text-sm appearance-none focus:outline-none focus:ring-1 focus:ring-ring focus:border-ring transition-all cursor-pointer hover:bg-muted/70 text-foreground disabled:opacity-60 disabled:cursor-not-allowed"
                                 value={model}
                                 onChange={e => setModel(e.target.value)}
+                                disabled={!hasModels}
                             >
-                                {models.map(m => (
+                                {hasModels ? models.map(m => (
                                     <option key={m.id} value={m.id} className="bg-popover text-popover-foreground">
                                         {m.name}
                                     </option>
-                                ))}
+                                )) : (
+                                    <option value="" className="bg-popover text-popover-foreground">
+                                        {modelsLoaded ? t('apiTester.noModels') : t('apiTester.loadingModels')}
+                                    </option>
+                                )}
                             </select>
                             <ChevronDown className="absolute right-2.5 top-3.5 w-4 h-4 text-muted-foreground pointer-events-none" />
                         </div>
-                        {selectedModel && (
+                        {selectedModel ? (
                             <div className="mt-3 rounded-lg border border-border bg-muted/20 p-3">
                                 <div className="flex items-start gap-3">
                                     <div className={clsx(
@@ -103,6 +113,10 @@ export default function ConfigPanel({
                                 <p className="text-[11px] text-muted-foreground/70 mt-2">
                                     {t('apiTester.modelPickerHint')}
                                 </p>
+                            </div>
+                        ) : (
+                            <div className="mt-3 rounded-lg border border-dashed border-border bg-muted/10 p-3 text-[11px] text-muted-foreground leading-relaxed">
+                                {modelsLoaded ? t('apiTester.noModelsHint') : t('apiTester.loadingModelsHint')}
                             </div>
                         )}
                     </div>
@@ -158,7 +172,7 @@ export default function ConfigPanel({
                             autoComplete="off"
                             spellCheck={false}
                             className="w-full h-10 px-3 bg-muted/30 border border-border rounded-lg text-sm font-mono placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-ring focus:border-ring transition-all"
-                            placeholder={config.keys?.[0] ? t('apiTester.apiKeyDefault', { suffix: config.keys[0].slice(-6) }) : t('apiTester.apiKeyPlaceholder')}
+                            placeholder={defaultKeyPreview ? t('apiTester.apiKeyDefault', { preview: defaultKeyPreview }) : t('apiTester.apiKeyPlaceholder')}
                             value={apiKey}
                             onChange={e => setApiKey(e.target.value)}
                         />

@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Check, ChevronDown, Copy, Pencil, Plus, Trash2 } from 'lucide-react'
 import clsx from 'clsx'
 
+import { maskSecret } from '../../utils/maskSecret'
+
 function fallbackCopyText(text) {
     const textArea = document.createElement('textarea')
     textArea.value = text
@@ -102,7 +104,7 @@ export default function ApiKeysPanel({
                                         className="font-mono text-sm bg-muted/50 px-3 py-1 rounded inline-block hover:bg-muted transition-colors"
                                         title={t('accountManager.copyKeyTitle')}
                                     >
-                                        {(item.key || '').slice(0, 16)}****
+                                        {maskSecret(item.key)}
                                     </button>
                                     <div className="text-sm text-muted-foreground truncate">{item.remark || '-'}</div>
                                     {copiedKey === item.key && (

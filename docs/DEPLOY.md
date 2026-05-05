@@ -65,15 +65,15 @@ cp config.example.json config.json
 
 仓库内置 GitHub Actions 工作流：`.github/workflows/release-artifacts.yml`
 
-- **触发条件**：仅在 Release `published` 时触发（普通 push 不会构建）
-- **构建产物**：多平台二进制压缩包 + `sha256sums.txt`
+- **触发条件**：默认仅在 Release `published` 时自动触发；也支持在 Actions 页面手动 `workflow_dispatch`，并填写 `release_tag` 复跑/补发
+- **构建产物**：多平台二进制压缩包、Linux Docker 镜像导出包 + `sha256sums.txt`
 - **容器镜像发布**：仅发布到 GHCR（`ghcr.io/cjackhwang/ds2api`）
 
 | 平台 | 架构 | 文件格式 |
 | --- | --- | --- |
-| Linux | amd64, arm64 | `.tar.gz` |
+| Linux | amd64, arm64, armv7 | `.tar.gz` |
 | macOS | amd64, arm64 | `.tar.gz` |
-| Windows | amd64 | `.zip` |
+| Windows | amd64, arm64 | `.zip` |
 
 每个压缩包包含：
 
@@ -131,6 +131,9 @@ docker-compose logs -f
 ```
 
 默认 `docker-compose.yml` 直接使用 `ghcr.io/cjackhwang/ds2api:latest`，并把宿主机 `6011` 映射到容器内的 `5001`。如果你希望直接对外暴露 `5001`，请设置 `DS2API_HOST_PORT=5001`（或者手动调整 `ports` 配置）。
+Compose 模板还会默认设置 `DS2API_CONFIG_PATH=/data/config.json` 并挂载 `./config.json:/data/config.json`，优先避免 `/app` 只读带来的配置持久化问题。
+镜像内会预创建 `/data` 并授权给非 root 的 `ds2api` 用户；如果你使用 bind mount 单文件，请确保宿主机 `config.json` 至少可被容器用户读取/写入，例如 `chmod 644 config.json`，否则 Linux UID/GID 不一致时仍可能出现 `open /data/config.json: permission denied`。
+兼容说明：若未设置 `DS2API_CONFIG_PATH` 且运行目录是 `/app`，新版本会优先使用 `/data/config.json`；当该文件不存在但检测到历史 `/app/config.json` 时，会自动回退读取旧路径，避免升级后“配置丢失”。
 
 如需固定版本，也可以直接拉取指定 tag：
 
@@ -195,9 +198,45 @@ healthcheck:
 部署要点：
 
 - **端口**：服务默认监听 `5001`，模板会固定设置 `PORT=5001`。
-- **配置持久化**：模板挂载卷 `/data`，并设置 `DS2API_CONFIG_PATH=/data/config.json`；在管理台导入配置后，会写入并持久化到该路径。
+- **配置持久化**：模板挂载卷 `/data`，并设置 `DS2API_CONFIG_PATH=/data/config.json`；首次空卷启动时会先使用空的文件模式配置，在管理台导入配置后，会写入并持久化到该路径。
+- **`open /app/config.json: permission denied`**：说明当前实例在尝试把运行时 token 持久化到只读路径（常见于镜像内 `/app`）。  
+  处理建议：
+  1. 显式设置可写路径：`DS2API_CONFIG_PATH=/data/config.json`（并挂载持久卷到 `/data`）；  
+  2. 若你使用 `DS2API_CONFIG_JSON` 启动且不需要运行时落盘，可保持环境变量模式（`DS2API_ENV_WRITEBACK` 关闭）；  
+  3. 最新版本中，即使持久化失败，登录/会话测试仍会继续，仅提示“token 未持久化（重启后丢失）”。
 - **构建版本号**：Zeabur / 普通 `docker build` 默认不需要传 `BUILD_VERSION`；镜像会优先使用该构建参数，未提供时自动回退到仓库根目录的 `VERSION` 文件。
 - **首次登录**：部署完成后访问 `/admin`，使用 Zeabur 环境变量/模板指引中的 `DS2API_ADMIN_KEY` 登录（建议首次登录后自行更换为强密码）。
+
+#### 不使用模板手动部署
+
+如果你不想使用 `zeabur.yaml` 一键模板，可以直接用 Zeabur 的 GitHub 集成从仓库根目录构建：
+
+1. Fork 本仓库，或把代码推送到你自己的 GitHub 仓库。
+2. 在 Zeabur Dashboard 中创建 Project，然后添加 Service，选择 GitHub/Git 仓库来源。
+3. 选择仓库与分支，Root Directory 保持 `/`。
+4. 构建方式使用 Dockerfile。Zeabur 会自动检测仓库根目录的 `Dockerfile`；不要设置 `ZBPACK_IGNORE_DOCKERFILE=true`。如果界面要求填写 Dockerfile 名称，填写 `Dockerfile`。
+5. 在 Service 配置中添加持久卷，挂载目录填写 `/data`。
+6. 配置环境变量：
+
+| 变量 | 推荐值 | 说明 |
+| --- | --- | --- |
+| `PORT` | `5001` | 服务监听端口，需要和 Zeabur 暴露的 HTTP 端口一致。 |
+| `DS2API_ADMIN_KEY` | 强随机字符串 | 管理台登录密钥，必填。 |
+| `DS2API_CONFIG_PATH` | `/data/config.json` | 配置持久化路径，建议必填。 |
+| `LOG_LEVEL` | `INFO` | 可选，日志级别。 |
+| `DS2API_CONFIG_JSON` | 原始 JSON 或 Base64 JSON | 可选，用于用环境变量初始化配置。 |
+| `DS2API_ENV_WRITEBACK` | `1` | 可选；当设置了 `DS2API_CONFIG_JSON` 且希望首次启动后写入 `/data/config.json` 时再启用。 |
+
+7. 暴露 HTTP 端口 `5001`，健康检查路径可填 `/healthz`。
+8. 部署完成后访问 `/admin`，用 `DS2API_ADMIN_KEY` 登录，然后在管理台导入或编辑配置。首次空卷可以没有 `/data/config.json`，服务会先启动，第一次保存时自动创建该文件。
+
+常见问题：
+
+- **启动日志出现 `open /data/config.json: no such file or directory`**：请确认已经部署包含“首次空卷启动”修复的版本，并重新部署最新代码。
+- **出现 `open /app/config.json: permission denied`**：说明配置路径仍指向镜像内只读目录；设置持久卷 `/data`，并确认 `DS2API_CONFIG_PATH=/data/config.json`。
+- **管理台保存后重启配置丢失**：检查 `/data` 持久卷是否已挂载到当前服务；如果使用了 `DS2API_CONFIG_JSON`，但想让管理台保存落盘，请启用 `DS2API_ENV_WRITEBACK=1`。
+
+参考：Zeabur 官方文档的 [GitHub/Git 集成](https://zeabur.com/docs/en-US/deploy/github)、[Dockerfile 部署](https://zeabur.com/docs/zh-CN/deploy/dockerfile) 与 [Volumes](https://zeabur.com/docs/data-management/volumes)。
 
 ---
 
@@ -259,10 +298,12 @@ VERCEL_TEAM_ID=team_xxxxxxxxxxxx   # 个人账号可留空
 | `DS2API_GLOBAL_MAX_INFLIGHT` | 全局并发上限 | `recommended_concurrency` |
 | `DS2API_ENV_WRITEBACK` | 检测到 `DS2API_CONFIG_JSON` 时自动写入 `DS2API_CONFIG_PATH`，并在成功后转为文件模式（`1/true/yes/on`） | 关闭 |
 | `DS2API_VERCEL_INTERNAL_SECRET` | 混合流式内部鉴权 | 回退用 `DS2API_ADMIN_KEY` |
-| `DS2API_VERCEL_STREAM_LEASE_TTL_SECONDS` | 流式 lease TTL | 默认与 `responses.store_ttl_seconds` 同步，若未设置则为 `900` |
+| `DS2API_VERCEL_STREAM_LEASE_TTL_SECONDS` | 流式 lease TTL | `900` |
+| `DS2API_RAW_STREAM_SAMPLE_ROOT` | raw stream 样本保存/读取根目录 | `tests/raw_stream_samples` |
 | `VERCEL_TOKEN` | Vercel 同步 token | — |
 | `VERCEL_PROJECT_ID` | Vercel 项目 ID | — |
 | `VERCEL_TEAM_ID` | Vercel 团队 ID | — |
+| `DS2API_CHAT_HISTORY_PATH` | Chat history 存储路径（Vercel 上必须设为 `/tmp/chat_history.json`，否则因文件系统只读而不可用） | `data/chat_history.json` |
 | `DS2API_VERCEL_PROTECTION_BYPASS` | 部署保护绕过密钥（内部 Node→Go 调用） | — |
 
 ### 3.3 运行时行为配置（通过 Admin API 设置）
@@ -275,7 +316,7 @@ VERCEL_TEAM_ID=team_xxxxxxxxxxxx   # 个人账号可留空
 
 详细说明参见 [API.md](../API.md#admin-接口) 中 `/admin/settings` 部分。
 
-### 3.3 Vercel 架构说明
+### 3.4 Vercel 架构说明
 
 ```text
 请求 ─────┐
@@ -311,13 +352,14 @@ api/index.go  api/chat-stream.js
 
 - `api/chat-stream.js` 仅对非流式请求回退到 Go 入口（`?__go=1`）
 - 流式请求（包括带 `tools`）走 Node 路径，并执行与 Go 对齐的 tool-call 防泄漏处理
+- Node 流式路径同时对齐 Go 的终结态语义：空可见输出会返回同形状错误 SSE，空 `content_filter` 会返回 `content_filter` 错误
 - WebUI 的"非流式测试"直接请求 `?__go=1`，避免 Node 中转造成长请求超时
 
 #### 函数时长
 
 `vercel.json` 已将 `api/chat-stream.js` 与 `api/index.go` 的 `maxDuration` 设为 `300`（受 Vercel 套餐上限约束）。
 
-### 3.4 Vercel 常见报错排查
+### 3.5 Vercel 常见报错排查
 
 #### Go 构建失败
 
@@ -361,7 +403,23 @@ No Output Directory named "public" found after the Build completed.
 - **方案 B**：请求中添加 `x-vercel-protection-bypass` 头
 - **方案 C**：设置 `VERCEL_AUTOMATION_BYPASS_SECRET`（或 `DS2API_VERCEL_PROTECTION_BYPASS`），仅影响内部 Node→Go 调用
 
-### 3.5 仓库不提交构建产物
+#### Chat History 不可用（read-only file system）
+
+```text
+create chat history dir: mkdir /var/task/data: read-only file system
+```
+
+**原因**：Vercel Serverless 函数的文件系统（`/var/task`）为只读，chat history 尝试在该路径下创建目录失败。
+
+**解决**：在 Vercel Project Settings → Environment Variables 中添加：
+
+```text
+DS2API_CHAT_HISTORY_PATH=/tmp/chat_history.json
+```
+
+`/tmp` 是 Vercel Serverless 环境中唯一可写的目录。数据在函数冷启动之间不会持久化（ephemeral），但在单个实例生命周期内功能正常。
+
+### 3.6 仓库不提交构建产物
 
 - `static/admin` 目录不在 Git 中
 - Vercel / Docker 构建阶段自动生成 WebUI 静态文件
@@ -443,7 +501,7 @@ go run ./cmd/ds2api
 
 ```bash
 cd webui
-npm install
+npm ci
 npm run build
 # 产物输出到 static/admin/
 ```
@@ -587,7 +645,7 @@ curl -s http://127.0.0.1:5001/readyz
 
 # 3. 模型列表
 curl -s http://127.0.0.1:5001/v1/models
-# 预期: {"object":"list","data":[...]}
+# 预期: {"object":"list","data":[...]}（包含 `*-nothinking` 变体）
 
 # 4. 管理台页面（如果已构建 WebUI）
 curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:5001/admin
@@ -597,7 +655,7 @@ curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:5001/admin
 curl http://127.0.0.1:5001/v1/chat/completions \
   -H "Authorization: Bearer your-api-key" \
   -H "Content-Type: application/json" \
-  -d '{"model":"deepseek-chat","messages":[{"role":"user","content":"hello"}]}'
+  -d '{"model":"deepseek-v4-flash","messages":[{"role":"user","content":"hello"}]}'
 ```
 
 ---
@@ -628,4 +686,4 @@ go run ./cmd/ds2api-tests \
 - ✅ 真实调用场景验证（OpenAI/Claude/Admin/并发/toolcall/流式）
 - ✅ 全量请求与响应日志落盘（用于故障复盘）
 
-详细测试集说明参阅 [TESTING.md](TESTING.md)。
+详细测试集说明参阅 [TESTING.md](TESTING.md)。PR 前的固定本地门禁以 [TESTING.md](TESTING.md#pr-门禁--pr-gates) 为准。

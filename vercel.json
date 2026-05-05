@@ -82,6 +82,22 @@
       "destination": "/api/index"
     },
     {
+      "source": "/admin/chat-history(.*)",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/admin/proxies(.*)",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/admin/dev/raw-samples/(.*)",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/admin/dev/captures(.*)",
+      "destination": "/api/index"
+    },
+    {
       "source": "/admin",
       "destination": "/admin/index.html"
     },

@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 
 	"ds2api/internal/config"
+	"ds2api/internal/util"
 )
 
 const (
@@ -42,6 +43,7 @@ type Entry struct {
 	Status           string         `json:"status"`
 	CallerID         string         `json:"caller_id,omitempty"`
 	AccountID        string         `json:"account_id,omitempty"`
+	Surface          string         `json:"surface,omitempty"`
 	Model            string         `json:"model,omitempty"`
 	Stream           bool           `json:"stream"`
 	UserInput        string         `json:"user_input,omitempty"`
@@ -71,6 +73,7 @@ type SummaryEntry struct {
 	Status         string `json:"status"`
 	CallerID       string `json:"caller_id,omitempty"`
 	AccountID      string `json:"account_id,omitempty"`
+	Surface        string `json:"surface,omitempty"`
 	Model          string `json:"model,omitempty"`
 	Stream         bool   `json:"stream"`
 	UserInput      string `json:"user_input,omitempty"`
@@ -91,6 +94,7 @@ type File struct {
 type StartParams struct {
 	CallerID    string
 	AccountID   string
+	Surface     string
 	Model       string
 	Stream      bool
 	UserInput   string
@@ -192,6 +196,18 @@ func (s *Store) Snapshot() (File, error) {
 	return cloneFile(s.state), nil
 }
 
+func (s *Store) Revision() (int64, error) {
+	if s == nil {
+		return 0, errors.New("chat history store is nil")
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.err != nil {
+		return 0, s.err
+	}
+	return s.state.Revision, nil
+}
+
 func (s *Store) Enabled() bool {
 	if s == nil {
 		return false
@@ -220,6 +236,22 @@ func (s *Store) Get(id string) (Entry, error) {
 	return cloneEntry(item), nil
 }
 
+func (s *Store) DetailRevision(id string) (int64, error) {
+	if s == nil {
+		return 0, errors.New("chat history store is nil")
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.err != nil {
+		return 0, s.err
+	}
+	item, ok := s.details[strings.TrimSpace(id)]
+	if !ok {
+		return 0, errors.New("chat history entry not found")
+	}
+	return item.Revision, nil
+}
+
 func (s *Store) Start(params StartParams) (Entry, error) {
 	if s == nil {
 		return Entry{}, errors.New("chat history store is nil")
@@ -242,6 +274,7 @@ func (s *Store) Start(params StartParams) (Entry, error) {
 		Status:      "streaming",
 		CallerID:    strings.TrimSpace(params.CallerID),
 		AccountID:   strings.TrimSpace(params.AccountID),
+		Surface:     strings.TrimSpace(params.Surface),
 		Model:       strings.TrimSpace(params.Model),
 		Stream:      params.Stream,
 		UserInput:   strings.TrimSpace(params.UserInput),
@@ -281,8 +314,12 @@ func (s *Store) Update(id string, params UpdateParams) (Entry, error) {
 	if params.Status != "" {
 		item.Status = params.Status
 	}
-	item.ReasoningContent = params.ReasoningContent
-	item.Content = params.Content
+	if params.ReasoningContent != "" || item.ReasoningContent == "" {
+		item.ReasoningContent = params.ReasoningContent
+	}
+	if params.Content != "" || item.Content == "" {
+		item.Content = params.Content
+	}
 	item.Error = strings.TrimSpace(params.Error)
 	item.StatusCode = params.StatusCode
 	item.ElapsedMs = params.ElapsedMs
@@ -513,10 +550,13 @@ func (s *Store) rebuildIndexLocked() {
 		summaries = append(summaries, summaryFromEntry(item))
 	}
 	sort.Slice(summaries, func(i, j int) bool {
-		if summaries[i].UpdatedAt == summaries[j].UpdatedAt {
-			return summaries[i].CreatedAt > summaries[j].CreatedAt
+		if summaries[i].CreatedAt == summaries[j].CreatedAt {
+			if summaries[i].Revision == summaries[j].Revision {
+				return summaries[i].UpdatedAt > summaries[j].UpdatedAt
+			}
+			return summaries[i].Revision > summaries[j].Revision
 		}
-		return summaries[i].UpdatedAt > summaries[j].UpdatedAt
+		return summaries[i].CreatedAt > summaries[j].CreatedAt
 	})
 	if s.state.Limit < DisabledLimit || !isAllowedLimit(s.state.Limit) {
 		s.state.Limit = DefaultLimit
@@ -560,6 +600,7 @@ func summaryFromEntry(item Entry) SummaryEntry {
 		Status:         item.Status,
 		CallerID:       item.CallerID,
 		AccountID:      item.AccountID,
+		Surface:        item.Surface,
 		Model:          item.Model,
 		Stream:         item.Stream,
 		UserInput:      item.UserInput,
@@ -582,8 +623,8 @@ func buildPreview(item Entry) string {
 	if candidate == "" {
 		candidate = strings.TrimSpace(item.UserInput)
 	}
-	if len(candidate) > defaultPreviewAt {
-		return candidate[:defaultPreviewAt] + "..."
+	if truncated, ok := util.TruncateRunes(candidate, defaultPreviewAt); ok {
+		return truncated + "..."
 	}
 	return candidate
 }

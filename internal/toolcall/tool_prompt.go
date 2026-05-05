@@ -9,164 +9,233 @@ import "strings"
 // The toolNames slice should contain the actual tool names available in the
 // current request; the function picks real names for examples.
 func BuildToolCallInstructions(toolNames []string) string {
-	// Pick real tool names for examples; fall back to generic names.
-	ex1 := "read_file"
-	ex2 := "write_to_file"
-	ex3 := "ask_followup_question"
-	used := map[string]bool{}
-	for _, n := range toolNames {
-		switch {
-		// Read/query-type tools
-		case !used["ex1"] && matchAny(n, "read_file", "list_files", "search_files", "Read", "Glob"):
-			ex1 = n
-			used["ex1"] = true
-		// Write/execute-type tools
-		case !used["ex2"] && matchAny(n, "write_to_file", "apply_diff", "execute_command", "exec_command", "Write", "Edit", "MultiEdit", "Bash"):
-			ex2 = n
-			used["ex2"] = true
-		// Interactive/meta tools
-		case !used["ex3"] && matchAny(n, "ask_followup_question", "attempt_completion", "update_todo_list", "Task"):
-			ex3 = n
-			used["ex3"] = true
-		}
-	}
-	ex1Params := exampleReadParams(ex1)
-	ex2Params := exampleWriteOrExecParams(ex2)
-	ex3Params := exampleInteractiveParams(ex3)
-
 	return `TOOL CALL FORMAT — FOLLOW EXACTLY:
 
-<tool_calls>
-  <tool_call>
-    <tool_name>TOOL_NAME_HERE</tool_name>
-    <parameters>
-      <PARAMETER_NAME><![CDATA[PARAMETER_VALUE]]></PARAMETER_NAME>
-    </parameters>
-  </tool_call>
-</tool_calls>
+<|DSML|tool_calls>
+  <|DSML|invoke name="TOOL_NAME_HERE">
+    <|DSML|parameter name="PARAMETER_NAME"><![CDATA[PARAMETER_VALUE]]></|DSML|parameter>
+  </|DSML|invoke>
+</|DSML|tool_calls>
 
 RULES:
-1) Use the <tool_calls> XML format only. Never emit JSON or function-call syntax.
-2) Put one or more <tool_call> entries under a single <tool_calls> root.
-3) Parameters must be XML, not JSON.
+1) Use the <|DSML|tool_calls> wrapper format.
+2) Put one or more <|DSML|invoke> entries under a single <|DSML|tool_calls> root.
+3) Put the tool name in the invoke name attribute: <|DSML|invoke name="TOOL_NAME">.
 4) All string values must use <![CDATA[...]]>, even short ones. This includes code, scripts, file contents, prompts, paths, names, and queries.
-5) Objects use nested XML elements. Arrays may repeat the same tag or use <item> children.
-6) Numbers, booleans, and null stay plain text.
-7) Use only the parameter names in the tool schema. Do not invent fields.
-8) Do NOT wrap XML in markdown fences. Do NOT output explanations, role markers, or internal monologue.
+5) Every top-level argument must be a <|DSML|parameter name="ARG_NAME">...</|DSML|parameter> node.
+6) Objects use nested XML elements inside the parameter body. Arrays may repeat <item> children.
+7) Numbers, booleans, and null stay plain text.
+8) Use only the parameter names in the tool schema. Do not invent fields.
+9) Do NOT wrap XML in markdown fences. Do NOT output explanations, role markers, or internal monologue.
+10) If you call a tool, the first non-whitespace characters of that tool block must be exactly <|DSML|tool_calls>.
+11) Never omit the opening <|DSML|tool_calls> tag, even if you already plan to close with </|DSML|tool_calls>.
+12) Compatibility note: the runtime also accepts the legacy XML tags <tool_calls> / <invoke> / <parameter>, but prefer the DSML-prefixed form above.
 
 PARAMETER SHAPES:
-- string => <name><![CDATA[value]]></name>
-- object => nested XML elements
-- array => repeated tags or <item> children
-- number/bool/null => plain text
+- string => <|DSML|parameter name="x"><![CDATA[value]]></|DSML|parameter>
+- object => <|DSML|parameter name="x"><field>...</field></|DSML|parameter>
+- array => <|DSML|parameter name="x"><item>...</item><item>...</item></|DSML|parameter>
+- number/bool/null => <|DSML|parameter name="x">plain_text</|DSML|parameter>
 
 【WRONG — Do NOT do these】:
 
 Wrong 1 — mixed text after XML:
-  <tool_calls>...</tool_calls> I hope this helps.
-Wrong 2 — function-call syntax:
-  Grep({"pattern": "token"})
-Wrong 3 — JSON parameters:
-  <tool_call><tool_name>` + ex1 + `</tool_name><parameters>{"path":"x"}</parameters></tool_call>
-Wrong 4 — Markdown code fences:
+  <|DSML|tool_calls>...</|DSML|tool_calls> I hope this helps.
+Wrong 2 — Markdown code fences:
   ` + "```xml" + `
-  <tool_calls>...</tool_calls>
+  <|DSML|tool_calls>...</|DSML|tool_calls>
   ` + "```" + `
+Wrong 3 — missing opening wrapper:
+  <|DSML|invoke name="TOOL_NAME">...</|DSML|invoke>
+  </|DSML|tool_calls>
 
-Remember: The ONLY valid way to use tools is the <tool_calls> XML block at the end of your response.
+Remember: The ONLY valid way to use tools is the <|DSML|tool_calls>...</|DSML|tool_calls> block at the end of your response.
 
-【CORRECT EXAMPLES】:
-
-Example A — Single tool:
-<tool_calls>
-  <tool_call>
-    <tool_name>` + ex1 + `</tool_name>
-    <parameters>` + ex1Params + `</parameters>
-  </tool_call>
-</tool_calls>
-
-Example B — Two tools in parallel:
-<tool_calls>
-  <tool_call>
-    <tool_name>` + ex1 + `</tool_name>
-    <parameters>` + ex1Params + `</parameters>
-  </tool_call>
-  <tool_call>
-    <tool_name>` + ex2 + `</tool_name>
-    <parameters>` + ex2Params + `</parameters>
-  </tool_call>
-</tool_calls>
-
-Example C — Tool with nested XML parameters:
-<tool_calls>
-  <tool_call>
-    <tool_name>` + ex3 + `</tool_name>
-    <parameters>` + ex3Params + `</parameters>
-  </tool_call>
-</tool_calls>
- 
-Example D — Tool with long script using CDATA (RELIABLE FOR CODE/SCRIPTS):
-<tool_calls>
-  <tool_call>
-    <tool_name>` + ex2 + `</tool_name>
-    <parameters>
-      <path>` + promptCDATA("script.sh") + `</path>
-      <content><![CDATA[
-#!/bin/bash
-if [ "$1" == "test" ]; then
-  echo "Success!"
-fi
-]]></content>
-    </parameters>
-  </tool_call>
-</tool_calls>
-
-`
+` + buildCorrectToolExamples(toolNames)
 }
 
-func matchAny(name string, candidates ...string) bool {
-	for _, c := range candidates {
-		if name == c {
-			return true
+type promptToolExample struct {
+	name   string
+	params string
+}
+
+func buildCorrectToolExamples(toolNames []string) string {
+	names := uniqueToolNames(toolNames)
+	examples := make([]string, 0, 4)
+
+	if single, ok := firstBasicExample(names); ok {
+		examples = append(examples, "Example A — Single tool:\n"+renderToolExampleBlock([]promptToolExample{single}))
+	}
+
+	if parallel := firstNBasicExamples(names, 2); len(parallel) >= 2 {
+		examples = append(examples, "Example B — Two tools in parallel:\n"+renderToolExampleBlock(parallel))
+	}
+
+	if nested, ok := firstNestedExample(names); ok {
+		examples = append(examples, "Example C — Tool with nested XML parameters:\n"+renderToolExampleBlock([]promptToolExample{nested}))
+	}
+
+	if script, ok := firstScriptExample(names); ok {
+		examples = append(examples, "Example D — Tool with long script using CDATA (RELIABLE FOR CODE/SCRIPTS):\n"+renderToolExampleBlock([]promptToolExample{script}))
+	}
+
+	if len(examples) == 0 {
+		return ""
+	}
+	return "【CORRECT EXAMPLES】:\n\n" + strings.Join(examples, "\n\n") + "\n\n"
+}
+
+func uniqueToolNames(toolNames []string) []string {
+	names := make([]string, 0, len(toolNames))
+	seen := map[string]bool{}
+	for _, name := range toolNames {
+		name = strings.TrimSpace(name)
+		if name == "" || seen[name] {
+			continue
+		}
+		seen[name] = true
+		names = append(names, name)
+	}
+	return names
+}
+
+func firstBasicExample(names []string) (promptToolExample, bool) {
+	for _, name := range names {
+		if params, ok := exampleBasicParams(name); ok {
+			return promptToolExample{name: name, params: params}, true
 		}
 	}
-	return false
+	return promptToolExample{}, false
 }
 
-func exampleReadParams(name string) string {
+func firstNBasicExamples(names []string, count int) []promptToolExample {
+	out := make([]promptToolExample, 0, count)
+	for _, name := range names {
+		if params, ok := exampleBasicParams(name); ok {
+			out = append(out, promptToolExample{name: name, params: params})
+			if len(out) == count {
+				return out
+			}
+		}
+	}
+	return out
+}
+
+func firstNestedExample(names []string) (promptToolExample, bool) {
+	for _, name := range names {
+		if params, ok := exampleNestedParams(name); ok {
+			return promptToolExample{name: name, params: params}, true
+		}
+	}
+	return promptToolExample{}, false
+}
+
+func firstScriptExample(names []string) (promptToolExample, bool) {
+	for _, name := range names {
+		if params, ok := exampleScriptParams(name); ok {
+			return promptToolExample{name: name, params: params}, true
+		}
+	}
+	return promptToolExample{}, false
+}
+
+func renderToolExampleBlock(calls []promptToolExample) string {
+	var b strings.Builder
+	b.WriteString("<|DSML|tool_calls>\n")
+	for _, call := range calls {
+		b.WriteString(`  <|DSML|invoke name="`)
+		b.WriteString(call.name)
+		b.WriteString(`">` + "\n")
+		b.WriteString(indentPromptParameters(call.params, "    "))
+		b.WriteString("\n  </|DSML|invoke>\n")
+	}
+	b.WriteString("</|DSML|tool_calls>")
+	return b.String()
+}
+
+func indentPromptParameters(body, indent string) string {
+	if strings.TrimSpace(body) == "" {
+		return indent + `<|DSML|parameter name="content"></|DSML|parameter>`
+	}
+	lines := strings.Split(body, "\n")
+	for i, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			lines[i] = line
+			continue
+		}
+		lines[i] = indent + line
+	}
+	return strings.Join(lines, "\n")
+}
+
+func wrapParameter(name, inner string) string {
+	return `<|DSML|parameter name="` + name + `">` + inner + `</|DSML|parameter>`
+}
+
+func exampleBasicParams(name string) (string, bool) {
 	switch strings.TrimSpace(name) {
 	case "Read":
-		return `<file_path>` + promptCDATA("README.md") + `</file_path>`
+		return wrapParameter("file_path", promptCDATA("README.md")), true
 	case "Glob":
-		return `<pattern>` + promptCDATA("**/*.go") + `</pattern><path>` + promptCDATA(".") + `</path>`
-	default:
-		return `<path>` + promptCDATA("src/main.go") + `</path>`
-	}
-}
-
-func exampleWriteOrExecParams(name string) string {
-	switch strings.TrimSpace(name) {
+		return wrapParameter("pattern", promptCDATA("**/*.go")) + "\n" + wrapParameter("path", promptCDATA(".")), true
+	case "read_file":
+		return wrapParameter("path", promptCDATA("src/main.go")), true
+	case "list_files":
+		return wrapParameter("path", promptCDATA(".")), true
+	case "search_files":
+		return wrapParameter("query", promptCDATA("tool call parser")), true
 	case "Bash", "execute_command":
-		return `<command>` + promptCDATA("pwd") + `</command>`
+		return wrapParameter("command", promptCDATA("pwd")), true
 	case "exec_command":
-		return `<cmd>` + promptCDATA("pwd") + `</cmd>`
+		return wrapParameter("cmd", promptCDATA("pwd")), true
+	case "Write":
+		return wrapParameter("file_path", promptCDATA("notes.txt")) + "\n" + wrapParameter("content", promptCDATA("Hello world")), true
+	case "write_to_file":
+		return wrapParameter("path", promptCDATA("notes.txt")) + "\n" + wrapParameter("content", promptCDATA("Hello world")), true
 	case "Edit":
-		return `<file_path>` + promptCDATA("README.md") + `</file_path><old_string>` + promptCDATA("foo") + `</old_string><new_string>` + promptCDATA("bar") + `</new_string>`
+		return wrapParameter("file_path", promptCDATA("README.md")) + "\n" + wrapParameter("old_string", promptCDATA("foo")) + "\n" + wrapParameter("new_string", promptCDATA("bar")), true
 	case "MultiEdit":
-		return `<file_path>` + promptCDATA("README.md") + `</file_path><edits><old_string>` + promptCDATA("foo") + `</old_string><new_string>` + promptCDATA("bar") + `</new_string></edits>`
-	default:
-		return `<path>` + promptCDATA("output.txt") + `</path><content>` + promptCDATA("Hello world") + `</content>`
+		return wrapParameter("file_path", promptCDATA("README.md")) + "\n" + `<|DSML|parameter name="edits"><item><old_string>` + promptCDATA("foo") + `</old_string><new_string>` + promptCDATA("bar") + `</new_string></item></|DSML|parameter>`, true
 	}
+	return "", false
 }
 
-func exampleInteractiveParams(name string) string {
+func exampleNestedParams(name string) (string, bool) {
 	switch strings.TrimSpace(name) {
+	case "MultiEdit":
+		return wrapParameter("file_path", promptCDATA("README.md")) + "\n" + `<|DSML|parameter name="edits"><item><old_string>` + promptCDATA("foo") + `</old_string><new_string>` + promptCDATA("bar") + `</new_string></item></|DSML|parameter>`, true
 	case "Task":
-		return `<description>` + promptCDATA("Investigate flaky tests") + `</description><prompt>` + promptCDATA("Run targeted tests and summarize failures") + `</prompt>`
-	default:
-		return `<question>` + promptCDATA("Which approach do you prefer?") + `</question><follow_up><text>` + promptCDATA("Option A") + `</text></follow_up><follow_up><text>` + promptCDATA("Option B") + `</text></follow_up>`
+		return wrapParameter("description", promptCDATA("Investigate flaky tests")) + "\n" + wrapParameter("prompt", promptCDATA("Run targeted tests and summarize failures")), true
+	case "ask_followup_question":
+		return wrapParameter("question", promptCDATA("Which approach do you prefer?")) + "\n" + `<|DSML|parameter name="follow_up"><item><text>` + promptCDATA("Option A") + `</text></item><item><text>` + promptCDATA("Option B") + `</text></item></|DSML|parameter>`, true
 	}
+	return "", false
+}
+
+func exampleScriptParams(name string) (string, bool) {
+	scriptCommand := `cat > /tmp/test_escape.sh <<'EOF'
+#!/bin/bash
+echo 'single "double"'
+echo "literal dollar: \$HOME"
+EOF
+bash /tmp/test_escape.sh`
+	scriptContent := `#!/bin/bash
+echo 'single "double"'
+echo "literal dollar: $HOME"`
+
+	switch strings.TrimSpace(name) {
+	case "Bash":
+		return wrapParameter("command", promptCDATA(scriptCommand)) + "\n" + wrapParameter("description", promptCDATA("Test shell escaping")), true
+	case "execute_command":
+		return wrapParameter("command", promptCDATA(scriptCommand)), true
+	case "exec_command":
+		return wrapParameter("cmd", promptCDATA(scriptCommand)), true
+	case "Write":
+		return wrapParameter("file_path", promptCDATA("test_escape.sh")) + "\n" + wrapParameter("content", promptCDATA(scriptContent)), true
+	case "write_to_file":
+		return wrapParameter("path", promptCDATA("test_escape.sh")) + "\n" + wrapParameter("content", promptCDATA(scriptContent)), true
+	}
+	return "", false
 }
 
 func promptCDATA(text string) string {

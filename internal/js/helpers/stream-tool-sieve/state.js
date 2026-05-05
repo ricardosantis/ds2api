@@ -7,6 +7,7 @@ function createToolSieveState() {
     capturing: false,
     codeFenceStack: [],
     codeFencePendingTicks: 0,
+    codeFencePendingTildes: 0,
     codeFenceLineStart: true,
     pendingToolRaw: '',
     pendingToolCalls: [],
@@ -46,8 +47,7 @@ function insideCodeFence(text) {
   if (!t) {
     return false;
   }
-  const ticks = (t.match(/```/g) || []).length;
-  return ticks % 2 === 1;
+  return simulateCodeFenceState([], 0, 0, true, t).stack.length > 0;
 }
 
 function insideCodeFenceWithState(state, text) {
@@ -57,6 +57,7 @@ function insideCodeFenceWithState(state, text) {
   const simulated = simulateCodeFenceState(
     Array.isArray(state.codeFenceStack) ? state.codeFenceStack : [],
     Number.isInteger(state.codeFencePendingTicks) ? state.codeFencePendingTicks : 0,
+    Number.isInteger(state.codeFencePendingTildes) ? state.codeFencePendingTildes : 0,
     state.codeFenceLineStart !== false,
     text,
   );
@@ -70,37 +71,57 @@ function updateCodeFenceState(state, text) {
   const next = simulateCodeFenceState(
     Array.isArray(state.codeFenceStack) ? state.codeFenceStack : [],
     Number.isInteger(state.codeFencePendingTicks) ? state.codeFencePendingTicks : 0,
+    Number.isInteger(state.codeFencePendingTildes) ? state.codeFencePendingTildes : 0,
     state.codeFenceLineStart !== false,
     text,
   );
   state.codeFenceStack = next.stack;
   state.codeFencePendingTicks = next.pendingTicks;
+  state.codeFencePendingTildes = next.pendingTildes;
   state.codeFenceLineStart = next.lineStart;
 }
 
-function simulateCodeFenceState(stack, pendingTicks, lineStart, text) {
+function simulateCodeFenceState(stack, pendingTicks, pendingTildes, lineStart, text) {
   const chunk = typeof text === 'string' ? text : '';
   const nextStack = Array.isArray(stack) ? [...stack] : [];
   let ticks = Number.isInteger(pendingTicks) ? pendingTicks : 0;
+  let tildes = Number.isInteger(pendingTildes) ? pendingTildes : 0;
   let atLineStart = lineStart !== false;
 
-  const flushTicks = () => {
+  const flushPending = () => {
     if (ticks > 0) {
       if (atLineStart && ticks >= 3) {
-        applyFenceMarker(nextStack, ticks);
+        applyFenceMarker(nextStack, ticks); // positive = backtick
       }
       atLineStart = false;
       ticks = 0;
+    }
+    if (tildes > 0) {
+      if (atLineStart && tildes >= 3) {
+        applyFenceMarker(nextStack, -tildes); // negative = tilde
+      }
+      atLineStart = false;
+      tildes = 0;
     }
   };
 
   for (let i = 0; i < chunk.length; i += 1) {
     const ch = chunk[i];
     if (ch === '`') {
+      if (tildes > 0) {
+        flushPending();
+      }
       ticks += 1;
       continue;
     }
-    flushTicks();
+    if (ch === '~') {
+      if (ticks > 0) {
+        flushPending();
+      }
+      tildes += 1;
+      continue;
+    }
+    flushPending();
     if (ch === '\n' || ch === '\r') {
       atLineStart = true;
       continue;
@@ -110,29 +131,37 @@ function simulateCodeFenceState(stack, pendingTicks, lineStart, text) {
     }
     atLineStart = false;
   }
-  // keep ticks for cross-chunk continuation.
   return {
     stack: nextStack,
     pendingTicks: ticks,
+    pendingTildes: tildes,
     lineStart: atLineStart,
   };
 }
 
-function applyFenceMarker(stack, ticks) {
+// Positive values = backtick fences, negative = tilde fences.
+// Closing must match fence type.
+function applyFenceMarker(stack, marker) {
   if (!Array.isArray(stack)) {
     return;
   }
   if (stack.length === 0) {
-    stack.push(ticks);
+    stack.push(marker);
     return;
   }
   const top = stack[stack.length - 1];
-  if (ticks >= top) {
+  const sameType = (top > 0 && marker > 0) || (top < 0 && marker < 0);
+  if (!sameType) {
+    stack.push(marker);
+    return;
+  }
+  const absMarker = Math.abs(marker);
+  const absTop = Math.abs(top);
+  if (absMarker >= absTop) {
     stack.pop();
     return;
   }
-  // nested/open inner fence using longer marker for robustness.
-  stack.push(ticks);
+  stack.push(marker);
 }
 
 function hasMeaningfulText(text) {

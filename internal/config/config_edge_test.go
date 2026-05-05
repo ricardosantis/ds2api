@@ -10,19 +10,29 @@ import (
 // ─── GetModelConfig edge cases ───────────────────────────────────────
 
 func TestGetModelConfigDeepSeekChat(t *testing.T) {
-	thinking, search, ok := GetModelConfig("deepseek-chat")
+	thinking, search, ok := GetModelConfig("deepseek-v4-flash")
 	if !ok {
-		t.Fatal("expected ok for deepseek-chat")
+		t.Fatal("expected ok for deepseek-v4-flash")
+	}
+	if !thinking || search {
+		t.Fatalf("expected thinking=true search=false for deepseek-v4-flash, got thinking=%v search=%v", thinking, search)
+	}
+}
+
+func TestGetModelConfigDeepSeekChatNoThinking(t *testing.T) {
+	thinking, search, ok := GetModelConfig("deepseek-v4-flash-nothinking")
+	if !ok {
+		t.Fatal("expected ok for deepseek-v4-flash-nothinking")
 	}
 	if thinking || search {
-		t.Fatalf("expected no thinking/search for deepseek-chat, got thinking=%v search=%v", thinking, search)
+		t.Fatalf("expected thinking=false search=false for deepseek-v4-flash-nothinking, got thinking=%v search=%v", thinking, search)
 	}
 }
 
 func TestGetModelConfigDeepSeekReasoner(t *testing.T) {
-	thinking, search, ok := GetModelConfig("deepseek-reasoner")
+	thinking, search, ok := GetModelConfig("deepseek-v4-pro")
 	if !ok {
-		t.Fatal("expected ok for deepseek-reasoner")
+		t.Fatal("expected ok for deepseek-v4-pro")
 	}
 	if !thinking || search {
 		t.Fatalf("expected thinking=true search=false, got thinking=%v search=%v", thinking, search)
@@ -30,19 +40,19 @@ func TestGetModelConfigDeepSeekReasoner(t *testing.T) {
 }
 
 func TestGetModelConfigDeepSeekChatSearch(t *testing.T) {
-	thinking, search, ok := GetModelConfig("deepseek-chat-search")
+	thinking, search, ok := GetModelConfig("deepseek-v4-flash-search")
 	if !ok {
-		t.Fatal("expected ok for deepseek-chat-search")
+		t.Fatal("expected ok for deepseek-v4-flash-search")
 	}
-	if thinking || !search {
-		t.Fatalf("expected thinking=false search=true, got thinking=%v search=%v", thinking, search)
+	if !thinking || !search {
+		t.Fatalf("expected thinking=true search=true, got thinking=%v search=%v", thinking, search)
 	}
 }
 
 func TestGetModelConfigDeepSeekReasonerSearch(t *testing.T) {
-	thinking, search, ok := GetModelConfig("deepseek-reasoner-search")
+	thinking, search, ok := GetModelConfig("deepseek-v4-pro-search")
 	if !ok {
-		t.Fatal("expected ok for deepseek-reasoner-search")
+		t.Fatal("expected ok for deepseek-v4-pro-search")
 	}
 	if !thinking || !search {
 		t.Fatalf("expected both true, got thinking=%v search=%v", thinking, search)
@@ -50,57 +60,68 @@ func TestGetModelConfigDeepSeekReasonerSearch(t *testing.T) {
 }
 
 func TestGetModelConfigDeepSeekExpertChat(t *testing.T) {
-	thinking, search, ok := GetModelConfig("deepseek-expert-chat")
+	thinking, search, ok := GetModelConfig("deepseek-v4-pro")
 	if !ok {
-		t.Fatal("expected ok for deepseek-expert-chat")
+		t.Fatal("expected ok for deepseek-v4-pro")
 	}
-	if thinking || search {
-		t.Fatalf("expected no thinking/search for deepseek-expert-chat, got thinking=%v search=%v", thinking, search)
+	if !thinking || search {
+		t.Fatalf("expected thinking=true search=false for deepseek-v4-pro, got thinking=%v search=%v", thinking, search)
 	}
 }
 
 func TestGetModelConfigDeepSeekExpertReasonerSearch(t *testing.T) {
-	thinking, search, ok := GetModelConfig("deepseek-expert-reasoner-search")
+	thinking, search, ok := GetModelConfig("deepseek-v4-pro-search")
 	if !ok {
-		t.Fatal("expected ok for deepseek-expert-reasoner-search")
+		t.Fatal("expected ok for deepseek-v4-pro-search")
 	}
 	if !thinking || !search {
 		t.Fatalf("expected both true, got thinking=%v search=%v", thinking, search)
 	}
 }
 
-func TestGetModelConfigDeepSeekVisionReasonerSearch(t *testing.T) {
-	thinking, search, ok := GetModelConfig("deepseek-vision-reasoner-search")
+func TestGetModelConfigDeepSeekVision(t *testing.T) {
+	thinking, search, ok := GetModelConfig("deepseek-v4-vision")
 	if !ok {
-		t.Fatal("expected ok for deepseek-vision-reasoner-search")
+		t.Fatal("expected ok for deepseek-v4-vision")
 	}
-	if !thinking || !search {
-		t.Fatalf("expected both true, got thinking=%v search=%v", thinking, search)
+	if !thinking || search {
+		t.Fatalf("expected thinking=true search=false, got thinking=%v search=%v", thinking, search)
+	}
+}
+
+func TestGetModelConfigDeepSeekVisionSearchUnsupported(t *testing.T) {
+	_, _, ok := GetModelConfig("deepseek-v4-vision-search")
+	if ok {
+		t.Fatal("expected deepseek-v4-vision-search to be unsupported")
 	}
 }
 
 func TestGetModelTypeDefaultExpertAndVision(t *testing.T) {
-	defaultType, ok := GetModelType("deepseek-chat")
+	defaultType, ok := GetModelType("deepseek-v4-flash")
 	if !ok || defaultType != "default" {
 		t.Fatalf("expected default model_type, got ok=%v model_type=%q", ok, defaultType)
 	}
-	expertType, ok := GetModelType("deepseek-expert-chat")
+	defaultNoThinkingType, ok := GetModelType("deepseek-v4-flash-nothinking")
+	if !ok || defaultNoThinkingType != "default" {
+		t.Fatalf("expected default model_type for nothinking, got ok=%v model_type=%q", ok, defaultNoThinkingType)
+	}
+	expertType, ok := GetModelType("deepseek-v4-pro")
 	if !ok || expertType != "expert" {
 		t.Fatalf("expected expert model_type, got ok=%v model_type=%q", ok, expertType)
 	}
-	visionType, ok := GetModelType("deepseek-vision-chat")
+	visionType, ok := GetModelType("deepseek-v4-vision")
 	if !ok || visionType != "vision" {
 		t.Fatalf("expected vision model_type, got ok=%v model_type=%q", ok, visionType)
 	}
 }
 
 func TestGetModelConfigCaseInsensitive(t *testing.T) {
-	thinking, search, ok := GetModelConfig("DeepSeek-Chat")
+	thinking, search, ok := GetModelConfig("DeepSeek-V4-Flash")
 	if !ok {
-		t.Fatal("expected ok for case-insensitive deepseek-chat")
+		t.Fatal("expected ok for case-insensitive deepseek-v4-flash")
 	}
-	if thinking || search {
-		t.Fatalf("expected no thinking/search for case-insensitive deepseek-chat")
+	if !thinking || search {
+		t.Fatalf("expected thinking=true search=false for case-insensitive deepseek-v4-flash")
 	}
 }
 
@@ -142,28 +163,20 @@ func TestLowerFunction(t *testing.T) {
 // ─── Config.MarshalJSON / UnmarshalJSON roundtrip ────────────────────
 
 func TestConfigJSONRoundtrip(t *testing.T) {
-	trueVal := true
-	falseVal := false
 	cfg := Config{
-		Keys:     []string{"key1", "key2"},
-		Accounts: []Account{{Email: "user@example.com", Password: "pass", Token: "tok"}},
-		ClaudeMapping: map[string]string{
-			"fast": "deepseek-chat",
-			"slow": "deepseek-reasoner",
-		},
+		Keys:         []string{"key1", "key2"},
+		Accounts:     []Account{{Email: "user@example.com", Password: "pass", Token: "tok"}},
+		ModelAliases: map[string]string{"Claude-Sonnet-4-6": "DeepSeek-V4-Flash"},
 		AutoDelete: AutoDeleteConfig{
 			Mode: "single",
-		},
-		HistorySplit: HistorySplitConfig{
-			Enabled:           &trueVal,
-			TriggerAfterTurns: func() *int { v := 2; return &v }(),
 		},
 		Runtime: RuntimeConfig{
 			TokenRefreshIntervalHours: 12,
 		},
-		Compat: CompatConfig{
-			WideInputStrictOutput: &trueVal,
-			StripReferenceMarkers: &falseVal,
+		Vercel: VercelConfig{
+			Token:     " vercel-token ",
+			ProjectID: " prj_123 ",
+			TeamID:    " team_123 ",
 		},
 		VercelSyncHash: "hash123",
 		VercelSyncTime: 1234567890,
@@ -188,8 +201,8 @@ func TestConfigJSONRoundtrip(t *testing.T) {
 	if len(decoded.Accounts) != 1 || decoded.Accounts[0].Email != "user@example.com" {
 		t.Fatalf("unexpected accounts: %#v", decoded.Accounts)
 	}
-	if decoded.ClaudeMapping["fast"] != "deepseek-chat" {
-		t.Fatalf("unexpected claude mapping: %#v", decoded.ClaudeMapping)
+	if decoded.ModelAliases["claude-sonnet-4-6"] != "deepseek-v4-flash" {
+		t.Fatalf("unexpected normalized model aliases: %#v", decoded.ModelAliases)
 	}
 	if decoded.Runtime.TokenRefreshIntervalHours != 12 {
 		t.Fatalf("unexpected runtime refresh interval: %#v", decoded.Runtime.TokenRefreshIntervalHours)
@@ -197,17 +210,8 @@ func TestConfigJSONRoundtrip(t *testing.T) {
 	if decoded.AutoDelete.Mode != "single" {
 		t.Fatalf("unexpected auto delete mode: %#v", decoded.AutoDelete.Mode)
 	}
-	if decoded.HistorySplit.Enabled == nil || !*decoded.HistorySplit.Enabled {
-		t.Fatalf("unexpected history split enabled: %#v", decoded.HistorySplit.Enabled)
-	}
-	if decoded.HistorySplit.TriggerAfterTurns == nil || *decoded.HistorySplit.TriggerAfterTurns != 2 {
-		t.Fatalf("unexpected history split trigger_after_turns: %#v", decoded.HistorySplit.TriggerAfterTurns)
-	}
-	if decoded.Compat.WideInputStrictOutput == nil || !*decoded.Compat.WideInputStrictOutput {
-		t.Fatalf("unexpected compat wide_input_strict_output: %#v", decoded.Compat.WideInputStrictOutput)
-	}
-	if decoded.Compat.StripReferenceMarkers == nil || *decoded.Compat.StripReferenceMarkers {
-		t.Fatalf("unexpected compat strip_reference_markers: %#v", decoded.Compat.StripReferenceMarkers)
+	if decoded.Vercel.Token != "vercel-token" || decoded.Vercel.ProjectID != "prj_123" || decoded.Vercel.TeamID != "team_123" {
+		t.Fatalf("unexpected vercel config: %#v", decoded.Vercel)
 	}
 	if decoded.VercelSyncHash != "hash123" {
 		t.Fatalf("unexpected vercel sync hash: %q", decoded.VercelSyncHash)
@@ -255,25 +259,48 @@ func TestConfigUnmarshalJSONPreservesUnknownFields(t *testing.T) {
 	}
 }
 
+func TestConfigUnmarshalJSONIgnoresRemovedLegacyModelMappings(t *testing.T) {
+	raw := `{"keys":["k1"],"accounts":[],"claude_mapping":{"fast":"deepseek-v4-pro"},"claude_model_mapping":{"slow":"deepseek-v4-pro"}}`
+	var cfg Config
+	if err := json.Unmarshal([]byte(raw), &cfg); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+	if len(cfg.ModelAliases) != 0 {
+		t.Fatalf("expected removed legacy mappings to be ignored, got %#v", cfg.ModelAliases)
+	}
+	if _, ok := cfg.AdditionalFields["claude_mapping"]; ok {
+		t.Fatalf("expected removed legacy field not to persist in additional fields: %#v", cfg.AdditionalFields)
+	}
+	if _, ok := cfg.AdditionalFields["claude_model_mapping"]; ok {
+		t.Fatalf("expected removed legacy field not to persist in additional fields: %#v", cfg.AdditionalFields)
+	}
+}
+
+func TestConfigUnmarshalJSONIgnoresRemovedHistorySplit(t *testing.T) {
+	raw := `{"keys":["k1"],"history_split":{"enabled":true,"trigger_after_turns":2}}`
+	var cfg Config
+	if err := json.Unmarshal([]byte(raw), &cfg); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+	if _, ok := cfg.AdditionalFields["history_split"]; ok {
+		t.Fatalf("expected removed legacy field not to persist in additional fields: %#v", cfg.AdditionalFields)
+	}
+	out, err := json.Marshal(cfg)
+	if err != nil {
+		t.Fatalf("marshal error: %v", err)
+	}
+	if strings.Contains(string(out), "history_split") {
+		t.Fatalf("expected removed history_split field not to marshal, got %s", out)
+	}
+}
+
 // ─── Config.Clone ────────────────────────────────────────────────────
 
 func TestConfigCloneIsDeepCopy(t *testing.T) {
-	falseVal := false
-	trueVal := true
-	turns := 2
 	cfg := Config{
-		Keys:     []string{"key1"},
-		Accounts: []Account{{Email: "user@test.com", Token: "token"}},
-		ClaudeMapping: map[string]string{
-			"fast": "deepseek-chat",
-		},
-		Compat: CompatConfig{
-			StripReferenceMarkers: &falseVal,
-		},
-		HistorySplit: HistorySplitConfig{
-			Enabled:           &trueVal,
-			TriggerAfterTurns: &turns,
-		},
+		Keys:             []string{"key1"},
+		Accounts:         []Account{{Email: "user@test.com", Token: "token"}},
+		ModelAliases:     map[string]string{"claude-sonnet-4-6": "deepseek-v4-flash"},
 		AdditionalFields: map[string]any{"custom": "value"},
 	}
 
@@ -282,16 +309,7 @@ func TestConfigCloneIsDeepCopy(t *testing.T) {
 	// Modify original
 	cfg.Keys[0] = "modified"
 	cfg.Accounts[0].Email = "modified@test.com"
-	cfg.ClaudeMapping["fast"] = "modified-model"
-	if cfg.Compat.StripReferenceMarkers != nil {
-		*cfg.Compat.StripReferenceMarkers = true
-	}
-	if cfg.HistorySplit.Enabled != nil {
-		*cfg.HistorySplit.Enabled = false
-	}
-	if cfg.HistorySplit.TriggerAfterTurns != nil {
-		*cfg.HistorySplit.TriggerAfterTurns = 5
-	}
+	cfg.ModelAliases["claude-sonnet-4-6"] = "modified-model"
 
 	// Cloned should not be affected
 	if cloned.Keys[0] != "key1" {
@@ -300,17 +318,8 @@ func TestConfigCloneIsDeepCopy(t *testing.T) {
 	if cloned.Accounts[0].Email != "user@test.com" {
 		t.Fatalf("clone accounts was affected: %#v", cloned.Accounts)
 	}
-	if cloned.ClaudeMapping["fast"] != "deepseek-chat" {
-		t.Fatalf("clone claude mapping was affected: %#v", cloned.ClaudeMapping)
-	}
-	if cloned.Compat.StripReferenceMarkers == nil || *cloned.Compat.StripReferenceMarkers {
-		t.Fatalf("clone compat was affected: %#v", cloned.Compat.StripReferenceMarkers)
-	}
-	if cloned.HistorySplit.Enabled == nil || !*cloned.HistorySplit.Enabled {
-		t.Fatalf("clone history split enabled was affected: %#v", cloned.HistorySplit.Enabled)
-	}
-	if cloned.HistorySplit.TriggerAfterTurns == nil || *cloned.HistorySplit.TriggerAfterTurns != 2 {
-		t.Fatalf("clone history split trigger was affected: %#v", cloned.HistorySplit.TriggerAfterTurns)
+	if cloned.ModelAliases["claude-sonnet-4-6"] != "deepseek-v4-flash" {
+		t.Fatalf("clone model aliases was affected: %#v", cloned.ModelAliases)
 	}
 }
 
@@ -450,53 +459,9 @@ func TestStoreFindAccountNotFound(t *testing.T) {
 	}
 }
 
-func TestStoreCompatWideInputStrictOutputDefaultTrue(t *testing.T) {
-	t.Setenv("DS2API_CONFIG_JSON", `{"keys":["k1"],"accounts":[]}`)
-	store := LoadStore()
-	if !store.CompatWideInputStrictOutput() {
-		t.Fatal("expected default wide_input_strict_output=true when unset")
-	}
-}
-
-func TestStoreCompatWideInputStrictOutputCanDisable(t *testing.T) {
-	t.Setenv("DS2API_CONFIG_JSON", `{"keys":["k1"],"accounts":[],"compat":{"wide_input_strict_output":false}}`)
-	store := LoadStore()
-	if store.CompatWideInputStrictOutput() {
-		t.Fatal("expected wide_input_strict_output=false when explicitly configured")
-	}
-
-	snap := store.Snapshot()
-	data, err := snap.MarshalJSON()
-	if err != nil {
-		t.Fatalf("marshal failed: %v", err)
-	}
-	var out map[string]any
-	if err := json.Unmarshal(data, &out); err != nil {
-		t.Fatalf("decode failed: %v", err)
-	}
-	rawCompat, ok := out["compat"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected compat in marshaled output, got %#v", out)
-	}
-	if rawCompat["wide_input_strict_output"] != false {
-		t.Fatalf("expected explicit false in compat, got %#v", rawCompat)
-	}
-}
-
-func TestStoreCompatStripReferenceMarkersDefaultTrue(t *testing.T) {
-	t.Setenv("DS2API_CONFIG_JSON", `{"keys":["k1"],"accounts":[]}`)
-	store := LoadStore()
-	if !store.CompatStripReferenceMarkers() {
-		t.Fatal("expected default strip_reference_markers=true when unset")
-	}
-}
-
-func TestStoreCompatStripReferenceMarkersCanDisable(t *testing.T) {
+func TestStoreIgnoresRemovedCompatConfig(t *testing.T) {
 	t.Setenv("DS2API_CONFIG_JSON", `{"keys":["k1"],"accounts":[],"compat":{"strip_reference_markers":false}}`)
 	store := LoadStore()
-	if store.CompatStripReferenceMarkers() {
-		t.Fatal("expected strip_reference_markers=false when explicitly configured")
-	}
 
 	snap := store.Snapshot()
 	data, err := snap.MarshalJSON()
@@ -507,12 +472,8 @@ func TestStoreCompatStripReferenceMarkersCanDisable(t *testing.T) {
 	if err := json.Unmarshal(data, &out); err != nil {
 		t.Fatalf("decode failed: %v", err)
 	}
-	rawCompat, ok := out["compat"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected compat in marshaled output, got %#v", out)
-	}
-	if rawCompat["strip_reference_markers"] != false {
-		t.Fatalf("expected explicit false in compat, got %#v", rawCompat)
+	if _, ok := out["compat"]; ok {
+		t.Fatalf("expected removed compat field not to marshal, got %#v", out)
 	}
 }
 
@@ -652,25 +613,27 @@ func TestNormalizeCredentialsPrefersStructuredAPIKeys(t *testing.T) {
 	}
 }
 
-func TestStoreClaudeMapping(t *testing.T) {
-	t.Setenv("DS2API_CONFIG_JSON", `{"keys":[],"accounts":[],"claude_mapping":{"fast":"deepseek-chat","slow":"deepseek-reasoner"}}`)
+func TestStoreModelAliasesIncludesDefaultsAndOverrides(t *testing.T) {
+	t.Setenv("DS2API_CONFIG_JSON", `{"keys":[],"accounts":[],"model_aliases":{"claude-opus-4-6":"deepseek-v4-pro-search"}}`)
 	store := LoadStore()
-	mapping := store.ClaudeMapping()
-	if mapping["fast"] != "deepseek-chat" {
-		t.Fatalf("unexpected fast mapping: %q", mapping["fast"])
+	aliases := store.ModelAliases()
+	if aliases["claude-sonnet-4-6"] != "deepseek-v4-flash" {
+		t.Fatalf("expected default alias to remain available, got %q", aliases["claude-sonnet-4-6"])
 	}
-	if mapping["slow"] != "deepseek-reasoner" {
-		t.Fatalf("unexpected slow mapping: %q", mapping["slow"])
+	if aliases["claude-opus-4-6"] != "deepseek-v4-pro-search" {
+		t.Fatalf("expected custom alias override, got %q", aliases["claude-opus-4-6"])
 	}
 }
 
-func TestStoreClaudeMappingEmpty(t *testing.T) {
+func TestStoreModelAliasesDefault(t *testing.T) {
 	t.Setenv("DS2API_CONFIG_JSON", `{"keys":[],"accounts":[]}`)
 	store := LoadStore()
-	mapping := store.ClaudeMapping()
-	// Even without config mapping, there are defaults
-	if mapping == nil {
-		t.Fatal("expected non-nil mapping (may contain defaults)")
+	aliases := store.ModelAliases()
+	if aliases == nil {
+		t.Fatal("expected non-nil aliases")
+	}
+	if aliases["claude-sonnet-4-6"] != "deepseek-v4-flash" {
+		t.Fatalf("expected built-in alias, got %q", aliases["claude-sonnet-4-6"])
 	}
 }
 
@@ -720,18 +683,16 @@ func TestOpenAIModelsResponse(t *testing.T) {
 		t.Fatal("expected non-empty models list")
 	}
 	expected := map[string]bool{
-		"deepseek-chat":                   false,
-		"deepseek-reasoner":               false,
-		"deepseek-chat-search":            false,
-		"deepseek-reasoner-search":        false,
-		"deepseek-expert-chat":            false,
-		"deepseek-expert-reasoner":        false,
-		"deepseek-expert-chat-search":     false,
-		"deepseek-expert-reasoner-search": false,
-		"deepseek-vision-chat":            false,
-		"deepseek-vision-reasoner":        false,
-		"deepseek-vision-chat-search":     false,
-		"deepseek-vision-reasoner-search": false,
+		"deepseek-v4-flash":                   false,
+		"deepseek-v4-flash-nothinking":        false,
+		"deepseek-v4-pro":                     false,
+		"deepseek-v4-pro-nothinking":          false,
+		"deepseek-v4-flash-search":            false,
+		"deepseek-v4-flash-search-nothinking": false,
+		"deepseek-v4-pro-search":              false,
+		"deepseek-v4-pro-search-nothinking":   false,
+		"deepseek-v4-vision":                  false,
+		"deepseek-v4-vision-nothinking":       false,
 	}
 	for _, model := range data {
 		if _, ok := expected[model.ID]; ok {

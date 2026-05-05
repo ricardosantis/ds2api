@@ -43,7 +43,7 @@ func (r *Runner) caseMissingMessages(ctx context.Context, cc *caseContext) error
 			"Authorization": "Bearer " + r.apiKey,
 		},
 		Body: map[string]any{
-			"model":  "deepseek-chat",
+			"model":  "deepseek-v4-flash",
 			"stream": false,
 		},
 		Retryable: true,
@@ -125,7 +125,7 @@ func (r *Runner) caseTokenRefreshManagedAccount(ctx context.Context, cc *caseCon
 			"X-Ds2-Target-Account": id,
 		},
 		Body: map[string]any{
-			"model": "deepseek-chat",
+			"model": "deepseek-v4-flash",
 			"messages": []map[string]any{
 				{"role": "user", "content": "token refresh test"},
 			},
@@ -165,6 +165,12 @@ func (r *Runner) caseTokenRefreshManagedAccount(ctx context.Context, cc *caseCon
 		}
 	}
 	cc.assert("has_token_after_refresh", hasToken, fmt.Sprintf("config=%s", string(cfgResp.Body)))
-	cc.assert("token_preview_changed_from_invalid", !strings.HasPrefix(preview, invalidToken[:20]), fmt.Sprintf("preview=%s invalid_prefix=%s", preview, invalidToken[:20]))
+	maskedInvalid := invalidToken
+	if len(maskedInvalid) <= 4 {
+		maskedInvalid = strings.Repeat("*", len(maskedInvalid))
+	} else {
+		maskedInvalid = maskedInvalid[:2] + "****" + maskedInvalid[len(maskedInvalid)-2:]
+	}
+	cc.assert("token_preview_changed_from_invalid", preview != maskedInvalid, fmt.Sprintf("preview=%s invalid_mask=%s", preview, maskedInvalid))
 	return nil
 }
