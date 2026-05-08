@@ -28,9 +28,8 @@ type ToolMarkupTag struct {
 }
 
 func ContainsToolMarkupSyntaxOutsideIgnored(text string) (hasDSML, hasCanonical bool) {
-	lower := strings.ToLower(text)
 	for i := 0; i < len(text); {
-		next, advanced, blocked := skipXMLIgnoredSection(text, lower, i)
+		next, advanced, blocked := skipXMLIgnoredSection(text, i)
 		if blocked {
 			return hasDSML, hasCanonical
 		}
@@ -56,9 +55,8 @@ func ContainsToolMarkupSyntaxOutsideIgnored(text string) (hasDSML, hasCanonical 
 }
 
 func ContainsToolCallWrapperSyntaxOutsideIgnored(text string) (hasDSML, hasCanonical bool) {
-	lower := strings.ToLower(text)
 	for i := 0; i < len(text); {
-		next, advanced, blocked := skipXMLIgnoredSection(text, lower, i)
+		next, advanced, blocked := skipXMLIgnoredSection(text, i)
 		if blocked {
 			return hasDSML, hasCanonical
 		}
@@ -88,9 +86,8 @@ func ContainsToolCallWrapperSyntaxOutsideIgnored(text string) (hasDSML, hasCanon
 }
 
 func FindToolMarkupTagOutsideIgnored(text string, start int) (ToolMarkupTag, bool) {
-	lower := strings.ToLower(text)
 	for i := maxInt(start, 0); i < len(text); {
-		next, advanced, blocked := skipXMLIgnoredSection(text, lower, i)
+		next, advanced, blocked := skipXMLIgnoredSection(text, i)
 		if blocked {
 			return ToolMarkupTag{}, false
 		}
@@ -107,7 +104,7 @@ func FindToolMarkupTagOutsideIgnored(text string, start int) (ToolMarkupTag, boo
 }
 
 func FindMatchingToolMarkupClose(text string, open ToolMarkupTag) (ToolMarkupTag, bool) {
-	if text == "" || open.Name == "" || open.Closing {
+	if text == "" || open.Name == "" || open.Closing || open.End >= len(text) {
 		return ToolMarkupTag{}, false
 	}
 	depth := 1

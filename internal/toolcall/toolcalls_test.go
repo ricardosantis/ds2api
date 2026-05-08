@@ -892,3 +892,139 @@ func TestParseToolCallsSkipsProseMentionOfSameWrapperVariant(t *testing.T) {
 		t.Fatalf("expected command to parse, got %q", got)
 	}
 }
+
+func TestTurkishILowercaseMapping(t *testing.T) {
+	tests := []struct {
+		name     string
+		text     string
+		start    int
+		wantOk   bool
+		wantName string
+	}{
+		{"turkish_i_at_name_start", "İ<tool>", 0, false, ""},
+		{"turkish_i_at_name_end", "<toolİ>", 0, false, ""},
+		{"turkish_i_before_tag", "İ<tool>", 0, false, ""},
+		{"normal_tool_calls", "<tool_calls>", 0, true, "tool_calls"},
+		{"normal_invoke", "<invoke name=\"test\">", 0, true, "invoke"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := FindToolMarkupTagOutsideIgnored(tt.text, tt.start)
+			if ok != tt.wantOk {
+				t.Errorf("FindToolMarkupTagOutsideIgnored(%q, %d) ok = %v, want %v", tt.text, tt.start, ok, tt.wantOk)
+				return
+			}
+			if ok && got.Name != tt.wantName {
+				t.Errorf("FindToolMarkupTagOutsideIgnored(%q, %d) name = %q, want %q", tt.text, tt.start, got.Name, tt.wantName)
+			}
+		})
+	}
+}
+
+func TestSkipXMLIgnoredSectionBoundaryConditions(t *testing.T) {
+	text := "hello"
+
+	tests := []struct {
+		name     string
+		i        int
+		wantNext int
+		wantAdv  bool
+		wantBlk  bool
+	}{
+		{"valid_index", 2, 2, false, false},
+		{"at_end_equal_len", 5, 5, false, false},
+		{"beyond_end", 6, 6, false, false},
+		{"negative", -1, -1, false, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			next, adv, blk := skipXMLIgnoredSection(text, tt.i)
+			if next != tt.wantNext || adv != tt.wantAdv || blk != tt.wantBlk {
+				t.Errorf("skipXMLIgnoredSection(%q, %d) = (%d, %v, %v), want (%d, %v, %v)",
+					text, tt.i, next, adv, blk, tt.wantNext, tt.wantAdv, tt.wantBlk)
+			}
+		})
+	}
+}
+
+func TestSkipXMLIgnoredSectionCommentWithUnicodeKeepsByteOffset(t *testing.T) {
+	text := "<!-- İ -->x<tool_calls>"
+
+	next, adv, blk := skipXMLIgnoredSection(text, 0)
+	if blk || !adv {
+		t.Fatalf("skipXMLIgnoredSection() = (%d, %v, %v), want advanced unblocked comment", next, adv, blk)
+	}
+	if want := len("<!-- İ -->"); next != want {
+		t.Fatalf("skipXMLIgnoredSection() next = %d, want %d", next, want)
+	}
+}
+
+func TestSkipXMLIgnoredSectionMatchesCDATAWithoutAllocatingTail(t *testing.T) {
+	text := "<![cDaTa[<tool_calls>]]><tool_calls>"
+
+	next, adv, blk := skipXMLIgnoredSection(text, 0)
+	if blk || !adv {
+		t.Fatalf("skipXMLIgnoredSection() = (%d, %v, %v), want advanced unblocked CDATA", next, adv, blk)
+	}
+	if want := len("<![cDaTa[<tool_calls>]]>"); next != want {
+		t.Fatalf("skipXMLIgnoredSection() next = %d, want %d", next, want)
+	}
+
+	tag, ok := FindToolMarkupTagOutsideIgnored(text, 0)
+	if !ok {
+		t.Fatal("expected tool tag after skipped CDATA")
+	}
+	if tag.Start != next {
+		t.Fatalf("FindToolMarkupTagOutsideIgnored() start = %d, want %d", tag.Start, next)
+	}
+}
+
+func TestFindToolCDATAEndBoundaryConditions(t *testing.T) {
+	text := "<![CDATA[hello]]>"
+
+	tests := []struct {
+		name       string
+		from       int
+		wantResult int
+	}{
+		{"valid", 12, 14},
+		{"at_end", 17, -1},
+		{"beyond_end", 18, -1},
+		{"negative", -1, -1},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := findToolCDATAEnd(text, tt.from)
+			if got != tt.wantResult {
+				t.Errorf("findToolCDATAEnd(%q, %d) = %d, want %d",
+					text, tt.from, got, tt.wantResult)
+			}
+		})
+	}
+}
+
+func TestFindMatchingToolMarkupCloseBoundaryConditions(t *testing.T) {
+	tests := []struct {
+		name   string
+		text   string
+		open   ToolMarkupTag
+		wantOk bool
+	}{
+		{"empty_text", "", ToolMarkupTag{Name: "tool_calls", End: 0}, false},
+		{"open_end_beyond_text", "hello", ToolMarkupTag{Name: "tool_calls", End: 100}, false},
+		{"open_end_equals_len", "hello", ToolMarkupTag{Name: "tool_calls", End: 5}, false},
+		{"valid_simple", "<tool_calls></tool_calls>", ToolMarkupTag{Name: "tool_calls", End: 11}, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, ok := FindMatchingToolMarkupClose(tt.text, tt.open)
+			if ok != tt.wantOk {
+				t.Errorf("FindMatchingToolMarkupClose(%q, %+v) ok = %v, want %v", tt.text, tt.open, ok, tt.wantOk)
+			}
+		})
+	}
+}

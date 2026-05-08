@@ -22,6 +22,7 @@ import (
 	"ds2api/internal/httpapi/admin"
 	"ds2api/internal/httpapi/claude"
 	"ds2api/internal/httpapi/gemini"
+	"ds2api/internal/httpapi/ollama"
 	"ds2api/internal/httpapi/openai/chat"
 	"ds2api/internal/httpapi/openai/embeddings"
 	"ds2api/internal/httpapi/openai/files"
@@ -68,6 +69,7 @@ func NewApp() (*App, error) {
 	claudeHandler := &claude.Handler{Store: store, Auth: resolver, DS: dsClient, OpenAI: chatHandler, ChatHistory: chatHistoryStore}
 	geminiHandler := &gemini.Handler{Store: store, Auth: resolver, DS: dsClient, OpenAI: chatHandler, ChatHistory: chatHistoryStore}
 	adminHandler := &admin.Handler{Store: store, Pool: pool, DS: dsClient, OpenAI: chatHandler, ChatHistory: chatHistoryStore}
+	ollamaHandler := &ollama.Handler{Store: store}
 	webuiHandler := webui.NewHandler()
 
 	r := chi.NewRouter()
@@ -112,6 +114,7 @@ func NewApp() (*App, error) {
 	r.Post("/embeddings", embeddingsHandler.Embeddings)
 	claude.RegisterRoutes(r, claudeHandler)
 	gemini.RegisterRoutes(r, geminiHandler)
+	ollama.RegisterRoutes(r, ollamaHandler)
 	r.Route("/admin", func(ar chi.Router) {
 		admin.RegisterRoutes(ar, adminHandler)
 	})
